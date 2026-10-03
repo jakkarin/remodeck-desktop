@@ -30,6 +30,12 @@ describe('LocalTarget', () => {
     expect(r.stdout).toBe('ok\n')
     expect(existsSync(join(home, 'a b'))).toBe(true)
   })
+  it('round-trips a path containing an apostrophe through bash', async () => {
+    const t = new LocalTarget(home)
+    const r = await t.exec('mkdir -p ' + shPath("~/it's here") + ' && echo ok')
+    expect(r.stdout).toBe('ok\n')
+    expect(existsSync(join(home, "it's here"))).toBe(true)
+  })
   it('gitUrl resolves ~', () => {
     const t = new LocalTarget(home)
     expect(t.gitUrl('~/x')).toBe(`${home}/x`)

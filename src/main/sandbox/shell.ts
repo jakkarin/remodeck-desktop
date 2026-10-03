@@ -1,6 +1,6 @@
 /** Single-quotes a string for POSIX sh. */
 export function shQuote(s: string): string {
-  return `'${s.replace(/'/g, `'\''`)}'`
+  return "'" + s.replaceAll("'", "'\\''") + "'"
 }
 
 /** Quotes a remote path, expanding a leading `~` to "$HOME". */
