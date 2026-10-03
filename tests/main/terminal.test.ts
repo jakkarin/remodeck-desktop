@@ -263,6 +263,44 @@ describe('TerminalService', () => {
     expect(ptys.map((p) => p.killed)).toEqual([true, false, true])
   })
 
+  it('Disconnect (closeAllForHost) emits exit -1 for each of that host tabs only', async () => {
+    const { svc, ptys, bridge, approval } = setup()
+    const onExit = vi.fn()
+    svc.on('exit', onExit)
+    const a = await svc.open('w1')
+    const b = await svc.open('w2')
+    const c = await svc.open('w1')
+    svc.closeAllForHost('h1')
+    expect(onExit.mock.calls).toEqual([
+      [a.tabId, -1],
+      [c.tabId, -1]
+    ])
+    expect(onExit).not.toHaveBeenCalledWith(b.tabId, expect.anything())
+    expect(bridge.revokeSession).toHaveBeenCalledTimes(2)
+    expect(approval.revokeSession).toHaveBeenCalledTimes(2)
+    // the killed ptys exiting afterwards must not emit a second exit
+    ptys[0].exitCb({ exitCode: 0 })
+    ptys[2].exitCb({ exitCode: 0 })
+    expect(onExit).toHaveBeenCalledTimes(2)
+  })
+
+  it('closeAllForWorkspace closes only that workspace tabs and emits exit -1', async () => {
+    const { svc, ptys, bridge, approval } = setup()
+    const onExit = vi.fn()
+    svc.on('exit', onExit)
+    const a = await svc.open('w1')
+    await svc.open('w2')
+    const c = await svc.open('w1', '~/repos/api/sub')
+    svc.closeAllForWorkspace('w1')
+    expect(ptys.map((p) => p.killed)).toEqual([true, false, true])
+    expect(onExit.mock.calls).toEqual([
+      [a.tabId, -1],
+      [c.tabId, -1]
+    ])
+    expect(bridge.revokeSession).toHaveBeenCalledTimes(2)
+    expect(approval.revokeSession).toHaveBeenCalledTimes(2)
+  })
+
   it('streams output immediately, before the retry window ends', async () => {
     const { svc, ptys } = setup()
     const onData = vi.fn()

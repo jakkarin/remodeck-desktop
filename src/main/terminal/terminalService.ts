@@ -33,6 +33,7 @@ type Deps = {
 
 type Tab = {
   hostId: string
+  workspaceId: string
   token: string
   sessionId: string
   pty: PtyLike | null
@@ -87,7 +88,14 @@ export class TerminalService extends EventEmitter {
     const tabId = crypto.randomUUID()
     const sessionId = crypto.randomUUID()
     const token = crypto.randomBytes(32).toString('base64url')
-    const tab: Tab = { hostId: ws.hostId, token, sessionId, pty: null, cancelAttempt: () => {} }
+    const tab: Tab = {
+      hostId: ws.hostId,
+      workspaceId,
+      token,
+      sessionId,
+      pty: null,
+      cancelAttempt: () => {}
+    }
     this.tabs.set(tabId, tab)
     bridge.registerSession({ token, sessionId, workspaceId, repo, tabLabel: label })
 
@@ -103,18 +111,32 @@ export class TerminalService extends EventEmitter {
     this.tabs.get(tabId)?.pty?.resize(cols, rows)
   }
 
+  /** Renderer-initiated close: the renderer already dropped the tab, so no exit event. */
   close(tabId: string): void {
+    this.closeTab(tabId, false)
+  }
+
+  /** Main-initiated (Disconnect, dispose): emits exit -1 per tab so the renderer marks it closed. */
+  closeAllForHost(hostId: string): void {
+    for (const [id, tab] of [...this.tabs]) {
+      if (tab.hostId === hostId) this.closeTab(id, true)
+    }
+  }
+
+  /** Main-initiated (workspace removal): emits exit -1 per tab. */
+  closeAllForWorkspace(workspaceId: string): void {
+    for (const [id, tab] of [...this.tabs]) {
+      if (tab.workspaceId === workspaceId) this.closeTab(id, true)
+    }
+  }
+
+  private closeTab(tabId: string, notify: boolean): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
     this.release(tabId, tab)
     tab.cancelAttempt()
     tab.pty?.kill()
-  }
-
-  closeAllForHost(hostId: string): void {
-    for (const [id, tab] of [...this.tabs]) {
-      if (tab.hostId === hostId) this.close(id)
-    }
+    if (notify) this.emit('exit', tabId, -1)
   }
 
   private release(tabId: string, tab: Tab): void {
