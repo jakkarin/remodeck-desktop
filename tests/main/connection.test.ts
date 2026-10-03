@@ -22,6 +22,7 @@ function make(r: ProcResult | Error, forward = true) {
   const onDisconnect = vi.fn()
   const svc = new ConnectionService({
     targetFor: () => fakeTarget(r),
+    sshHostFor: () => 'ai-box',
     checkForward: async () => forward,
     onDisconnect
   })
@@ -90,9 +91,9 @@ describe('ConnectionService', () => {
 
   it('treats exit 255 as ssh failure with stderr', async () => {
     const { svc } = make({ code: 255, stdout: '', stderr: 'Permission denied' })
-    const s = await svc.connect('myhost')
+    const s = await svc.connect('h1')
     expect(s.state).toBe('error')
-    expect(s.error).toBe('Permission denied\nลองรัน ssh myhost ใน terminal ของระบบก่อน')
+    expect(s.error).toBe('Permission denied\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
   })
 
   it('treats exec rejection as ssh failure', async () => {
@@ -100,7 +101,7 @@ describe('ConnectionService', () => {
     const s = await svc.connect('h')
     expect(s.state).toBe('error')
     expect(s.error).toContain('spawn ssh ENOENT')
-    expect(s.error).toContain('ลองรัน ssh h ใน terminal ของระบบก่อน')
+    expect(s.error).toContain('ลองรัน ssh ai-box ใน terminal ของระบบก่อน')
   })
 
   it('returns the in-flight promise while connecting', async () => {

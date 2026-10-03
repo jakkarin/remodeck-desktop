@@ -6,6 +6,7 @@ import { PREFLIGHT_SCRIPT, parsePreflight } from '../sandbox/preflight'
 
 export type ConnectionDeps = {
   targetFor(hostId: string): SandboxTarget
+  sshHostFor(hostId: string): string
   checkForward(hostId: string): Promise<boolean>
   onDisconnect(hostId: string): void
 }
@@ -56,7 +57,7 @@ export class ConnectionService extends EventEmitter {
       this.set(hostId, {
         state: 'error',
         warnings: [],
-        error: `${detail}\nลองรัน ssh ${hostId} ใน terminal ของระบบก่อน`
+        error: `${detail}\nลองรัน ssh ${this.deps.sshHostFor(hostId)} ใน terminal ของระบบก่อน`
       })
 
     let r: ProcResult
