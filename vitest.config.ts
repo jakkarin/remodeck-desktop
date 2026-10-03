@@ -15,10 +15,12 @@ export default defineConfig({
         }
       },
       {
+        esbuild: { jsx: 'automatic' },
         test: {
           name: 'renderer',
           environment: 'jsdom',
           include: include(['tests/renderer/**/*']),
+          setupFiles: ['tests/renderer/setup.ts'],
           testTimeout: 30000
         }
       }
