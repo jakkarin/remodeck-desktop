@@ -1,14 +1,7 @@
 import type { Credential } from './credentials'
 
-export function parseRepoInput(input: string): { owner: string; name: string } | null {
-  let s = input.trim()
-  const ssh = s.match(/^git@github\.com:(.+)$/)
-  if (ssh) s = ssh[1]
-  else s = s.replace(/^https?:\/\/(www\.)?github\.com\//, '')
-  s = s.replace(/\/+$/, '').replace(/\.git$/, '')
-  const m = s.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/)
-  return m ? { owner: m[1], name: m[2] } : null
-}
+// Lives in shared so the renderer can derive the default clone path from the same parser.
+export { parseRepoInput } from '../../shared/validate'
 
 export function compareUrl(owner: string, name: string, base: string, target: string): string {
   const enc = (b: string): string => b.split('/').map(encodeURIComponent).join('/')

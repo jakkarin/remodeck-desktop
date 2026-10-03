@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import type { ApprovalDecision, ApprovalRequest, RefUpdate } from '../../../shared/types'
 import { api } from '../api'
+import { AppStateContext } from '../state'
 
 /** Main denies on its own after this long; the modal drops the request at the same point. */
 const APPROVAL_TIMEOUT_MS = 60_000
@@ -14,6 +15,7 @@ function formatUpdate(u: RefUpdate): string {
 
 export function ApprovalModal(): React.JSX.Element | null {
   const [queue, setQueue] = useState<ApprovalRequest[]>([])
+  const appState = useContext(AppStateContext)
 
   useEffect(() => {
     const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -37,6 +39,8 @@ export function ApprovalModal(): React.JSX.Element | null {
   function respond(decision: ApprovalDecision): void {
     api.approval.respond(req.id, decision)
     setQueue((q) => q.filter((r) => r.id !== req.id))
+    // 'always' persists alwaysAllowPush in main: reload so Settings shows it.
+    if (decision === 'always') void appState?.refresh().catch(() => undefined)
   }
 
   return (

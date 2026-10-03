@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Workspace } from '../../../shared/types'
+import { parseRepoInput } from '../../../shared/validate'
 import { api, errorMessage } from '../api'
 
 type GhRepo = { owner: string; name: string; defaultBranch: string }
@@ -31,9 +32,24 @@ export function CloneDialog({
     }
   }, [])
 
+  // The last path we filled in ourselves; a path the user typed is never overwritten.
+  const autoPath = useRef('')
+  const setAutoPath = (name: string): void => {
+    if (path !== '' && path !== autoPath.current) return
+    autoPath.current = `~/repos/${name}`
+    setPath(autoPath.current)
+  }
+
   const pick = (r: GhRepo): void => {
     setRepoInput(`${r.owner}/${r.name}`)
-    setPath(`~/repos/${r.name}`)
+    autoPath.current = `~/repos/${r.name}`
+    setPath(autoPath.current)
+  }
+
+  const changeRepo = (value: string): void => {
+    setRepoInput(value)
+    const parsed = parseRepoInput(value)
+    if (parsed) setAutoPath(parsed.name)
   }
 
   const submit = async (): Promise<void> => {
@@ -71,7 +87,7 @@ export function CloneDialog({
           id="clone-repo"
           value={repoInput}
           placeholder="URL or owner/name"
-          onChange={(e) => setRepoInput(e.target.value)}
+          onChange={(e) => changeRepo(e.target.value)}
           disabled={busy}
         />
         <label htmlFor="clone-path">Path</label>

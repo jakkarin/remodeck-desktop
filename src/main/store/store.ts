@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Config, Host, PushLogEntry, Repo, Workspace } from '../../shared/types'
+import { INVALID_SSH_HOST, isValidSshHost } from '../../shared/validate'
 
 const newId = (): string => randomUUID().slice(0, 8)
 
@@ -18,6 +19,7 @@ export class Store {
   }
 
   addHost(sshHost: string, label: string): Host {
+    if (!isValidSshHost(sshHost)) throw new Error(INVALID_SSH_HOST)
     const host: Host = { id: newId(), sshHost, label }
     this.cfg.hosts.push(host)
     this.save()

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, errorMessage } from '../api'
+import { INVALID_SSH_HOST, isValidSshHost } from '../../../shared/validate'
 import { useAppState } from '../state'
 
 export function AddHostDialog({ onClose }: { onClose(): void }): React.JSX.Element {
@@ -10,10 +11,14 @@ export function AddHostDialog({ onClose }: { onClose(): void }): React.JSX.Eleme
   const [error, setError] = useState<string | null>(null)
 
   const submit = async (): Promise<void> => {
+    const a = alias.trim()
+    if (!isValidSshHost(a)) {
+      setError(INVALID_SSH_HOST)
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      const a = alias.trim()
       await api.hosts.add(a, label.trim() || a)
       await refresh()
       onClose()

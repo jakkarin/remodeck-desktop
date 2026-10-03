@@ -18,6 +18,7 @@ vi.mock('../../src/renderer/src/api', () => ({
 
 import { api } from '../../src/renderer/src/api'
 import { ApprovalModal } from '../../src/renderer/src/components/ApprovalModal'
+import { AppStateContext, type AppState } from '../../src/renderer/src/state'
 
 const req = (id: string, over: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
   id,
@@ -71,6 +72,25 @@ describe('ApprovalModal', () => {
     expect(screen.getByText('refs/heads/new: (new branch) → abcdef1')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Always allow for this repo'))
     expect(api.approval.respond).toHaveBeenCalledWith('1', 'always')
+  })
+
+  it("refreshes app state after 'always' (so Settings shows it), not after 'once'", () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    const value = { refresh } as unknown as AppState
+    render(
+      <AppStateContext.Provider value={value}>
+        <ApprovalModal />
+      </AppStateContext.Provider>
+    )
+    act(() => {
+      handler!(req('1'))
+      handler!(req('2'))
+    })
+    fireEvent.click(screen.getByText('Allow once'))
+    expect(refresh).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Always allow for this repo'))
+    expect(api.approval.respond).toHaveBeenCalledWith('2', 'always')
+    expect(refresh).toHaveBeenCalledOnce()
   })
 
   it('auto-dismisses a request after 60 seconds', () => {

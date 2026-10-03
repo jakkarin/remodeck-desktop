@@ -108,7 +108,8 @@ describe('WorkspaceView', () => {
     renderView({ state: 'connected', warnings: [] })
     const btn = await screen.findByRole('button', { name: 'Rebuild mirror' })
     fireEvent.click(btn)
-    await waitFor(() => expect(api.workspaces.rebuildMirror).toHaveBeenCalledWith('r1'))
+    await waitFor(() => expect(api.workspaces.rebuildMirror).toHaveBeenCalledWith('r1', 'w1'))
+    await waitFor(() => expect(api.workspaces.branches).toHaveBeenCalledTimes(2))
   })
 
   it('clicking a branch opens the review view', async () => {

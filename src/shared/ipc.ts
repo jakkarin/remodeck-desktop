@@ -43,7 +43,8 @@ export interface RegitApi {
     worktrees(id: string): Promise<WorktreeInfo[]>
     push(id: string, branch: string, target: string): Promise<PushOutcome>
     openPR(id: string, target: string): Promise<void>
-    rebuildMirror(repoId: string): Promise<void>
+    /** Rebuilds the repo's mirror; with workspaceId, also syncs that workspace if its host is connected. */
+    rebuildMirror(repoId: string, workspaceId?: string): Promise<void>
   }
   terminal: {
     open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string }>

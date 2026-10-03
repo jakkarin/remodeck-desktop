@@ -128,9 +128,9 @@ export class SyncService {
         log({ updates, result: 'blocked', detail: message })
         return { ok: false, reason: 'protected', message }
       }
-      const res = await this.git.run(mirrorPath, ['push', '--no-follow-tags', 'origin', `${srcRef}:${dstRef}`], {
-        allowFail: true
-      })
+      // --no-follow-tags: never publish tags along with the branch, even if push.followTags is set.
+      const pushArgs = ['push', '--no-follow-tags', 'origin', `${srcRef}:${dstRef}`]
+      const res = await this.git.run(mirrorPath, pushArgs, { allowFail: true })
       if (res.code !== 0) {
         if (/\[rejected\]/.test(res.stderr) && /non-fast-forward|fetch first/.test(res.stderr)) {
           log({ updates, result: 'rejected', detail: res.stderr })

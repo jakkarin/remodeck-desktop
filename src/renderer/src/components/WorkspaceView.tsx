@@ -58,7 +58,7 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }): React.J
   async function rebuild(): Promise<void> {
     if (!repo) return
     try {
-      await api.workspaces.rebuildMirror(repo.id)
+      await api.workspaces.rebuildMirror(repo.id, workspaceId)
       await load()
     } catch (e) {
       setError(errorMessage(e))

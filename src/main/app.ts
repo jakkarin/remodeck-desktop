@@ -229,12 +229,17 @@ export async function createApp(opts: {
         const repo = repoOf(wsOf(id).repoId)
         await shell.openExternal(compareUrl(repo.owner, repo.name, repo.defaultBranch, target))
       },
-      rebuildMirror: async (repoId) => {
+      rebuildMirror: async (repoId, workspaceId) => {
         const repo = repoOf(repoId)
         const workspaces = store.config.workspaces
           .filter((w) => w.repoId === repoId)
           .map((w) => ({ id: w.id, url: targetFor(w.hostId).gitUrl(w.sandboxPath) }))
         await mirror.rebuild(repo, store.mirrorPath(repo), workspaces)
+        // A fresh mirror has no workspace refs until the next sync: refill them now when possible.
+        const ws = workspaceId ? wsOf(workspaceId) : null
+        if (ws && ws.repoId === repoId && connection.status(ws.hostId).state === 'connected') {
+          await sync.sync(ws)
+        }
       }
     },
     terminal: {

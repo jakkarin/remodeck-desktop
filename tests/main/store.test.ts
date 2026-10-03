@@ -101,4 +101,13 @@ describe('Store', () => {
     expect(s.readPushLog(10).map((e) => e.time)).toEqual(['t2', 't1'])
     expect(s.readPushLog(1).map((e) => e.time)).toEqual(['t2'])
   })
+
+  it('addHost rejects an empty, option-like or whitespace ssh host', () => {
+    const s = new Store(dir)
+    for (const bad of ['', '-oProxyCommand=calc', 'a b', ' box', 'box\t']) {
+      expect(() => s.addHost(bad, 'x'), JSON.stringify(bad)).toThrow('ssh host ไม่ถูกต้อง')
+    }
+    expect(s.config.hosts).toEqual([])
+    expect(s.addHost('user@box.example', 'Box').sshHost).toBe('user@box.example')
+  })
 })

@@ -103,7 +103,9 @@ export class ReportStatusParser {
   private mode: 'unknown' | 'plain' | 'sideband' = 'unknown'
   private readonly inner = new PktReader((p) => this.line(p))
   private readonly outer = new PktReader((p) => {
-    if (this.mode === 'unknown') this.mode = p.length > 0 && p[0] >= 1 && p[0] <= 3 ? 'sideband' : 'plain'
+    if (this.mode === 'unknown') {
+      this.mode = p.length > 0 && p[0] >= 1 && p[0] <= 3 ? 'sideband' : 'plain'
+    }
     if (this.mode === 'plain') return this.line(p)
     const band = p[0]
     if (band === 1) this.inner.push(p.subarray(1))

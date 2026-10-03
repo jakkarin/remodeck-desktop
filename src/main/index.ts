@@ -31,7 +31,14 @@ function createWindow(): void {
   })
 
   win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    // Only hand https links to the OS; never file:, custom protocols or plain http.
+    let protocol = ''
+    try {
+      protocol = new URL(details.url).protocol
+    } catch {
+      /* unparsable: ignore */
+    }
+    if (protocol === 'https:') void shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
@@ -45,7 +52,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.regit.desktop')
+  electronApp.setAppUserModelId('dev.regit.desktop')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

@@ -51,7 +51,7 @@
 | 2.6 | Content: repo name, ref (`feat-b`), old→new sha (short), terminal tab ต้นทาง | ☐ |
 | 2.7 | ปุ่ม "Allow once" → push ผ่าน, terminal รับข้อความ success | ☐ |
 | 2.8 | ปิด popup → ใน plain SSH session (`git push origin feat-b`) ล้มเหลวบ่อกว่าไม่มี credential | ☐ |
-| 2.9 | GitHub token ไม่เขียนลงไฟล์ใดๆ ใน sandbox → `grep -r "ghp_\|github_pat_" ~/ 2>/dev/null` ส่งกลับค่าว่าง | ☐ |
+| 2.9 | GitHub token ไม่เขียนลงไฟล์ใดๆ ใน sandbox → (ก) ค้นหาค่า token จริงที่ได้จาก `git credential fill` บน Windows โดยส่งผ่าน stdin (token ไม่ลง disk/argv/history ของ sandbox) — ใน Git Bash บน Windows: `printf 'protocol=https\nhost=github.com\n\n' \| git credential fill \| sed -n 's/^password=//p' \| ssh <alias> 'grep -rlF -f - ~/ 2>/dev/null'` ต้องไม่พิมพ์ชื่อไฟล์ใดๆ (ข) ใน sandbox: `grep -rlE "gho_\|ghp_\|github_pat_" ~/ 2>/dev/null` ต้องว่าง | ☐ |
 
 ### 3. Protected Branch Blocking
 
