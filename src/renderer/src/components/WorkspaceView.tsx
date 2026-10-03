@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import type { BranchInfo, WorktreeInfo } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { announceTerminal } from '../terminalEvents'
 import { ReviewView } from './ReviewView'
 
-/** Opens a terminal tab for the workspace (Task 18 renders the tabs from events). */
-// eslint-disable-next-line react-refresh/only-export-components -- hook point for Task 18
-export function openTerminal(workspaceId: string, path?: string): Promise<unknown> {
-  return api.terminal.open(workspaceId, path)
+/** Opens a terminal for the workspace; TerminalTabs shows the new tab via the announce event. */
+// eslint-disable-next-line react-refresh/only-export-components -- hook point used by TerminalTabs wiring
+export async function openTerminal(workspaceId: string, path?: string): Promise<unknown> {
+  const tab = await api.terminal.open(workspaceId, path)
+  if (tab && typeof tab === 'object' && 'tabId' in tab) announceTerminal(tab)
+  return tab
 }
 
 export function WorkspaceView({ workspaceId }: { workspaceId: string }): React.JSX.Element {

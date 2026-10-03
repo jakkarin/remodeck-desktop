@@ -1,4 +1,7 @@
+import { ApprovalModal } from './components/ApprovalModal'
+import { SettingsView } from './components/SettingsView'
 import { Sidebar } from './components/Sidebar'
+import { TerminalTabs } from './components/TerminalTabs'
 import { WorkspaceView } from './components/WorkspaceView'
 import { AppStateProvider, useAppState } from './state'
 
@@ -12,11 +15,10 @@ function Layout(): React.JSX.Element {
           {selected.kind === 'workspace' && selected.id ? (
             <WorkspaceView key={selected.id} workspaceId={selected.id} />
           ) : (
-            <div className="placeholder">Settings</div>
+            <SettingsView />
           )}
         </main>
-        {/* Bottom panel slot for terminals (Task 17/18). */}
-        <div className="terminal-panel" id="terminal-panel" />
+        <TerminalTabs />
       </div>
     </div>
   )
@@ -26,6 +28,7 @@ function App(): React.JSX.Element {
   return (
     <AppStateProvider>
       <Layout />
+      <ApprovalModal />
     </AppStateProvider>
   )
 }
