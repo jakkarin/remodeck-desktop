@@ -10,7 +10,7 @@ function Layout(): React.JSX.Element {
       <div className="content">
         <main className="main">
           {selected.kind === 'workspace' && selected.id ? (
-            <WorkspaceView workspaceId={selected.id} />
+            <WorkspaceView key={selected.id} workspaceId={selected.id} />
           ) : (
             <div className="placeholder">Settings</div>
           )}
