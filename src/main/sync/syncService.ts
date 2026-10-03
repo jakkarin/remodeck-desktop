@@ -1,7 +1,7 @@
 import type { Workspace } from '../../shared/types'
 import type { HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
-import { parseSymrefHead } from '../git/parsers'
+import { parseRefs, parseSymrefHead } from '../git/parsers'
 import type { MirrorService } from '../mirror/mirrorService'
 import type { SandboxTarget } from '../sandbox/target'
 import { shPath, shQuote } from '../sandbox/shell'
@@ -25,6 +25,61 @@ export class SyncService {
     this.mirror = deps.mirror
     this.store = deps.store
     this.targetFor = deps.targetFor
+  }
+
+  private readonly rewritten = new Map<string, Set<string>>()
+
+  /** Branches whose history was rewritten in the sandbox as of the last sync (empty if never synced). */
+  rewrittenBranches(wsId: string): Set<string> {
+    return new Set(this.rewritten.get(wsId) ?? [])
+  }
+
+  /** Two-way sync. Never touches sandbox refs/heads or working tree: only refs/remotes/origin/* and tags are pushed. */
+  async sync(ws: Workspace): Promise<{ rewritten: string[] }> {
+    const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
+    if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
+    const mirrorPath = this.store.mirrorPath(repo)
+    const name = this.remoteName(ws.id)
+    const prefix = `refs/remotes/${name}/`
+    const listWs = async (): Promise<Map<string, string>> =>
+      parseRefs(
+        (await this.git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix])).stdout
+      )
+
+    const rewritten = await withLock(mirrorPath, async () => {
+      await this.git.run(mirrorPath, ['fetch', '--prune', 'origin'])
+      const before = await listWs()
+      await this.git.run(mirrorPath, ['fetch', '--prune', name])
+      const after = await listWs()
+      const result: string[] = []
+      for (const [ref, oldSha] of before) {
+        const newSha = after.get(ref)
+        const branch = ref.slice(prefix.length)
+        if (!newSha || newSha === oldSha || branch === 'HEAD') continue
+        const res = await this.git.run(mirrorPath, ['merge-base', '--is-ancestor', oldSha, newSha], {
+          allowFail: true
+        })
+        if (res.code === 1) result.push(branch)
+        else if (res.code !== 0) throw new Error(`git merge-base --is-ancestor failed (${res.code}): ${res.stderr}`)
+      }
+      const refs = await this.git.run(mirrorPath, [
+        'for-each-ref',
+        '--format=%(refname)',
+        'refs/remotes/origin',
+        'refs/tags'
+      ])
+      if (refs.stdout.trim() !== '') {
+        await this.git.run(mirrorPath, [
+          'push',
+          name,
+          '+refs/remotes/origin/*:refs/remotes/origin/*',
+          'refs/tags/*:refs/tags/*'
+        ])
+      }
+      return result
+    })
+    this.rewritten.set(ws.id, new Set(rewritten))
+    return { rewritten }
   }
 
   private remoteName(wsId: string): string {
