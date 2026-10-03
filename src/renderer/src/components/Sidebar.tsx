@@ -1,14 +1,18 @@
 import { useState } from 'react'
+import type { Host, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { AddHostDialog } from './AddHostDialog'
 import { CloneDialog } from './CloneDialog'
+import { RemoveHostDialog, RemoveWorkspaceDialog } from './RemoveDialogs'
 
 export function Sidebar(): React.JSX.Element {
   const { hosts, statuses, repos, workspaces, selected, select, setStatus, refresh } = useAppState()
   const [cloneHost, setCloneHost] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [removingHost, setRemovingHost] = useState<Host | null>(null)
+  const [removingWs, setRemovingWs] = useState<{ ws: Workspace; label: string } | null>(null)
 
   const connect = async (hostId: string): Promise<void> => {
     setActionError(null)
@@ -35,6 +39,7 @@ export function Sidebar(): React.JSX.Element {
         {hosts.map((host) => {
           const status = statuses[host.id] ?? { state: 'disconnected' as const, warnings: [] }
           const connected = status.state === 'connected'
+          const hasWorkspaces = workspaces.some((w) => w.hostId === host.id)
           return (
             <section key={host.id} className="host">
               <div className="host-row">
@@ -56,6 +61,13 @@ export function Sidebar(): React.JSX.Element {
                 )}
                 <button disabled={!connected} onClick={() => setCloneHost(host.id)}>
                   Clone
+                </button>
+                <button
+                  disabled={hasWorkspaces}
+                  title={hasWorkspaces ? 'ลบ workspace ของ host นี้ก่อน' : undefined}
+                  onClick={() => setRemovingHost(host)}
+                >
+                  Remove host
                 </button>
               </div>
               {status.state === 'error' && status.error && (
@@ -82,6 +94,15 @@ export function Sidebar(): React.JSX.Element {
                         onClick={() => select({ kind: 'workspace', id: w.id })}
                       >
                         {text}
+                        <button
+                          className="ws-remove"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRemovingWs({ ws: w, label: text })
+                          }}
+                        >
+                          Remove
+                        </button>
                       </li>
                     )
                   })}
@@ -101,6 +122,16 @@ export function Sidebar(): React.JSX.Element {
         </button>
       </div>
       {adding && <AddHostDialog onClose={() => setAdding(false)} />}
+      {removingHost && (
+        <RemoveHostDialog host={removingHost} onClose={() => setRemovingHost(null)} />
+      )}
+      {removingWs && (
+        <RemoveWorkspaceDialog
+          workspace={removingWs.ws}
+          label={removingWs.label}
+          onClose={() => setRemovingWs(null)}
+        />
+      )}
       {cloneHost && (
         <CloneDialog
           hostId={cloneHost}

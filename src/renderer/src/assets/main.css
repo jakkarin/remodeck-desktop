@@ -218,6 +218,16 @@ input {
   gap: 4px;
   color: var(--text-dim);
 }
+.dialog label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.workspaces li .ws-remove {
+  float: right;
+  font-size: 11px;
+  padding: 0 6px;
+}
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

@@ -183,6 +183,8 @@ export async function createApp(opts: {
         const ws = wsOf(id)
         const repo = repoOf(ws.repoId)
         const mirrorPath = store.mirrorPath(repo)
+        // Close its terminals first: revokes their bridge/approval sessions and marks the tabs closed.
+        term.closeAllForWorkspace(id)
         // Best effort: a stale remote in the mirror is harmless and fixed by Rebuild mirror.
         if (fs.existsSync(mirrorPath))
           await mirror.removeWorkspace(mirrorPath, id).catch(() => undefined)
