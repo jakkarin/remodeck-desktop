@@ -125,8 +125,9 @@ export class SyncService {
         log({ updates, result: 'error', detail: res.stderr })
         return { ok: false, reason: 'error', message: res.stderr }
       }
-      await this.git.run(mirrorPath, ['fetch', 'origin'])
       log({ updates, result: 'ok' })
+      // Best effort refresh of origin refs; the push already succeeded and is logged.
+      await this.git.run(mirrorPath, ['fetch', 'origin'], { allowFail: true }).catch(() => undefined)
       return { ok: true }
     })
   }

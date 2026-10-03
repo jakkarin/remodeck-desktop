@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostGit } from '../../../src/main/git/hostGit'
 import { MirrorService } from '../../../src/main/mirror/mirrorService'
 import { LocalTarget } from '../../../src/main/sandbox/target'
@@ -16,6 +16,7 @@ describe('SyncService.pushToGitHub', () => {
   let gh: ReturnType<typeof makeFakeGitHub>
   let store: Store
   let svc: SyncService
+  let host: HostGit
 
   beforeEach(async () => {
     tmp = makeTmp()
@@ -23,7 +24,7 @@ describe('SyncService.pushToGitHub', () => {
     fs.mkdirSync(home, { recursive: true })
     gh = makeFakeGitHub(tmp)
     store = new Store(path.join(tmp, 'data'))
-    const host = new HostGit()
+    host = new HostGit()
     svc = new SyncService({
       git: host,
       mirror: new MirrorService(host, () => gh.url),
@@ -102,5 +103,43 @@ describe('SyncService.pushToGitHub', () => {
     })
     expect(await ghSha('feat-x')).toBe(ghTip)
     expect(store.readPushLog(10).map((e) => e.result)).toEqual(['rejected', 'ok'])
+  })
+
+  it('logs ok even if the post-push fetch fails', async () => {
+    const ws = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat/a')
+    const sha = await commit(sb('w1'), 'f.txt', 'one')
+    await svc.sync(ws)
+    const realRun = host.run.bind(host)
+    vi.spyOn(host, 'run').mockImplementation(async (cwd, args, opts) => {
+      if (args[0] === 'fetch') throw new Error('network down')
+      return realRun(cwd, args, opts)
+    })
+    expect(await svc.pushToGitHub(ws, 'feat/a', 'feat/a')).toEqual({ ok: true })
+    expect(await ghSha('feat/a')).toBe(sha)
+    expect(store.readPushLog(10).map((e) => e.result)).toEqual(['ok'])
+  })
+
+  it('allows pushing to a protected name when enforceRules is off', async () => {
+    const ws = await makeWs('w1')
+    store.updateRepo(ws.repoId, { enforceRules: false })
+    await git(sb('w1'), 'checkout', '-b', 'feat/a')
+    const sha = await commit(sb('w1'), 'f.txt', 'one')
+    await svc.sync(ws)
+    expect(await svc.pushToGitHub(ws, 'feat/a', 'main')).toEqual({ ok: true })
+    expect(await ghSha('main')).toBe(sha)
+  })
+
+  it('reports error when the source branch does not exist', async () => {
+    const ws = await makeWs('w1')
+    const res = await svc.pushToGitHub(ws, 'nope', 'nope')
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.reason).toBe('error')
+      expect(res.message).not.toBe('')
+    }
+    const log = store.readPushLog(10)
+    expect(log).toHaveLength(1)
+    expect(log[0].result).toBe('error')
   })
 })

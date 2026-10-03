@@ -97,4 +97,16 @@ describe('workspace queries', () => {
     expect(list[1]).toMatchObject({ branch: 'other', dirty: 1 })
     expect(list[1].path.replaceAll('\\', '/')).toBe(wt.replaceAll('\\', '/'))
   })
+
+  it('uses origin/<name> as base when GitHub has the branch', async () => {
+    const { ws, repo } = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat/a')
+    await commit(sb('w1'), 'f.txt', 'first')
+    await svc.sync(ws)
+    await svc.pushToGitHub(ws, 'feat/a', 'feat/a')
+    await commit(sb('w1'), 'g.txt', 'second')
+    await svc.sync(ws)
+    const list = await listBranches(host, mirrorPath, ws.id, repo.defaultBranch, new Set())
+    expect(list.find((b) => b.name === 'feat/a')).toMatchObject({ base: 'origin/feat/a', ahead: 1, behind: 0 })
+  })
 })
