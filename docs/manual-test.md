@@ -103,20 +103,13 @@
 
 ## Automated Results
 
-### npm test
+### npx vitest run
 ```
-Test Files  5 failed | 21 passed (26)
-Tests  22 failed | 146 passed (168)
+Test Files  26 passed (26)
+Tests  168 passed (168)
 ```
 
-**Failed Tests Summary:**
-- `tests/main/sandbox/target.test.ts`: 2 failures (home directory handling with spaces and apostrophes)
-- `tests/main/sync/clone.test.ts`: 4 failures (git operations and path validation)
-- `tests/main/sync/push.test.ts`: 6 failures (GitHub push operations)
-- `tests/main/sync/queries.test.ts`: 4 failures (git operations)
-- `tests/main/sync/sync.test.ts`: 6 failures (sync operations and concurrent workspace handling)
-
-**Note:** The test failures are environment-related (Windows path handling with git, temporary directories, and mock git operations). They do not prevent manual testing on a Linux sandbox.
+✓ All tests passing
 
 ### npm run typecheck
 ```
