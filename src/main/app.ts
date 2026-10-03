@@ -6,7 +6,6 @@ import { ApprovalService } from './approval/approvalService'
 import { GitBridge } from './bridge/gitBridge'
 import { ConnectionService } from './connection/connectionService'
 import { HostGit } from './git/hostGit'
-import { withLock } from './git/lock'
 import { getGitHubCredential } from './github/credentials'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
@@ -192,11 +191,7 @@ export async function createApp(opts: {
           await mirror.removeWorkspace(mirrorPath, id).catch(() => undefined)
         store.removeWorkspace(id)
         const last = !store.config.workspaces.some((w) => w.repoId === repo.id)
-        if (last && deleteMirrorIfLast) {
-          await withLock(mirrorPath, async () =>
-            fs.rmSync(mirrorPath, { recursive: true, force: true })
-          )
-        }
+        if (last && deleteMirrorIfLast) await mirror.delete(mirrorPath)
       },
       sync: async (id) => {
         const ws = wsOf(id)

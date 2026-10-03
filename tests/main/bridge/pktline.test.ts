@@ -1,6 +1,64 @@
 import { describe, expect, it } from 'vitest'
-import { parseReceivePackCommands, ZERO_SHA } from '../../../src/main/bridge/pktline'
+import {
+  parseReceivePackCommands,
+  ReportStatusParser,
+  ZERO_SHA
+} from '../../../src/main/bridge/pktline'
 import { evaluateRules } from '../../../src/main/bridge/rules'
+
+describe('ReportStatusParser', () => {
+  const p = (s: string | Buffer): Buffer => {
+    const b = typeof s === 'string' ? Buffer.from(s) : s
+    return Buffer.concat([Buffer.from((b.length + 4).toString(16).padStart(4, '0')), b])
+  }
+  const band = (n: number, data: Buffer): Buffer => p(Buffer.concat([Buffer.from([n]), data]))
+  const feed = (buf: Buffer, step = buf.length): ReportStatusParser => {
+    const r = new ReportStatusParser()
+    for (let i = 0; i < buf.length; i += step) r.push(buf.subarray(i, i + step))
+    return r
+  }
+
+  it('plain report-status: ok', () => {
+    const buf = Buffer.concat([p('unpack ok\n'), p('ok refs/heads/a\n'), Buffer.from('0000')])
+    expect(feed(buf).result()).toEqual({ unpack: 'ok', ok: ['refs/heads/a'], ng: [], fatal: null })
+  })
+
+  it('side-band report-status with progress and an ng, fed byte by byte', () => {
+    const inner = Buffer.concat([
+      p('unpack ok\n'),
+      p('ok refs/heads/a\n'),
+      p('ng refs/heads/b non-fast-forward\n'),
+      Buffer.from('0000')
+    ])
+    const buf = Buffer.concat([
+      band(2, Buffer.from('remote: progress\n')),
+      band(1, inner.subarray(0, 7)),
+      band(1, inner.subarray(7)),
+      Buffer.from('0000')
+    ])
+    expect(feed(buf, 1).result()).toEqual({
+      unpack: 'ok',
+      ok: ['refs/heads/a'],
+      ng: [{ ref: 'refs/heads/b', reason: 'non-fast-forward' }],
+      fatal: null
+    })
+  })
+
+  it('records unpack errors and band-3 fatal messages', () => {
+    const inner = Buffer.concat([p('unpack index-pack abnormal exit\n'), Buffer.from('0000')])
+    const buf = Buffer.concat([band(1, inner), band(3, Buffer.from('boom\n'))])
+    expect(feed(buf).result()).toEqual({
+      unpack: 'index-pack abnormal exit',
+      ok: [],
+      ng: [],
+      fatal: 'boom'
+    })
+  })
+
+  it('empty response yields no unpack status', () => {
+    expect(new ReportStatusParser().result()).toEqual({ unpack: null, ok: [], ng: [], fatal: null })
+  })
+})
 
 const pkt = (s: string): string => (s.length + 4).toString(16).padStart(4, '0') + s
 const A = 'a'.repeat(40)

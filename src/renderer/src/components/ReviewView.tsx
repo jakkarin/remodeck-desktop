@@ -27,7 +27,8 @@ export function ReviewView({
   const [diff, setDiff] = useState('')
   const [target, setTarget] = useState(branch.name)
   const [busy, setBusy] = useState(false)
-  const [pushed, setPushed] = useState(false)
+  // Tied to the target that was pushed: editing the target makes Open PR depend on it again.
+  const [pushedTarget, setPushedTarget] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function ReviewView({
     }
   }, [workspaceId, branch.name])
 
+  const pushed = pushedTarget !== null && pushedTarget === target
   const onGitHub = branch.base === `origin/${target}`
   const canOpenPR = pushed || onGitHub
 
@@ -53,7 +55,7 @@ export function ReviewView({
     setError(null)
     try {
       const out = await api.workspaces.push(workspaceId, branch.name, target)
-      if (out.ok) setPushed(true)
+      if (out.ok) setPushedTarget(target)
       else setError(out.message)
     } catch (e) {
       setError(errorMessage(e))
@@ -80,6 +82,11 @@ export function ReviewView({
       <div className="muted">
         จาก {host?.label}:{ws?.sandboxPath}
       </div>
+      {branch.rewritten && (
+        <div className="badge warn">
+          history rewritten — branch นี้ถูกเขียนประวัติใหม่ใน sandbox ตั้งแต่ Sync ครั้งก่อน
+        </div>
+      )}
 
       <h3>Commits</h3>
       <ul className="commits">

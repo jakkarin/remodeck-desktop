@@ -80,4 +80,13 @@ describe('MirrorService', () => {
     expect(remotes).toEqual(['origin', 'ws-w1'])
     expect((await git(mirror, 'config', '--get-all', 'remote.origin.fetch')).trim().split('\n')).toEqual(refspecs)
   })
+
+  it('ensure re-inits when the dir exists but HEAD is missing', async () => {
+    fs.mkdirSync(mirror, { recursive: true })
+    fs.writeFileSync(path.join(mirror, 'leftover'), 'x')
+    await svc.ensure(repo, mirror)
+    expect(fs.existsSync(path.join(mirror, 'HEAD'))).toBe(true)
+    expect((await git(mirror, 'rev-parse', '--is-bare-repository')).trim()).toBe('true')
+    expect((await git(mirror, 'config', '--get-all', 'remote.origin.fetch')).trim().split('\n')).toEqual(refspecs)
+  })
 })

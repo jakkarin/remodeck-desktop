@@ -91,4 +91,14 @@ describe('Store', () => {
     s.appendPushLog(entry(3))
     expect(s.readPushLog(2).map((e) => e.time)).toEqual(['t3', 't2'])
   })
+
+  it('push log skips torn or unparsable lines', () => {
+    const s = new Store(dir)
+    s.appendPushLog(entry(1))
+    fs.appendFileSync(path.join(dir, 'push-log.jsonl'), 'not json\n')
+    s.appendPushLog(entry(2))
+    fs.appendFileSync(path.join(dir, 'push-log.jsonl'), '{"time":"t3","repo"')
+    expect(s.readPushLog(10).map((e) => e.time)).toEqual(['t2', 't1'])
+    expect(s.readPushLog(1).map((e) => e.time)).toEqual(['t2'])
+  })
 })

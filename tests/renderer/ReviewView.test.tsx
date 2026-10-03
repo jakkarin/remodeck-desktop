@@ -102,4 +102,25 @@ describe('ReviewView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(onBack).toHaveBeenCalled()
   })
+
+  it('editing the target after a push disables Open PR again', async () => {
+    vi.mocked(api.workspaces.push).mockResolvedValue({ ok: true })
+    renderView(branch())
+    fireEvent.click(screen.getByRole('button', { name: 'Push to GitHub' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open PR' })).toBeEnabled())
+    fireEvent.change(screen.getByLabelText('Target branch'), { target: { value: 'other' } })
+    expect(screen.getByRole('button', { name: 'Open PR' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Target branch'), { target: { value: 'feat/a' } })
+    expect(screen.getByRole('button', { name: 'Open PR' })).toBeEnabled()
+  })
+
+  it('warns when the branch history was rewritten', () => {
+    renderView(branch({ rewritten: true }))
+    expect(screen.getByText(/history rewritten/)).toBeInTheDocument()
+  })
+
+  it('shows no rewritten warning for a normal branch', () => {
+    renderView(branch())
+    expect(screen.queryByText(/history rewritten/)).toBeNull()
+  })
 })

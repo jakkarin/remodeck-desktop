@@ -7,7 +7,7 @@ import type { PushLogEntry, RefUpdate, Repo } from '../../shared/types'
 import type { ApprovalService } from '../approval/approvalService'
 import type { Credential } from '../github/credentials'
 import type { Store } from '../store/store'
-import { parseReceivePackCommands } from './pktline'
+import { parseReceivePackCommands, ReportStatusParser } from './pktline'
 import { evaluateRules } from './rules'
 
 export type BridgeSession = {
@@ -218,10 +218,25 @@ export class GitBridge {
         yield next.value
       }
     }
-    const status = await this.forward(target, 'POST', headers, body(), res)
+    // GitHub answers 200 even when it rejects refs: the outcome is in the report-status.
+    const report = new ReportStatusParser()
+    const status = await this.forward(target, 'POST', headers, body(), res, (c) => report.push(c))
     if (commands.length === 0) return
-    if (status === 200) log(commands, 'ok')
-    else log(commands, 'error', status === null ? 'upstream unreachable' : `upstream ${status}`)
+    if (status !== 200) {
+      log(commands, 'error', status === null ? 'upstream unreachable' : `upstream ${status}`)
+      return
+    }
+    const r = report.result()
+    if (r.unpack === 'ok' && r.ng.length === 0 && r.fatal === null) {
+      log(commands, 'ok')
+      return
+    }
+    const problems: string[] = []
+    if (r.unpack === null) problems.push('no report-status from upstream')
+    else if (r.unpack !== 'ok') problems.push(`unpack ${r.unpack}`)
+    for (const ng of r.ng) problems.push(`ng ${ng.ref} ${ng.reason}`.trim())
+    if (r.fatal !== null) problems.push(`fatal ${r.fatal}`)
+    log(commands, 'error', problems.join('; '))
   }
 
   private logPush(
@@ -241,13 +256,18 @@ export class GitBridge {
     })
   }
 
-  /** Proxies one request upstream and streams the response back. Resolves the upstream status, or null if unreachable. */
+  /**
+   * Proxies one request upstream and streams the response back. Resolves the upstream status, or null if unreachable.
+   * With `tap`, every response chunk is also handed to it (bytes are still forwarded unchanged) and the
+   * promise resolves only once the upstream response has finished.
+   */
   private forward(
     target: URL,
     method: string,
     headers: Record<string, string>,
     body: Body,
-    res: http.ServerResponse
+    res: http.ServerResponse,
+    tap?: (chunk: Buffer) => void
   ): Promise<number | null> {
     const client = target.protocol === 'https:' ? https : http
     return new Promise((resolve) => {
@@ -265,9 +285,13 @@ export class GitBridge {
           if (v !== undefined && !HOP_BY_HOP.has(k)) out[k] = v
         }
         res.writeHead(status, out)
+        if (tap) {
+          upRes.on('data', (c: Buffer) => tap(c))
+          upRes.on('close', () => resolve(status))
+        }
         upRes.pipe(res)
         upRes.on('error', () => res.destroy())
-        resolve(status)
+        if (!tap) resolve(status)
       })
       up.on('error', () => {
         fail(res, 502, 'upstream unreachable')

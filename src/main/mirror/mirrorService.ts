@@ -1,7 +1,11 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import type { Repo } from '../../shared/types'
 import type { HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
+
+// Windows can briefly hold handles on pack files (AV, indexers): retry instead of failing.
+const RM_OPTS = { recursive: true, force: true, maxRetries: 5, retryDelay: 100 } as const
 
 const ORIGIN_REFSPECS = ['+refs/heads/*:refs/remotes/origin/*', '+refs/tags/*:refs/tags/*']
 
@@ -20,6 +24,11 @@ export class MirrorService {
     return withLock(mirrorPath, () => this.addWorkspaceLocked(mirrorPath, wsId, url))
   }
 
+  /** Deletes the whole mirror (it is only a cache). */
+  delete(mirrorPath: string): Promise<void> {
+    return withLock(mirrorPath, async () => fs.rmSync(mirrorPath, RM_OPTS))
+  }
+
   removeWorkspace(mirrorPath: string, wsId: string): Promise<void> {
     return withLock(mirrorPath, async () => {
       const name = `ws-${wsId}`
@@ -30,14 +39,15 @@ export class MirrorService {
 
   rebuild(repo: Repo, mirrorPath: string, workspaces: { id: string; url: string }[]): Promise<void> {
     return withLock(mirrorPath, async () => {
-      fs.rmSync(mirrorPath, { recursive: true, force: true })
+      fs.rmSync(mirrorPath, RM_OPTS)
       await this.ensureLocked(repo, mirrorPath)
       for (const ws of workspaces) await this.addWorkspaceLocked(mirrorPath, ws.id, ws.url)
     })
   }
 
   private async ensureLocked(repo: Repo, mirrorPath: string): Promise<void> {
-    if (!fs.existsSync(mirrorPath)) {
+    // A dir without HEAD (interrupted init, partial delete) is not a usable repo: (re-)init it.
+    if (!fs.existsSync(path.join(mirrorPath, 'HEAD'))) {
       fs.mkdirSync(mirrorPath, { recursive: true })
       await this.git.run(mirrorPath, ['init', '--bare'])
     }

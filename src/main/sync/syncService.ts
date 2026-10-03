@@ -1,5 +1,5 @@
 import type { PushLogEntry, PushOutcome, Workspace } from '../../shared/types'
-import type { HostGit } from '../git/hostGit'
+import { GitError, type HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
 import { parseRefs, parseSymrefHead } from '../git/parsers'
 import type { MirrorService } from '../mirror/mirrorService'
@@ -48,7 +48,7 @@ export class SyncService {
         (await this.git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix])).stdout
       )
 
-    const rewritten = await withLock(mirrorPath, async () => {
+    const outcome = await withLock(mirrorPath, async () => {
       await this.git.run(mirrorPath, ['fetch', '--prune', 'origin'])
       const before = await listWs()
       await this.git.run(mirrorPath, ['fetch', '--prune', '--no-tags', name])
@@ -70,18 +70,32 @@ export class SyncService {
         'refs/remotes/origin',
         'refs/tags'
       ])
+      let tagConflicts: string[] = []
       if (refs.stdout.trim() !== '') {
-        await this.git.run(mirrorPath, [
+        const args = [
           'push',
+          '--porcelain',
           name,
           '+refs/remotes/origin/*:refs/remotes/origin/*',
           'refs/tags/*:refs/tags/*'
-        ])
+        ]
+        const res = await this.git.run(mirrorPath, args, { allowFail: true })
+        if (res.code !== 0) {
+          // Push is not atomic: branch refs were updated even if some tags were refused.
+          const rejected = rejectedRefs(res.stdout)
+          if (rejected.length === 0 || !rejected.every((r) => r.startsWith('refs/tags/'))) {
+            throw new GitError(args, res.code, res.stderr)
+          }
+          tagConflicts = rejected.map((r) => r.slice('refs/tags/'.length))
+        }
       }
-      return result
+      return { result, tagConflicts }
     })
-    this.rewritten.set(ws.id, new Set(rewritten))
-    return { rewritten }
+    this.rewritten.set(ws.id, new Set(outcome.result))
+    if (outcome.tagConflicts.length > 0) {
+      throw new Error(`tag ชนกับใน sandbox: ${outcome.tagConflicts.join(', ')}`)
+    }
+    return { rewritten: outcome.result }
   }
 
   /** Push a sandbox branch (from the mirror) to GitHub as <target>. Never forces. */
@@ -215,4 +229,13 @@ export class SyncService {
     const res = await target.exec(script)
     if (res.code !== 0) throw new Error(res.stderr)
   }
+}
+
+/** Destination refs of the `!` (rejected) lines in `git push --porcelain` output. */
+function rejectedRefs(porcelain: string): string[] {
+  return porcelain
+    .split('\n')
+    .filter((l) => l.startsWith('!'))
+    .map((l) => (l.split('\t')[1] ?? '').split(':')[1] ?? '')
+    .filter((r) => r !== '')
 }

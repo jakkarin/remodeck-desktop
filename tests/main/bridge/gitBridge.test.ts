@@ -191,6 +191,26 @@ describe('GitBridge', () => {
     for (const req of receivePackPosts()) expect(req.authorization).toBe(EXPECTED_AUTH)
   })
 
+  it('a push the backend rejects (200 + ng) is logged error with the ref and reason', async () => {
+    await git(bare, 'config', 'receive.denyNonFastForwards', 'true')
+    await git(work, 'checkout', '-b', 'feat')
+    await commit('b.txt', 'b')
+    expect((await client('push', 'origin', 'feat')).code).toBe(0)
+    const pushed = await remoteRef('refs/heads/feat')
+    fs.writeFileSync(path.join(work, 'b.txt'), 'rewritten')
+    await git(work, 'add', '-A')
+    await git(work, ...ident, 'commit', '--amend', '-m', 'rewritten')
+    const r = await client('push', '--force', 'origin', 'feat')
+    expect(r.code).not.toBe(0)
+    // the client still sees git's own report: the response bytes were streamed unchanged
+    expect(r.stderr).toMatch(/\[remote rejected\] feat -> feat/)
+    expect(await remoteRef('refs/heads/feat')).toBe(pushed)
+    const log = store.readPushLog(10)
+    expect(log.map((e) => e.result)).toEqual(['error', 'ok'])
+    expect(log[0].detail).toContain('ng refs/heads/feat')
+    expect(log[0].detail).toMatch(/non-fast-forward/)
+  })
+
   it('denied push fails, leaves the backend unchanged and is logged denied', async () => {
     decision = 'deny'
     await git(work, 'checkout', '-b', 'feat')

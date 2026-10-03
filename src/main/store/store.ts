@@ -89,11 +89,16 @@ export class Store {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
       throw err
     }
-    const lines = text.split('\n').filter((l) => l.trim() !== '')
-    return lines
-      .slice(-limit)
-      .reverse()
-      .map((l) => JSON.parse(l) as PushLogEntry)
+    const entries: PushLogEntry[] = []
+    for (const line of text.split('\n')) {
+      if (line.trim() === '') continue
+      try {
+        entries.push(JSON.parse(line) as PushLogEntry)
+      } catch {
+        // Torn write (crash mid-append) or garbage: skip the line, keep the rest readable.
+      }
+    }
+    return entries.slice(-limit).reverse()
   }
 
   private get configPath(): string {
