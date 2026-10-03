@@ -56,6 +56,7 @@ describe('MirrorService', () => {
     expect(remotes.filter((r) => r === 'ws-w1')).toHaveLength(1)
     const out = await git(mirror, 'config', '--get-all', 'remote.ws-w1.fetch')
     expect(out.trim()).toBe('+refs/heads/*:refs/remotes/ws-w1/*')
+    expect((await git(mirror, 'config', '--get-all', 'remote.ws-w1.tagOpt')).trim()).toBe('--no-tags')
   })
 
   it('removeWorkspace drops the remote and its refs', async () => {

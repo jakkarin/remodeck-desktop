@@ -130,6 +130,36 @@ describe('SyncService.pushToGitHub', () => {
     expect(await ghSha('main')).toBe(sha)
   })
 
+  it('never leaks sandbox tags into the mirror or GitHub (even with push.followTags)', async () => {
+    const ws = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat-a')
+    await commit(sb('w1'), 'f.txt', 'one')
+    await git(sb('w1'), ...ident, 'tag', '-a', 'ai-tag', '-m', 'annotated by AI')
+    const mirrorPath = store.mirrorPath(store.config.repos[0])
+    await git(mirrorPath, 'config', 'push.followTags', 'true')
+    await svc.sync(ws)
+    expect((await git(mirrorPath, 'config', `remote.ws-${ws.id}.tagOpt`)).trim()).toBe('--no-tags')
+    expect(await git(mirrorPath, 'tag', '--list')).not.toContain('ai-tag')
+    expect(await svc.pushToGitHub(ws, 'feat-a', 'feat-a')).toEqual({ ok: true })
+    expect(await git(gh.url, 'tag', '--list')).not.toContain('ai-tag')
+    expect(await git(mirrorPath, 'for-each-ref', 'refs/tags')).not.toContain('ai-tag')
+  })
+
+  it('never leaks sandbox tags when the mirror already holds the tagged object', async () => {
+    const ws = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat-a')
+    await commit(sb('w1'), 'f.txt', 'one')
+    const mirrorPath = store.mirrorPath(store.config.repos[0])
+    await git(mirrorPath, 'config', 'push.followTags', 'true')
+    await svc.sync(ws)
+    // tag created after the branch tip is already in the mirror: plain auto-follow would grab it now
+    await git(sb('w1'), ...ident, 'tag', '-a', 'ai-tag2', '-m', 'annotated by AI')
+    await svc.sync(ws)
+    expect(await git(mirrorPath, 'tag', '--list')).not.toContain('ai-tag2')
+    expect(await svc.pushToGitHub(ws, 'feat-a', 'feat-a')).toEqual({ ok: true })
+    expect(await git(gh.url, 'tag', '--list')).not.toContain('ai-tag2')
+  })
+
   it('reports error when the source branch does not exist', async () => {
     const ws = await makeWs('w1')
     const res = await svc.pushToGitHub(ws, 'nope', 'nope')

@@ -44,9 +44,11 @@ export class MirrorService {
     await this.setRemote(mirrorPath, 'origin', this.originUrl(repo), ORIGIN_REFSPECS)
   }
 
-  private addWorkspaceLocked(mirrorPath: string, wsId: string, url: string): Promise<void> {
+  private async addWorkspaceLocked(mirrorPath: string, wsId: string, url: string): Promise<void> {
     const name = `ws-${wsId}`
-    return this.setRemote(mirrorPath, name, url, [`+refs/heads/*:refs/remotes/${name}/*`])
+    await this.setRemote(mirrorPath, name, url, [`+refs/heads/*:refs/remotes/${name}/*`])
+    // Sandbox (AI-created) tags must never enter the mirror: they could be pushed on to GitHub.
+    await this.git.run(mirrorPath, ['config', `remote.${name}.tagOpt`, '--no-tags'])
   }
 
   private async setRemote(mirrorPath: string, name: string, url: string, refspecs: string[]): Promise<void> {

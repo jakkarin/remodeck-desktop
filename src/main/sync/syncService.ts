@@ -49,7 +49,7 @@ export class SyncService {
     const rewritten = await withLock(mirrorPath, async () => {
       await this.git.run(mirrorPath, ['fetch', '--prune', 'origin'])
       const before = await listWs()
-      await this.git.run(mirrorPath, ['fetch', '--prune', name])
+      await this.git.run(mirrorPath, ['fetch', '--prune', '--no-tags', name])
       const after = await listWs()
       const result: string[] = []
       for (const [ref, oldSha] of before) {
@@ -112,7 +112,9 @@ export class SyncService {
         log({ updates, result: 'blocked', detail: message })
         return { ok: false, reason: 'protected', message }
       }
-      const res = await this.git.run(mirrorPath, ['push', 'origin', `${srcRef}:${dstRef}`], { allowFail: true })
+      const res = await this.git.run(mirrorPath, ['push', '--no-follow-tags', 'origin', `${srcRef}:${dstRef}`], {
+        allowFail: true
+      })
       if (res.code !== 0) {
         if (/\[rejected\]/.test(res.stderr) && /non-fast-forward|fetch first/.test(res.stderr)) {
           log({ updates, result: 'rejected', detail: res.stderr })
