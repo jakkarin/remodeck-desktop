@@ -1,4 +1,4 @@
-import type { Workspace } from '../../shared/types'
+import type { PushLogEntry, PushOutcome, Workspace } from '../../shared/types'
 import type { HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
 import { parseRefs, parseSymrefHead } from '../git/parsers'
@@ -80,6 +80,55 @@ export class SyncService {
     })
     this.rewritten.set(ws.id, new Set(rewritten))
     return { rewritten }
+  }
+
+  /** Push a sandbox branch (from the mirror) to GitHub as <target>. Never forces. */
+  async pushToGitHub(ws: Workspace, branch: string, target: string): Promise<PushOutcome> {
+    const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
+    if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
+    const mirrorPath = this.store.mirrorPath(repo)
+    const srcRef = `refs/remotes/${this.remoteName(ws.id)}/${branch}`
+    const dstRef = `refs/heads/${target}`
+    const ZERO = '0'.repeat(40)
+    const sha = async (ref: string): Promise<string> => {
+      const res = await this.git.run(mirrorPath, ['rev-parse', '--verify', '--quiet', ref], { allowFail: true })
+      return res.code === 0 ? res.stdout.trim() : ZERO
+    }
+    const log = (e: Pick<PushLogEntry, 'updates' | 'result' | 'detail'>): void =>
+      this.store.appendPushLog({
+        time: new Date().toISOString(),
+        repo: `${repo.owner}/${repo.name}`,
+        workspaceId: ws.id,
+        channel: 'review',
+        ...e
+      })
+
+    return withLock(mirrorPath, async (): Promise<PushOutcome> => {
+      const oldSha = await sha(`refs/remotes/origin/${target}`)
+      const newSha = await sha(srcRef)
+      const updates = [{ oldSha, newSha, ref: dstRef }]
+      if (repo.enforceRules && repo.protectedBranches.includes(target)) {
+        const message = `branch ${target} ถูกป้องกัน — แก้ได้ใน Settings`
+        log({ updates, result: 'blocked', detail: message })
+        return { ok: false, reason: 'protected', message }
+      }
+      const res = await this.git.run(mirrorPath, ['push', 'origin', `${srcRef}:${dstRef}`], { allowFail: true })
+      if (res.code !== 0) {
+        if (/\[rejected\]/.test(res.stderr) && /non-fast-forward|fetch first/.test(res.stderr)) {
+          log({ updates, result: 'rejected', detail: res.stderr })
+          return {
+            ok: false,
+            reason: 'non-fast-forward',
+            message: `GitHub มี commit ใหม่กว่า — กด Sync แล้วให้ AI rebase บน origin/${target}`
+          }
+        }
+        log({ updates, result: 'error', detail: res.stderr })
+        return { ok: false, reason: 'error', message: res.stderr }
+      }
+      await this.git.run(mirrorPath, ['fetch', 'origin'])
+      log({ updates, result: 'ok' })
+      return { ok: true }
+    })
   }
 
   private remoteName(wsId: string): string {
