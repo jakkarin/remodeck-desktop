@@ -25,8 +25,12 @@ const PROMPT_CLEANUP_MS = 65_000
 export async function createApp(opts: {
   dataDir: string
   window: () => BrowserWindow | null
+  /** Overrides for end-to-end tests only. */
+  sshPath?: string
+  githubBase?: string
 }): Promise<{ api: MainApi; dispose(): Promise<void> }> {
-  const sshPath = resolveSshPath()
+  const sshPath = opts.sshPath ?? resolveSshPath()
+  const githubBase = (opts.githubBase ?? 'https://github.com').replace(/\/+$/, '')
   const git = new HostGit({ sshPath })
   const store = new Store(opts.dataDir)
 
@@ -61,7 +65,7 @@ export async function createApp(opts: {
 
   const mirror = new MirrorService(
     git,
-    (repo) => `https://github.com/${repo.owner}/${repo.name}.git`
+    (repo) => `${githubBase}/${repo.owner}/${repo.name}.git`
   )
   const sync = new SyncService({ git, mirror, store, targetFor })
   const credential = (): ReturnType<typeof getGitHubCredential> => getGitHubCredential(git)
@@ -90,7 +94,7 @@ export async function createApp(opts: {
     })
   const approval = new ApprovalService({ store, prompt, notify: (msg) => notify('regit', msg) })
 
-  const bridge = new GitBridge({ credential, approval, store })
+  const bridge = new GitBridge({ upstreamBase: githubBase, credential, approval, store })
   const bridgePort = await bridge.start()
 
   let terminal: TerminalService | null = null

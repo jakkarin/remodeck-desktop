@@ -130,3 +130,20 @@ Renderer: 1,088.53 kB + 13.18 kB CSS
 **ผลลัพธ์รวม:** [ระบุจำนวนข้อที่ pass / total]  
 **ความเห็น:** 
 
+
+### npm run test:e2e (Docker)
+
+`tests/e2e/sandbox.e2e.test.ts` starts 3 real Linux sandboxes (Debian + sshd + git, `tests/e2e/sandbox/Dockerfile`), drives the API from `createApp` the way the renderer does, and uses a local `git http-backend` in place of GitHub. 19/19 passed, 3 runs in a row.
+
+Covered automatically: cases 1 (except opening the PR on GitHub and merging), 2, 3, 4, 5 and 6 above. It also checks:
+- Clone refuses a path that is not empty.
+- Tags created by the AI never reach GitHub.
+- A history rewrite is flagged.
+- Worktrees are listed.
+- The GitHub token never enters the sandbox.
+- A session not opened by the app has no route to GitHub.
+
+Still manual:
+- Windows OpenSSH (`C:/Windows/System32/OpenSSH/ssh.exe`). The test uses Git for Windows' ssh so it can use a throwaway `~/.ssh/config`.
+- How the Electron UI renders (xterm, the popup, the buttons).
+- Real GitHub (credential manager, opening the PR) and case 7.
