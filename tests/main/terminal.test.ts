@@ -25,6 +25,7 @@ class FakePty implements PtyLike {
   }
 }
 
+const NOTICE = '\r\n[regit] tunnel port busy, retrying…\r\n'
 const FORWARD_ERR = 'Warning: remote port forwarding failed for listen port 30000\r\n'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -126,7 +127,7 @@ describe('TerminalService', () => {
     expect(s.repo.id).toBe('r1')
     expect(s.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
     ptys[0].dataCb('hello')
-    vi.advanceTimersByTime(3000)
+    expect(onData).toHaveBeenCalledWith(tabId, 'hello')
     expect(onData).toHaveBeenCalledWith(tabId, 'hello')
     ptys[0].dataCb('more')
     expect(onData).toHaveBeenLastCalledWith(tabId, 'more')
@@ -147,7 +148,13 @@ describe('TerminalService', () => {
     expect(spawn).toHaveBeenCalledTimes(3)
     ptys[2].dataCb('welcome')
     vi.advanceTimersByTime(3000)
-    expect(onData).toHaveBeenCalledTimes(1)
+    expect(onData.mock.calls.map((c) => c[1])).toEqual([
+      FORWARD_ERR,
+      NOTICE,
+      FORWARD_ERR,
+      NOTICE,
+      'welcome'
+    ])
     expect(onData).toHaveBeenCalledWith(tabId, 'welcome')
     expect(onExit).not.toHaveBeenCalled()
     expect(new Set(calls.map(rportOf)).size).toBe(3)
@@ -155,7 +162,7 @@ describe('TerminalService', () => {
     expect(bridge.revokeSession).not.toHaveBeenCalled()
   })
 
-  it('gives up after 5 attempts, emits buffered output then exit, and revokes', async () => {
+  it('gives up after 5 attempts, emits output then exit, and revokes', async () => {
     const { svc, ptys, spawn, bridge, approval } = setup()
     const events: string[] = []
     svc.on('data', (_t: string, d: string) => events.push('data:' + d))
@@ -166,7 +173,11 @@ describe('TerminalService', () => {
       ptys[i].exitCb({ exitCode: 255 })
     }
     expect(spawn).toHaveBeenCalledTimes(5)
-    expect(events).toEqual(['data:' + FORWARD_ERR, 'exit:255'])
+    expect(events).toEqual([
+      ...Array.from({ length: 4 }, () => ['data:' + FORWARD_ERR, 'data:' + NOTICE]).flat(),
+      'data:' + FORWARD_ERR,
+      'exit:255'
+    ])
     expect(bridge.revokeSession).toHaveBeenCalledOnce()
     expect(approval.revokeSession).toHaveBeenCalledOnce()
   })
@@ -250,5 +261,42 @@ describe('TerminalService', () => {
     await svc.open('w1')
     svc.closeAllForHost('h1')
     expect(ptys.map((p) => p.killed)).toEqual([true, false, true])
+  })
+
+  it('streams output immediately, before the retry window ends', async () => {
+    const { svc, ptys } = setup()
+    const onData = vi.fn()
+    svc.on('data', onData)
+    await svc.open('w1')
+    ptys[0].dataCb('Enter passphrase: ')
+    expect(onData).toHaveBeenCalledTimes(1)
+  })
+
+  it('releases tab and bridge session when the first spawn throws', async () => {
+    const { svc, spawn, bridge, approval } = setup()
+    spawn.mockImplementationOnce(() => {
+      throw new Error('ENOENT ssh')
+    })
+    await expect(svc.open('w1')).rejects.toThrow('ENOENT ssh')
+    const s = bridge.registerSession.mock.calls[0][0]
+    expect(bridge.revokeSession).toHaveBeenCalledWith(s.token)
+    expect(approval.revokeSession).toHaveBeenCalledWith(s.sessionId)
+    svc.write('x', 'y')
+  })
+
+  it('emits error data and exit -1 and releases when a retry spawn throws', async () => {
+    const { svc, ptys, spawn, bridge, approval } = setup()
+    const events: string[] = []
+    svc.on('data', (_t: string, d: string) => events.push('data:' + d))
+    svc.on('exit', (_t: string, c: number) => events.push('exit:' + c))
+    await svc.open('w1')
+    spawn.mockImplementationOnce(() => {
+      throw new Error('conpty boom')
+    })
+    ptys[0].dataCb(FORWARD_ERR)
+    expect(() => ptys[0].exitCb({ exitCode: 255 })).not.toThrow()
+    expect(events.slice(-2)).toEqual(['data:\r\n[regit] conpty boom\r\n', 'exit:-1'])
+    expect(bridge.revokeSession).toHaveBeenCalledOnce()
+    expect(approval.revokeSession).toHaveBeenCalledOnce()
   })
 })

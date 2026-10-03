@@ -42,6 +42,7 @@ type Tab = {
 const MAX_ATTEMPTS = 5
 const RETRY_WINDOW_MS = 3000
 const FORWARD_FAILED = 'remote port forwarding failed'
+const RETRY_NOTICE = '\r\n[regit] tunnel port busy, retrying…\r\n'
 const DEFAULT_SIZE = { cols: 80, rows: 24 }
 
 /** Real spawner backed by node-pty; loaded lazily so unit tests never touch the native module. */
@@ -131,6 +132,7 @@ export class TerminalService extends EventEmitter {
     n: number,
     usedPorts: Set<number>
   ): void {
+    const first = n === 1
     const { deps } = this
     let rport = randomPort(deps.rand)
     while (usedPorts.has(rport)) rport = randomPort(deps.rand)
@@ -143,19 +145,25 @@ export class TerminalService extends EventEmitter {
       path: cwd
     })
 
-    let buffer = ''
-    let streaming = false
+    let seen = ''
+    let inWindow = true
     let cancelled = false
-    const pty = deps.spawn(deps.sshPath, args, DEFAULT_SIZE)
+    let pty: PtyLike
+    try {
+      pty = deps.spawn(deps.sshPath, args, DEFAULT_SIZE)
+    } catch (err) {
+      this.release(tabId, tab)
+      if (first) throw err
+      const msg = err instanceof Error ? err.message : String(err)
+      this.emit('data', tabId, `\r\n[regit] ${msg}\r\n`)
+      this.emit('exit', tabId, -1)
+      return
+    }
     tab.pty = pty
 
-    const flush = (): void => {
-      streaming = true
-      if (buffer) this.emit('data', tabId, buffer)
-      buffer = ''
-    }
     const timer = setTimeout(() => {
-      if (!cancelled) flush()
+      inWindow = false
+      seen = ''
     }, RETRY_WINDOW_MS)
     tab.cancelAttempt = () => {
       cancelled = true
@@ -164,18 +172,18 @@ export class TerminalService extends EventEmitter {
 
     pty.onData((d) => {
       if (cancelled) return
-      if (streaming) this.emit('data', tabId, d)
-      else buffer += d
+      if (inWindow) seen += d
+      this.emit('data', tabId, d)
     })
     pty.onExit(({ exitCode }) => {
       if (cancelled) return
       cancelled = true
       clearTimeout(timer)
-      if (!streaming && n < MAX_ATTEMPTS && buffer.includes(FORWARD_FAILED)) {
+      if (inWindow && n < MAX_ATTEMPTS && seen.includes(FORWARD_FAILED)) {
+        this.emit('data', tabId, RETRY_NOTICE)
         this.attempt(tabId, tab, sshHost, cwd, n + 1, usedPorts)
         return
       }
-      if (!streaming && buffer) this.emit('data', tabId, buffer)
       this.release(tabId, tab)
       this.emit('exit', tabId, exitCode)
     })
