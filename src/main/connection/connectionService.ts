@@ -19,6 +19,7 @@ const NO_FORWARD = 'sshd ปิด AllowTcpForwarding — push/pull จาก te
 export class ConnectionService extends EventEmitter {
   private readonly statuses = new Map<string, HostStatus>()
   private readonly inFlight = new Map<string, Promise<HostStatus>>()
+  private readonly generations = new Map<string, number>()
 
   constructor(private readonly deps: ConnectionDeps) {
     super()
@@ -37,6 +38,7 @@ export class ConnectionService extends EventEmitter {
   }
 
   disconnect(hostId: string): void {
+    this.generations.set(hostId, (this.generations.get(hostId) ?? 0) + 1)
     this.set(hostId, { state: 'disconnected', warnings: [] })
     this.deps.onDisconnect(hostId)
   }
@@ -52,13 +54,17 @@ export class ConnectionService extends EventEmitter {
   }
 
   private async doConnect(hostId: string): Promise<HostStatus> {
+    const gen = this.generations.get(hostId) ?? 0
+    const stale = (): boolean => (this.generations.get(hostId) ?? 0) !== gen
     this.set(hostId, { state: 'connecting', warnings: [] })
     const sshFail = (detail: string): HostStatus =>
-      this.set(hostId, {
-        state: 'error',
-        warnings: [],
-        error: `${detail}\nลองรัน ssh ${this.deps.sshHostFor(hostId)} ใน terminal ของระบบก่อน`
-      })
+      stale()
+        ? this.status(hostId)
+        : this.set(hostId, {
+            state: 'error',
+            warnings: [],
+            error: `${detail}\nลองรัน ssh ${this.deps.sshHostFor(hostId)} ใน terminal ของระบบก่อน`
+          })
 
     let r: ProcResult
     try {
@@ -66,7 +72,8 @@ export class ConnectionService extends EventEmitter {
     } catch (e) {
       return sshFail((e as Error).message)
     }
-    if (r.code === 255) return sshFail(r.stderr)
+    if (stale()) return this.status(hostId)
+    if (r.code === 255) return sshFail(r.stderr.trim() || 'ssh exit 255')
 
     const { gitVersion, remoteHttp } = parsePreflight(r.stdout)
     if (!gitVersion) return this.set(hostId, { state: 'error', warnings: [], error: NO_GIT })
@@ -80,6 +87,7 @@ export class ConnectionService extends EventEmitter {
       forwardOk = false
     }
     if (!forwardOk) warnings.push(NO_FORWARD)
+    if (stale()) return this.status(hostId)
     return this.set(hostId, { state: 'connected', gitVersion, warnings })
   }
 }

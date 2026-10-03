@@ -123,4 +123,31 @@ describe('ConnectionService', () => {
   it('requireConnected throws when not connected', () => {
     expect(() => make(ok('')).svc.requireConnected('h')).toThrow('Host ยังไม่ได้ connect')
   })
+
+  it('255 with empty stderr reports ssh exit 255', async () => {
+    const { svc } = make({ code: 255, stdout: '', stderr: '' })
+    const s = await svc.connect('h1')
+    expect(s.error).toBe('ssh exit 255\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+  })
+
+  it('disconnect during in-flight connect is not overwritten', async () => {
+    let release!: (r: ProcResult) => void
+    const target: SandboxTarget = {
+      exec: () => new Promise<ProcResult>((res) => (release = res)),
+      gitUrl: (p) => p
+    }
+    const onDisconnect = vi.fn()
+    const svc = new ConnectionService({
+      targetFor: () => target,
+      sshHostFor: () => 'ai-box',
+      checkForward: async () => true,
+      onDisconnect
+    })
+    const p = svc.connect('h1')
+    svc.disconnect('h1')
+    release(ok('git=git version 2.43.0\nremotehttp=1\n'))
+    const s = await p
+    expect(s.state).toBe('disconnected')
+    expect(svc.status('h1').state).toBe('disconnected')
+  })
 })
