@@ -315,3 +315,189 @@ describe('GitBridge', () => {
     expect(backend.requests).toHaveLength(0)
   })
 })
+
+type Reply = { status: number; body: string; headers: http.IncomingHttpHeaders }
+
+function send(opts: {
+  path: string
+  method?: string
+  body?: Buffer | string
+  headers?: Record<string, string>
+  port?: number
+}): Promise<Reply> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port: opts.port ?? port,
+        path: opts.path,
+        method: opts.method ?? 'GET',
+        headers: opts.headers
+      },
+      (res) => {
+        let text = ''
+        res.setEncoding('utf8')
+        res.on('data', (c: string) => (text += c))
+        res.on('end', () =>
+          resolve({ status: res.statusCode ?? 0, body: text, headers: res.headers })
+        )
+      }
+    )
+    req.on('error', reject)
+    req.end(opts.body)
+  })
+}
+
+const RP = `/s/${TOKEN}/acme/api.git/git-receive-pack`
+const RP_TYPE = { 'content-type': 'application/x-git-receive-pack-request' }
+
+/** A receive-pack body creating refs/heads/feat (commands only, no pack). */
+function createFeatBody(): string {
+  const line = `${'0'.repeat(40)} ${'2'.repeat(40)} refs/heads/feat\n`
+  return (line.length + 4).toString(16).padStart(4, '0') + line + '0000'
+}
+
+async function withBridge(
+  deps: Partial<ConstructorParameters<typeof GitBridge>[0]>,
+  fn: (bridgePort: number) => Promise<void>
+): Promise<void> {
+  const other = new GitBridge({
+    upstreamBase: backend.url,
+    credential: async () => credential,
+    approval: new ApprovalService({ store, prompt: async () => decision, notify: () => {} }),
+    store,
+    ...deps
+  })
+  const otherPort = await other.start()
+  other.registerSession({
+    token: TOKEN,
+    sessionId: 'sess1',
+    workspaceId: 'ws1',
+    repo,
+    tabLabel: 'Terminal 1'
+  })
+  try {
+    await fn(otherPort)
+  } finally {
+    await other.stop()
+  }
+}
+
+describe('GitBridge hardening', () => {
+  it('does not forward a push whose session was revoked while awaiting approval', async () => {
+    let answer!: (d: ApprovalDecision) => void
+    decision = new Promise<ApprovalDecision>((resolve) => (answer = resolve))
+    const reply = send({ path: RP, method: 'POST', headers: RP_TYPE, body: createFeatBody() })
+    await vi.waitFor(() => expect(prompts).toHaveLength(1))
+    bridge.revokeSession(TOKEN)
+    answer('session')
+    const res = await reply
+    expect(res.status).toBe(403)
+    expect(receivePackPosts()).toHaveLength(0)
+    expect(store.readPushLog(10)[0]).toMatchObject({ result: 'denied', detail: 'session closed' })
+    // The late 'session' answer must not leave a grant behind for the dead session.
+    decision = 'deny'
+    bridge.registerSession({
+      token: TOKEN,
+      sessionId: 'sess1',
+      workspaceId: 'ws1',
+      repo,
+      tabLabel: 'Terminal 1'
+    })
+    await send({ path: RP, method: 'POST', headers: RP_TYPE, body: createFeatBody() })
+    expect(prompts).toHaveLength(2)
+  })
+
+  it('replaces a client-supplied Authorization header with the bridge credential', async () => {
+    const res = await send({
+      path: `/s/${TOKEN}/acme/api.git/info/refs?service=git-upload-pack`,
+      headers: { authorization: 'Basic ZXZpbDpldmls' }
+    })
+    expect(res.status).toBe(200)
+    expect(backend.requests.map((r) => r.authorization)).toEqual([EXPECTED_AUTH])
+  })
+
+  it('refuses an encoded receive-pack body with 400 and logs blocked', async () => {
+    const res = await send({
+      path: RP,
+      method: 'POST',
+      headers: { ...RP_TYPE, 'content-encoding': 'gzip' },
+      body: createFeatBody()
+    })
+    expect(res.status).toBe(400)
+    expect(prompts).toHaveLength(0)
+    expect(receivePackPosts()).toHaveLength(0)
+    expect(store.readPushLog(10)[0]).toMatchObject({
+      result: 'blocked',
+      detail: 'unsupported content-encoding'
+    })
+  })
+
+  it('maps an upstream 401 to 502 and never forwards www-authenticate', async () => {
+    const upstream = http.createServer((_req, res) => {
+      res.writeHead(401, {
+        'www-authenticate': 'Basic realm="GitHub"',
+        'content-type': 'text/plain'
+      })
+      res.end('bad credentials')
+    })
+    await new Promise<void>((r) => upstream.listen(0, '127.0.0.1', r))
+    const upPort = (upstream.address() as { port: number }).port
+    try {
+      await withBridge({ upstreamBase: `http://127.0.0.1:${upPort}` }, async (p) => {
+        const res = await send({
+          port: p,
+          path: `/s/${TOKEN}/acme/api.git/info/refs?service=git-upload-pack`
+        })
+        expect(res.status).toBe(502)
+        expect(res.body).toBe('GitHub credential rejected')
+        expect(res.headers['www-authenticate']).toBeUndefined()
+      })
+    } finally {
+      upstream.closeAllConnections()
+      await new Promise((r) => upstream.close(r))
+    }
+  })
+
+  it('treats a throwing approval service as deny', async () => {
+    const approval = {
+      request: async () => {
+        throw new Error('boom')
+      },
+      revokeSession: () => {}
+    } as unknown as ApprovalService
+    await withBridge({ approval }, async (p) => {
+      const res = await send({
+        port: p,
+        path: RP,
+        method: 'POST',
+        headers: RP_TYPE,
+        body: createFeatBody()
+      })
+      expect(res.status).toBe(403)
+    })
+    expect(receivePackPosts()).toHaveLength(0)
+    expect(store.readPushLog(10)[0]).toMatchObject({ result: 'denied' })
+  })
+
+  it('answers 502 and logs error when the upstream is unreachable', async () => {
+    const probe = http.createServer()
+    await new Promise<void>((r) => probe.listen(0, '127.0.0.1', r))
+    const deadPort = (probe.address() as { port: number }).port
+    await new Promise((r) => probe.close(r))
+    await withBridge({ upstreamBase: `http://127.0.0.1:${deadPort}` }, async (p) => {
+      const res = await send({
+        port: p,
+        path: RP,
+        method: 'POST',
+        headers: RP_TYPE,
+        body: createFeatBody()
+      })
+      expect(res.status).toBe(502)
+    })
+    expect(store.readPushLog(10)[0]).toMatchObject({
+      result: 'error',
+      detail: 'upstream unreachable'
+    })
+  })
+})

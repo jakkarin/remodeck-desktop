@@ -1,7 +1,8 @@
-import { once } from 'node:events'
 import http from 'node:http'
 import https from 'node:https'
 import type { AddressInfo } from 'node:net'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import type { PushLogEntry, RefUpdate, Repo } from '../../shared/types'
 import type { ApprovalService } from '../approval/approvalService'
 import type { Credential } from '../github/credentials'
@@ -32,6 +33,7 @@ const HOP_BY_HOP = new Set([
   'keep-alive',
   'transfer-encoding',
   'proxy-authenticate',
+  'www-authenticate',
   'proxy-authorization',
   'te',
   'trailer',
@@ -126,6 +128,12 @@ export class GitBridge {
       await this.forward(target, method, headers, method === 'POST' ? req : null, res)
       return
     }
+    // The parser reads raw bytes, so an encoded body could hide its commands.
+    const encoding = headers['content-encoding']
+    if (encoding !== undefined && encoding.trim().toLowerCase() !== 'identity') {
+      this.logPush(session, [], 'blocked', 'unsupported content-encoding')
+      return fail(res, 400, 'unsupported content-encoding')
+    }
     await this.handleReceivePack(req, res, session, repo, target, headers)
   }
 
@@ -142,15 +150,7 @@ export class GitBridge {
       if (!res.writableFinished) clientGone = true
     })
     const log = (updates: RefUpdate[], result: PushLogEntry['result'], detail?: string): void =>
-      this.deps.store.appendPushLog({
-        time: new Date().toISOString(),
-        repo: `${session.repo.owner}/${session.repo.name}`,
-        workspaceId: session.workspaceId,
-        channel: 'bridge',
-        updates,
-        result,
-        ...(detail === undefined ? {} : { detail })
-      })
+      this.logPush(session, updates, result, detail)
 
     // Buffer the command section; nothing is forwarded until it has been checked.
     const it = req[Symbol.asyncIterator]() as AsyncIterator<Buffer>
@@ -201,6 +201,12 @@ export class GitBridge {
         log(commands, 'denied')
         return fail(res, 403, 'push denied')
       }
+      if (this.sessions.get(session.token) !== session) {
+        // Revoked while the prompt was open: drop any grant the answer just created.
+        this.deps.approval.revokeSession(session.sessionId)
+        log(commands, 'denied', 'session closed')
+        return fail(res, 403, 'session closed')
+      }
       if (clientGone) return
     }
 
@@ -218,6 +224,23 @@ export class GitBridge {
     else log(commands, 'error', status === null ? 'upstream unreachable' : `upstream ${status}`)
   }
 
+  private logPush(
+    session: BridgeSession,
+    updates: RefUpdate[],
+    result: PushLogEntry['result'],
+    detail?: string
+  ): void {
+    this.deps.store.appendPushLog({
+      time: new Date().toISOString(),
+      repo: `${session.repo.owner}/${session.repo.name}`,
+      workspaceId: session.workspaceId,
+      channel: 'bridge',
+      updates,
+      result,
+      ...(detail === undefined ? {} : { detail })
+    })
+  }
+
   /** Proxies one request upstream and streams the response back. Resolves the upstream status, or null if unreachable. */
   private forward(
     target: URL,
@@ -230,6 +253,13 @@ export class GitBridge {
     return new Promise((resolve) => {
       const up = client.request(target, { method, headers }, (upRes) => {
         const status = upRes.statusCode ?? 502
+        if (status === 401 || status === 407) {
+          // Never let sandbox git see an auth challenge: it would prompt for a token there.
+          upRes.resume()
+          fail(res, 502, 'GitHub credential rejected')
+          resolve(status)
+          return
+        }
         const out: http.OutgoingHttpHeaders = {}
         for (const [k, v] of Object.entries(upRes.headers)) {
           if (v !== undefined && !HOP_BY_HOP.has(k)) out[k] = v
@@ -250,12 +280,8 @@ export class GitBridge {
         up.end()
         return
       }
-      void (async () => {
-        for await (const chunk of body) {
-          if (!up.write(chunk)) await once(up, 'drain')
-        }
-        up.end()
-      })().catch(() => up.destroy())
+      // pipeline settles (and cleans up) even if `up` is destroyed without an error.
+      pipeline(Readable.from(body), up).catch(() => up.destroy())
     })
   }
 }
