@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostGit } from '../../../src/main/git/hostGit'
 import { MirrorService } from '../../../src/main/mirror/mirrorService'
 import { LocalTarget } from '../../../src/main/sandbox/target'
@@ -14,6 +14,7 @@ describe('SyncService.cloneToSandbox', () => {
   let gh: ReturnType<typeof makeFakeGitHub>
   let store: Store
   let svc: SyncService
+  let host: HostGit
 
   beforeEach(() => {
     tmp = makeTmp()
@@ -21,7 +22,7 @@ describe('SyncService.cloneToSandbox', () => {
     fs.mkdirSync(home, { recursive: true })
     gh = makeFakeGitHub(tmp)
     store = new Store(path.join(tmp, 'data'))
-    const host = new HostGit()
+    host = new HostGit()
     svc = new SyncService({
       git: host,
       mirror: new MirrorService(host, () => gh.url),
@@ -84,5 +85,46 @@ describe('SyncService.cloneToSandbox', () => {
     for (const k of keys) expect(k).toMatch(/^(core\.|remote\.origin\.|branch\.main\.)/)
     const refs = (await git(dir, 'for-each-ref', '--format=%(refname)')).trim().split('\n')
     for (const r of refs) expect(r).toMatch(/^refs\/(heads\/main|remotes\/origin\/|tags\/)/)
+  })
+
+  it('rejects a relative sandbox path before touching anything', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    for (const bad of ['repos/api', './api', '~user/api', '~', '~/']) {
+      const { ws, repo } = setup(bad)
+      await expect(svc.cloneToSandbox(ws)).rejects.toThrow('path ต้องขึ้นต้นด้วย / หรือ ~/')
+      expect(fs.existsSync(store.mirrorPath(repo))).toBe(false)
+    }
+  })
+
+  it('a retry after a failure following git init succeeds', async () => {
+    const sha = await gh.seed({ 'a.txt': 'hi' })
+    const { ws } = setup('~/retry')
+    const realRun = host.run.bind(host)
+    const spy = vi.spyOn(host, 'run').mockImplementation(async (cwd, args, opts) => {
+      if (args[0] === 'push') throw new Error('mirror push boom')
+      return realRun(cwd, args, opts)
+    })
+    await expect(svc.cloneToSandbox(ws)).rejects.toThrow('mirror push boom')
+    expect(fs.existsSync(sb('retry/.git'))).toBe(true)
+    spy.mockRestore()
+    await svc.cloneToSandbox(ws)
+    const dir = sb('retry')
+    expect((await git(dir, 'branch', '--show-current')).trim()).toBe('main')
+    expect((await git(dir, 'rev-parse', 'HEAD')).trim()).toBe(sha)
+    expect((await git(dir, 'remote', 'get-url', 'origin')).trim()).toBe('https://github.com/acme/api.git')
+  })
+
+  it('still rejects a target repo that has commits or an origin remote', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    const { ws: w1 } = setup('~/withorigin')
+    fs.mkdirSync(sb('withorigin'))
+    await git(sb('withorigin'), 'init')
+    await git(sb('withorigin'), 'remote', 'add', 'origin', 'https://example.invalid/x.git')
+    await expect(svc.cloneToSandbox(w1)).rejects.toThrow('Path ไม่ว่าง: ~/withorigin')
+    const { ws: w2 } = setup('~/withcommit')
+    fs.mkdirSync(sb('withcommit'))
+    await git(sb('withcommit'), 'init')
+    await git(sb('withcommit'), '-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '--allow-empty', '-m', 'x')
+    await expect(svc.cloneToSandbox(w2)).rejects.toThrow('Path ไม่ว่าง: ~/withcommit')
   })
 })

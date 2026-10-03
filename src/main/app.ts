@@ -12,6 +12,7 @@ import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
 import { resolveSshPath } from './proc/sshPath'
 import { checkRemoteForward } from './sandbox/preflight'
+import { validateSandboxPath } from './sandbox/shell'
 import { SshTarget } from './sandbox/target'
 import { Store } from './store/store'
 import { getDiff, listBranches, listCommits, listWorktrees } from './sync/queries'
@@ -163,6 +164,7 @@ export async function createApp(opts: {
       clone: async (hostId, repoInput, sandboxPath) => {
         const parsed = parseRepoInput(repoInput)
         if (!parsed) throw new Error('รูปแบบ repo ไม่ถูกต้อง')
+        validateSandboxPath(sandboxPath)
         hostOf(hostId)
         connection.requireConnected(hostId)
         const repo = store.upsertRepo(parsed.owner, parsed.name)

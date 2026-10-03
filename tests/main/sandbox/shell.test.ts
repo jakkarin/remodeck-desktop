@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shQuote, shPath } from '../../../src/main/sandbox/shell'
+import { shQuote, shPath, validateSandboxPath } from '../../../src/main/sandbox/shell'
 
 describe('shell quoting', () => {
   it('shQuote escapes single quotes', () => {
@@ -11,5 +11,16 @@ describe('shell quoting', () => {
   })
   it('shPath quotes other paths', () => {
     expect(shPath('/srv/a b')).toBe(`'/srv/a b'`)
+  })
+})
+
+describe('validateSandboxPath', () => {
+  it('accepts absolute and ~/ subdirectory paths', () => {
+    for (const ok of ['/srv/api', '~/repos/api', '~/x']) expect(() => validateSandboxPath(ok)).not.toThrow()
+  })
+  it('rejects relative, bare ~, ~/ and ~user paths', () => {
+    for (const bad of ['', 'repos/api', './api', '../api', '~', '~/', '~user/api', '/']) {
+      expect(() => validateSandboxPath(bad), bad).toThrow('path ต้องขึ้นต้นด้วย / หรือ ~/')
+    }
   })
 })
