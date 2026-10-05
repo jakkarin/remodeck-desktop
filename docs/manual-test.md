@@ -147,3 +147,12 @@ Still manual:
 - Windows OpenSSH (`C:/Windows/System32/OpenSSH/ssh.exe`). The test uses Git for Windows' ssh so it can use a throwaway `~/.ssh/config`.
 - How the Electron UI renders (xterm, the popup, the buttons).
 - Real GitHub (credential manager, opening the PR) and case 7.
+
+
+### UI redesign (manual)
+
+ตรวจบน Electron จริง หลังเปลี่ยนเป็น workspace แบบสามช่อง:
+- สีธีมสว่าง/มืดตาม OS (รวมถึง terminal) — สลับธีม OS แล้วหน้าจอและ terminal เปลี่ยนตาม
+- ลากแถบแบ่งช่อง (divider) ปรับขนาด แล้วปิดและเปิดแอปใหม่ ขนาดที่ปรับไว้ยังคงเดิม
+- เมื่อ AI commit ใน terminal โดยไม่กดปุ่ม Sync จุด ● ปรากฏที่ branch ภายในไม่กี่วินาที (light sync หลัง terminal นิ่ง 3 วินาที)
+- ปุ่ม Sync เปลี่ยนเป็นสีเหลืองเมื่อ host หลุดการเชื่อมต่อ

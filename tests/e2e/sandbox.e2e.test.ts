@@ -356,6 +356,31 @@ describe('regit against real sandboxes', () => {
       expect(out).toBe('')
     })
 
+    it('an AI commit in the terminal appears after the idle light sync, without contacting GitHub', async () => {
+      api.workspaces.setActive(ws1.id)
+      const lightEvents = (): number =>
+        events.filter(
+          (e) => e.channel === EV['workspace-synced'] && e.args[0] === ws1.id && (e.args[1] as { kind: string }).kind === 'light'
+        ).length
+      const seen = lightEvents()
+      const requestsBefore = backend.requests.length
+      const code = await run(
+        'git checkout -q -b feat-light origin/main && printf "one\\ntwo\\n" > light.txt && git add light.txt && git commit -qm light'
+      )
+      expect(code).toBe(0)
+      await waitFor('light workspace-synced event', () => lightEvents() > seen, 10_000, output)
+      expect(backend.requests.length).toBe(requestsBefore)
+      expect((await api.workspaces.branches(ws1.id)).map((b) => b.name)).toContain('feat-light')
+    })
+
+    it('files and per-file diff of the committed branch are available', async () => {
+      const files = await api.workspaces.files(ws1.id, 'feat-light')
+      expect(files).toEqual([{ path: 'light.txt', status: 'A', additions: 2, deletions: 0 }])
+      const diff = await api.workspaces.diff(ws1.id, 'feat-light', { file: 'light.txt' })
+      expect(diff).toContain('+two')
+      expect(diff).not.toContain('README.md')
+    })
+
     it('Disconnect closes the tab', async () => {
       api.hosts.disconnect(h1.id)
       await waitFor('terminal exit', () =>
