@@ -159,6 +159,13 @@ describe('SyncService.addExisting', () => {
     expect(store.config.workspaces).toHaveLength(0)
   })
 
+  it('never echoes credentials embedded in a rejected origin', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    await vmRepo('cred', 'https://bob:s3cret@gitlab.com/a/b.git')
+    const err = await svc.addExisting(hostId, '~/cred').catch((e: Error) => e)
+    expect((err as Error).message).toBe('origin ไม่ได้ชี้ไป GitHub: https://***@gitlab.com/a/b.git')
+  })
+
   it('rejects a relative path before touching anything', async () => {
     await expect(svc.addExisting(hostId, 'api')).rejects.toThrow('path ต้องขึ้นต้นด้วย / หรือ ~/')
   })

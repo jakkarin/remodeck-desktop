@@ -367,7 +367,9 @@ export class SyncService {
     }
     const url = res.stdout.trim()
     const parsed = /github\.com[/:]/.test(url) ? parseRepoInput(url) : null
-    if (!parsed) throw new Error(`origin ไม่ได้ชี้ไป GitHub: ${url}`)
+    // Never echo credentials an origin URL may embed (https://user:token@host/...).
+    if (!parsed)
+      throw new Error(`origin ไม่ได้ชี้ไป GitHub: ${url.replace(/\/\/[^@/\s]+@/, '//***@')}`)
     return parsed
   }
 

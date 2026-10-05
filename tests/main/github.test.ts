@@ -64,6 +64,14 @@ describe('parseRepoInput', () => {
       name: 'api'
     })
     expect(parseRepoInput('ssh://git@github.com/acme/api')).toEqual({ owner: 'acme', name: 'api' })
+    expect(parseRepoInput('https://bob@github.com/acme/api.git')).toEqual({
+      owner: 'acme',
+      name: 'api'
+    })
+    expect(parseRepoInput('https://x-access-token:abc@github.com/acme/api')).toEqual({
+      owner: 'acme',
+      name: 'api'
+    })
   })
   it('rejects invalid input', () => {
     expect(parseRepoInput('nope')).toBeNull()

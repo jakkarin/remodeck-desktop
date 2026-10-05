@@ -5,7 +5,7 @@ export function parseRepoInput(input: string): { owner: string; name: string } |
   let s = input.trim()
   const ssh = s.match(/^git@github\.com:(.+)$/)
   if (ssh) s = ssh[1]
-  else s = s.replace(/^(https?:\/\/(www\.)?|ssh:\/\/git@)github\.com\//, '')
+  else s = s.replace(/^(https?:\/\/([^@/\s]+@)?(www\.)?|ssh:\/\/git@)github\.com\//, '')
   s = s.replace(/\/+$/, '').replace(/\.git$/, '')
   const m = s.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/)
   return m ? { owner: m[1], name: m[2] } : null
