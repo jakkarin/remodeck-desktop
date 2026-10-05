@@ -42,28 +42,10 @@ export class SyncService {
     if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
     const mirrorPath = this.store.mirrorPath(repo)
     const name = this.remoteName(ws.id)
-    const prefix = `refs/remotes/${name}/`
-    const listWs = async (): Promise<Map<string, string>> =>
-      parseRefs(
-        (await this.git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix])).stdout
-      )
 
     const outcome = await withLock(mirrorPath, async () => {
       await this.git.run(mirrorPath, ['fetch', '--prune', 'origin'])
-      const before = await listWs()
-      await this.git.run(mirrorPath, ['fetch', '--prune', '--no-tags', name])
-      const after = await listWs()
-      const result: string[] = []
-      for (const [ref, oldSha] of before) {
-        const newSha = after.get(ref)
-        const branch = ref.slice(prefix.length)
-        if (!newSha || newSha === oldSha || branch === 'HEAD') continue
-        const res = await this.git.run(mirrorPath, ['merge-base', '--is-ancestor', oldSha, newSha], {
-          allowFail: true
-        })
-        if (res.code === 1) result.push(branch)
-        else if (res.code !== 0) throw new Error(`git merge-base --is-ancestor failed (${res.code}): ${res.stderr}`)
-      }
+      const result = await this.fetchWorkspace(mirrorPath, ws.id)
       const refs = await this.git.run(mirrorPath, [
         'for-each-ref',
         '--format=%(refname)',
@@ -96,6 +78,41 @@ export class SyncService {
       throw new Error(`tag ชนกับใน sandbox: ${outcome.tagConflicts.join(', ')}`)
     }
     return { rewritten: outcome.result }
+  }
+
+  /** Light sync: fetch only from the sandbox. Writes nothing into the sandbox and leaves the mirror's origin refs alone. */
+  async fetchSandbox(ws: Workspace): Promise<{ rewritten: string[] }> {
+    const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
+    if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
+    const mirrorPath = this.store.mirrorPath(repo)
+    const result = await withLock(mirrorPath, () => this.fetchWorkspace(mirrorPath, ws.id))
+    this.rewritten.set(ws.id, new Set(result))
+    return { rewritten: result }
+  }
+
+  /** Fetch ws-<id> into the mirror and return branches whose history was rewritten (not a fast-forward). Caller holds the lock. */
+  private async fetchWorkspace(mirrorPath: string, wsId: string): Promise<string[]> {
+    const name = this.remoteName(wsId)
+    const prefix = `refs/remotes/${name}/`
+    const listWs = async (): Promise<Map<string, string>> =>
+      parseRefs(
+        (await this.git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix])).stdout
+      )
+    const before = await listWs()
+    await this.git.run(mirrorPath, ['fetch', '--prune', '--no-tags', name])
+    const after = await listWs()
+    const result: string[] = []
+    for (const [ref, oldSha] of before) {
+      const newSha = after.get(ref)
+      const branch = ref.slice(prefix.length)
+      if (!newSha || newSha === oldSha || branch === 'HEAD') continue
+      const res = await this.git.run(mirrorPath, ['merge-base', '--is-ancestor', oldSha, newSha], {
+        allowFail: true
+      })
+      if (res.code === 1) result.push(branch)
+      else if (res.code !== 0) throw new Error(`git merge-base --is-ancestor failed (${res.code}): ${res.stderr}`)
+    }
+    return result
   }
 
   /** Push a sandbox branch (from the mirror) to GitHub as <target>. Never forces. */

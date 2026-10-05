@@ -133,3 +133,86 @@ describe('SyncService.sync', () => {
     await expect(Promise.all([svc.sync(w1), svc.sync(w2)])).resolves.toHaveLength(2)
   })
 })
+
+describe('SyncService.fetchSandbox', () => {
+  let tmp: string
+  let home: string
+  let gh: ReturnType<typeof makeFakeGitHub>
+  let store: Store
+  let svc: SyncService
+  let mirrorPath: string
+
+  beforeEach(async () => {
+    tmp = makeTmp()
+    home = path.join(tmp, 'home')
+    fs.mkdirSync(home, { recursive: true })
+    gh = makeFakeGitHub(tmp)
+    store = new Store(path.join(tmp, 'data'))
+    const host = new HostGit()
+    svc = new SyncService({
+      git: host,
+      mirror: new MirrorService(host, () => gh.url),
+      store,
+      targetFor: () => new LocalTarget(home)
+    })
+    await gh.seed({ 'a.txt': 'hi' })
+  })
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  const sb = (rel: string): string => path.join(home, rel)
+  const makeWs = async (rel: string): Promise<Awaited<ReturnType<Store['addWorkspace']>>> => {
+    const repo = store.upsertRepo('acme', 'api')
+    const h = store.config.hosts[0] ?? store.addHost('box', 'Box')
+    const ws = store.addWorkspace(repo.id, h.id, `~/${rel}`)
+    await svc.cloneToSandbox(ws)
+    mirrorPath = store.mirrorPath(repo)
+    return ws
+  }
+  const commit = async (dir: string, file: string, msg: string, ...extra: string[]): Promise<string> => {
+    fs.writeFileSync(path.join(dir, file), msg)
+    await git(dir, 'add', '-A')
+    await git(dir, ...ident, 'commit', ...extra, '-m', msg)
+    return (await git(dir, 'rev-parse', 'HEAD')).trim()
+  }
+  const rev = async (cwd: string, ref: string): Promise<string> => (await git(cwd, 'rev-parse', ref)).trim()
+
+  it('fetches new sandbox commits into refs/remotes/ws-<id>/*', async () => {
+    const ws = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat/a')
+    const sha = await commit(sb('w1'), 'f.txt', 'one')
+    const res = await svc.fetchSandbox(ws)
+    expect(res.rewritten).toEqual([])
+    expect(await rev(mirrorPath, `refs/remotes/ws-${ws.id}/feat/a`)).toBe(sha)
+  })
+
+  it('does not touch mirror refs/remotes/origin/*', async () => {
+    const ws = await makeWs('w1')
+    const before = await git(mirrorPath, 'for-each-ref', 'refs/remotes/origin')
+    await gh.seed({ 'b.txt': 'new' })
+    await svc.fetchSandbox(ws)
+    expect(await git(mirrorPath, 'for-each-ref', 'refs/remotes/origin')).toBe(before)
+  })
+
+  it('writes nothing into the sandbox (origin refs and tags unchanged)', async () => {
+    const ws = await makeWs('w1')
+    const snap = async (): Promise<string> =>
+      git(sb('w1'), 'for-each-ref', 'refs/remotes/origin', 'refs/tags')
+    const before = await snap()
+    await gh.seed({ 'b.txt': 'new' })
+    await svc.fetchSandbox(ws)
+    expect(await snap()).toBe(before)
+  })
+
+  it('detects rewritten branches and tracks them', async () => {
+    const ws = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat/a')
+    await commit(sb('w1'), 'f.txt', 'one')
+    expect((await svc.fetchSandbox(ws)).rewritten).toEqual([])
+    await commit(sb('w1'), 'f.txt', 'two', '--amend')
+    const res = await svc.fetchSandbox(ws)
+    expect(res.rewritten).toEqual(['feat/a'])
+    expect([...svc.rewrittenBranches(ws.id)]).toEqual(['feat/a'])
+  })
+})
