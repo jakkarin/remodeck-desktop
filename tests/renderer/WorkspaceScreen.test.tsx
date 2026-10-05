@@ -29,6 +29,7 @@ vi.mock('../../src/renderer/src/api', () => ({
 
 import { api } from '../../src/renderer/src/api'
 import { WorkspaceScreen } from '../../src/renderer/src/components/WorkspaceScreen'
+import { ChangesPane } from '../../src/renderer/src/components/ChangesPane'
 import { AppStateContext, type AppState } from '../../src/renderer/src/state'
 
 const branch = (over: Partial<BranchInfo> = {}): BranchInfo => ({
@@ -330,5 +331,44 @@ describe('WorkspaceScreen errors (moved from WorkspaceView)', () => {
     renderScreen()
     expect(await screen.findByText('timeout')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Rebuild mirror' })).toBeNull()
+  })
+})
+
+describe('ChangesPane push bar isolation', () => {
+  it('does not carry pushed state to a same-named branch in another workspace', async () => {
+    vi.mocked(api.workspaces.push).mockResolvedValue({ ok: true })
+    const props = {
+      branch: branch(),
+      commits: [],
+      files: [],
+      commit: null,
+      file: null,
+      connected: true,
+      error: null,
+      onSelectCommit: vi.fn(),
+      onSelectFile: vi.fn(),
+      onRebuild: vi.fn()
+    }
+    const { rerender } = render(<ChangesPane workspaceId="w1" {...props} />)
+    fireEvent.change(screen.getByLabelText('Target branch'), { target: { value: 'custom' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Push to GitHub' }))
+    expect(await screen.findByText('Pushed')).toBeInTheDocument()
+    rerender(<ChangesPane workspaceId="w2" {...props} />)
+    expect(screen.queryByText('Pushed')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Target branch')).toHaveValue('feat/a')
+  })
+})
+
+describe('WorkspaceScreen connection banner states', () => {
+  it('disables the button while connecting', async () => {
+    renderScreen({ state: 'connecting', warnings: [] })
+    expect(await screen.findByRole('button', { name: 'Connect' })).toBeDisabled()
+  })
+
+  it('offers Retry with the error text when the connection failed', async () => {
+    renderScreen({ state: 'error', error: 'ssh: timeout', warnings: [] })
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeEnabled()
+    expect(screen.getByText('ssh: timeout')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Connect' })).not.toBeInTheDocument()
   })
 })

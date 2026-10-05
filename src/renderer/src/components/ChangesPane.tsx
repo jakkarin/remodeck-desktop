@@ -56,7 +56,12 @@ export function ChangesPane({
           </>
         )}
       </div>
-      <PushBar key={branch.name} workspaceId={workspaceId} branch={branch} connected={connected} />
+      <PushBar
+        key={`${workspaceId}|${branch.name}`}
+        workspaceId={workspaceId}
+        branch={branch}
+        connected={connected}
+      />
     </div>
   )
 }

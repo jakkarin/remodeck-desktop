@@ -26,7 +26,8 @@ export function WorkspaceScreen({
   const ws = workspaces.find((w) => w.id === workspaceId)
   const host = hosts.find((h) => h.id === ws?.hostId)
   const repo = repos.find((r) => r.id === ws?.repoId)
-  const connected = !!host && statuses[host.id]?.state === 'connected'
+  const hostStatus = host ? statuses[host.id] : undefined
+  const connected = hostStatus?.state === 'connected'
   const [actionError, setActionError] = useState<string | null>(null)
   const d = useWorkspaceData(workspaceId, connected)
 
@@ -65,7 +66,12 @@ export function WorkspaceScreen({
       {!connected && (
         <div className="disconnected-banner">
           <span>{host?.label ?? 'Host'} ไม่ได้เชื่อมต่อ</span>
-          <button onClick={() => void connect()}>Connect</button>
+          {hostStatus?.state === 'error' && hostStatus.error && (
+            <span className="error">{hostStatus.error}</span>
+          )}
+          <button disabled={hostStatus?.state === 'connecting'} onClick={() => void connect()}>
+            {hostStatus?.state === 'error' ? 'Retry' : 'Connect'}
+          </button>
         </div>
       )}
       <SplitLayout
