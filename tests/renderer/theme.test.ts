@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyTheme, watchColorScheme, xtermTheme } from '../../src/renderer/src/theme'
+import {
+  applyTheme,
+  restoreCachedTheme,
+  watchColorScheme,
+  xtermTheme
+} from '../../src/renderer/src/theme'
 
 describe('xtermTheme', () => {
   it('maps css tokens to xterm theme keys', () => {
@@ -73,6 +78,18 @@ describe('applyTheme', () => {
     applyTheme('light')
     expect(document.documentElement.dataset.theme).toBe('light')
     applyTheme('system')
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
+  })
+})
+
+describe('restoreCachedTheme', () => {
+  it('re-applies the last forced theme and ignores system', () => {
+    applyTheme('dark')
+    delete document.documentElement.dataset.theme
+    restoreCachedTheme()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    applyTheme('system')
+    restoreCachedTheme()
     expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
   })
 })
