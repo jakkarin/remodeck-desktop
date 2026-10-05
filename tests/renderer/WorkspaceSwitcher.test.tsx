@@ -12,7 +12,7 @@ vi.mock('../../src/renderer/src/api', () => ({
       status: vi.fn()
     },
     repos: { listGitHub: vi.fn().mockResolvedValue([]) },
-    workspaces: { clone: vi.fn(), remove: vi.fn(), rebuildMirror: vi.fn() }
+    workspaces: { clone: vi.fn(), addExisting: vi.fn(), remove: vi.fn(), rebuildMirror: vi.fn() }
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
@@ -147,6 +147,36 @@ describe('WorkspaceSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: /Clone repo/ }))
     const dialog = screen.getByRole('dialog', { name: 'Clone' })
     expect(within(dialog).getByLabelText('Host')).toBeInTheDocument()
+  })
+
+  it('Add existing repo is disabled when no host is connected', () => {
+    renderWith({ h1: down, h2: down })
+    expect(screen.getByRole('button', { name: /Add existing repo/ })).toBeDisabled()
+  })
+
+  it('Add existing repo opens the dialog with connected hosts only', () => {
+    renderWith({ h1: up, h2: down })
+    fireEvent.click(screen.getByRole('button', { name: /Add existing repo/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Add existing repo' })
+    expect(within(dialog).queryByLabelText('Host')).toBeNull()
+  })
+
+  it('Add existing repo selects the new workspace on success', async () => {
+    vi.mocked(api.workspaces.addExisting).mockResolvedValue({
+      id: 'w9',
+      repoId: 'r1',
+      hostId: 'h1',
+      sandboxPath: '~/work/app'
+    })
+    const v = renderWith({ h1: up, h2: down })
+    fireEvent.click(screen.getByRole('button', { name: /Add existing repo/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Add existing repo' })
+    fireEvent.change(within(dialog).getByLabelText('Path'), { target: { value: '~/work/app' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(api.workspaces.addExisting).toHaveBeenCalledWith('h1', '~/work/app'))
+    await waitFor(() => expect(v.selectWorkspace).toHaveBeenCalledWith('w9'))
+    expect(v.refresh).toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Add existing repo' })).toBeNull()
   })
 
   it('Add host opens the add dialog', () => {

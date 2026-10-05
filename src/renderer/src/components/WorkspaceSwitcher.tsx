@@ -4,6 +4,7 @@ import type { Host, HostStatus, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { AddHostDialog } from './AddHostDialog'
+import { AddExistingDialog } from './AddExistingDialog'
 import { CloneDialog } from './CloneDialog'
 import { RemoveHostDialog, RemoveWorkspaceDialog } from './RemoveDialogs'
 
@@ -24,6 +25,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<string | null>(null)
   const [cloning, setCloning] = useState(false)
+  const [addingExisting, setAddingExisting] = useState(false)
   const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [removingHost, setRemovingHost] = useState<Host | null>(null)
@@ -204,6 +206,9 @@ export function WorkspaceSwitcher(): React.JSX.Element {
             <button disabled={connectedIds.length === 0} onClick={() => setCloning(true)}>
               ＋ Clone repo…
             </button>
+            <button disabled={connectedIds.length === 0} onClick={() => setAddingExisting(true)}>
+              ＋ Add existing repo…
+            </button>
             <button onClick={() => setAdding(true)}>
               <Plus size={14} /> Add host
             </button>
@@ -219,6 +224,18 @@ export function WorkspaceSwitcher(): React.JSX.Element {
           workspace={removingWs.ws}
           label={removingWs.label}
           onClose={() => setRemovingWs(null)}
+        />
+      )}
+      {addingExisting && (
+        <AddExistingDialog
+          hostIds={connectedIds}
+          onClose={() => setAddingExisting(false)}
+          onAdded={(w) => {
+            setAddingExisting(false)
+            void refresh()
+              .catch(() => undefined)
+              .then(() => selectWorkspace(w.id))
+          }}
         />
       )}
       {cloning && (

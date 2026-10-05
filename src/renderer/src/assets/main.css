@@ -447,6 +447,7 @@ input {
 }
 .switcher-footer {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--border);
