@@ -10,6 +10,8 @@ export type ClipboardOptions = {
   /** Uploads the clipboard image (if any) and resolves its remote path, or null when there is none. */
   pasteImage?: () => Promise<string | null>
   onError?: (msg: string) => void
+  /** Called when an upload starts; the returned function is called when it settles. */
+  onBusy?: () => () => void
 }
 
 const BACKSLASH = String.fromCharCode(92)
@@ -55,8 +57,10 @@ export function attachClipboard(
 
   const paste = (): void => {
     if (!opts.pasteImage) return pasteText()
+    const end = opts.onBusy?.()
     opts
       .pasteImage()
+      .finally(() => end?.())
       .then((path) => {
         if (path) term.paste(formatPath(path) + ' ')
         else pasteText()
@@ -105,13 +109,15 @@ export function attachImageDrop(
   el: HTMLElement,
   term: Pick<Terminal, 'paste'>,
   upload: (bytes: Uint8Array, ext: string) => Promise<string>,
-  onError: (msg: string) => void
+  onError: (msg: string) => void,
+  onBusy?: () => () => void
 ): () => void {
   const onDragOver = (e: DragEvent): void => e.preventDefault()
   const onDrop = (e: DragEvent): void => {
     e.preventDefault()
     const files = Array.from(e.dataTransfer?.files ?? [])
     if (files.length === 0) return
+    const end = onBusy?.()
     void (async () => {
       const paths: string[] = []
       for (const file of files) {
@@ -130,6 +136,7 @@ export function attachImageDrop(
           onError(errMsg(err))
         }
       }
+      end?.()
       if (paths.length > 0) term.paste(paths.map(formatPath).join(' ') + ' ')
     })()
   }

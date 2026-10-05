@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createApp } from './app'
+import { isAppNavigation } from './navigation'
 import { registerHandlers } from './ipc/handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -40,6 +41,12 @@ function createWindow(): void {
     }
     if (protocol === 'https:') void shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // Dropping a file outside a drop target would otherwise navigate the window to it.
+  win.webContents.on('will-navigate', (e, url) => {
+    const devUrl = is.dev ? process.env['ELECTRON_RENDERER_URL'] : undefined
+    if (!isAppNavigation(url, devUrl)) e.preventDefault()
   })
 
   // HMR for renderer base on electron-vite cli.

@@ -275,3 +275,45 @@ describe('attachImageDrop', () => {
     expect(drop(t.el, [file('a.png', 'image/png')]).defaultPrevented).toBe(false)
   })
 })
+
+describe('onBusy wiring', () => {
+  it('clipboard paste begins and ends around pasteImage, also on rejection', async () => {
+    for (const fail of [false, true]) {
+      const end = vi.fn()
+      const onBusy = vi.fn(() => end)
+      const t = setup({
+        clipOpts: {
+          pasteImage: async () => {
+            if (fail) throw new Error('x')
+            return null
+          },
+          onError: () => {},
+          onBusy
+        }
+      })
+      t.key({ ...CS, code: 'KeyV' })
+      expect(onBusy).toHaveBeenCalledTimes(1)
+      await flush()
+      expect(end).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it('drop begins once per drop and ends after uploads settle', async () => {
+    const el = document.createElement('div')
+    const end = vi.fn()
+    const onBusy = vi.fn(() => end)
+    const upload = vi.fn(async () => {
+      throw new Error('nope')
+    })
+    attachImageDrop(el, { paste: vi.fn() }, upload, () => {}, onBusy)
+    const ev = new Event('drop', { cancelable: true })
+    Object.defineProperty(ev, 'dataTransfer', {
+      value: { files: [new File([new Uint8Array(2)], 'a.png', { type: 'image/png' })] }
+    })
+    el.dispatchEvent(ev)
+    expect(onBusy).toHaveBeenCalledTimes(1)
+    expect(end).not.toHaveBeenCalled()
+    for (let i = 0; i < 5; i++) await flush()
+    expect(end).toHaveBeenCalledTimes(1)
+  })
+})
