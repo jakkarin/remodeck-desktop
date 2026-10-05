@@ -1,4 +1,4 @@
-/* Codex Neutral: semantic tokens shared by UI and xterm. */
+/* Neutral theme: semantic tokens shared by UI and xterm. */
 :root {
   color-scheme: light dark;
   --bg: #fafafa;

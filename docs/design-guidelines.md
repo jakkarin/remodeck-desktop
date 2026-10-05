@@ -1,6 +1,6 @@
-# Regit design guidelines — Codex Neutral
+# Regit design guidelines — Neutral
 
-แนวทางที่เลือก: desktop UI โทน neutral แบบ Codex โดยคง layout Branches / Changes / Diff
+แนวทางที่เลือก: desktop UI โทน neutral โดยคง layout Branches / Changes / Diff
 และ terminal ด้านล่าง รวมถึงการลากปรับขนาดและค่าที่บันทึกไว้เดิม
 
 ## Source of truth

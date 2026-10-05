@@ -32,7 +32,7 @@ npm test         # unit + integration tests (Vitest)
 
 Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 
-UI tokens and reusable component usage: [Codex Neutral design guidelines](docs/design-guidelines.md).
+UI tokens and reusable component usage: [Neutral design guidelines](docs/design-guidelines.md).
 
 ## Security boundary / ขอบเขตความปลอดภัย
 
