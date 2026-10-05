@@ -29,6 +29,11 @@ vi.mock('@xterm/xterm', () => ({
     onData = vi.fn(() => ({ dispose: vi.fn() }))
     onResize = vi.fn(() => ({ dispose: vi.fn() }))
     write = vi.fn()
+    attachCustomKeyEventHandler = vi.fn()
+    hasSelection = vi.fn(() => false)
+    getSelection = vi.fn(() => '')
+    clearSelection = vi.fn()
+    paste = vi.fn()
     dispose = vi.fn()
   }
 }))

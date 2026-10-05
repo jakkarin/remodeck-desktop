@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css'
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { attachClipboard } from '../terminalClipboard'
 import { onTerminalOpened, openTerminal } from '../terminalEvents'
 import { Button, IconButton } from './ui'
 
@@ -45,6 +46,7 @@ function TerminalPane({
     fitRef.current = fit
     term.loadAddon(fit)
     term.open(host.current!)
+    const detachClipboard = attachClipboard(term, host.current!)
     const onData = term.onData((d) => api.terminal.write(tabId, d))
     const onResize = term.onResize(({ cols, rows }) => api.terminal.resize(tabId, cols, rows))
     const doFit = (): void => {
@@ -61,6 +63,7 @@ function TerminalPane({
     return () => {
       ro.disconnect()
       unwatch()
+      detachClipboard()
       register(tabId, null)
       onData.dispose()
       onResize.dispose()
