@@ -77,4 +77,17 @@ describe('SplitLayout', () => {
     renderLayout(true)
     expect(screen.getAllByRole('separator')).toHaveLength(2)
   })
+
+  it('keeps 160px for the right column and the terminal when dragging past the maximum', () => {
+    renderLayout()
+    const root = screen.getByTestId('split-root')
+    root.getBoundingClientRect = (): DOMRect =>
+      ({ width: 1000, height: 600, top: 0, left: 0, right: 1000, bottom: 600 }) as DOMRect
+    drag(screen.getAllByRole('separator')[0], 0, 5000)
+    expect(readLayout().left).toBe(1000 - 320 - 160 - 12)
+    drag(screen.getAllByRole('separator')[1], 0, 5000)
+    expect(readLayout().middle).toBe(1000 - (1000 - 320 - 160 - 12) - 160 - 12)
+    drag(screen.getAllByRole('separator')[2], 500, -5000, 'y')
+    expect(readLayout().bottom).toBe(600 - 160)
+  })
 })

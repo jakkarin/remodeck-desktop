@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, FolderGit2, MoreHorizontal, Plus } from 'lucide-react'
 import type { Host, HostStatus, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
@@ -21,6 +21,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
     refresh
   } = useAppState()
   const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<string | null>(null)
   const [cloning, setCloning] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -34,6 +35,22 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   }
   const active = workspaces.find((w) => w.id === activeWorkspaceId)
   const connectedIds = hosts.filter((h) => statuses[h.id]?.state === 'connected').map((h) => h.id)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    const onPointer = (e: globalThis.PointerEvent): void => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onPointer)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onPointer)
+    }
+  }, [open])
 
   const run = async (action: () => Promise<void>): Promise<void> => {
     setActionError(null)
@@ -52,7 +69,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
     })
 
   return (
-    <div className="switcher">
+    <div className="switcher" ref={rootRef}>
       <button
         className="switcher-trigger"
         aria-label="Switch workspace"

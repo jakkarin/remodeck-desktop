@@ -154,4 +154,21 @@ describe('WorkspaceSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: /Add host/ }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
+
+  it('closes on Escape, on an outside pointerdown, and after choosing a workspace', () => {
+    renderWith({ h1: up, h2: up })
+    const panelOpen = (): boolean => screen.queryByText('Alpha') !== null
+    expect(panelOpen()).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(panelOpen()).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
+    expect(panelOpen()).toBe(true)
+    fireEvent.pointerDown(screen.getByText('Alpha'))
+    expect(panelOpen()).toBe(true)
+    fireEvent.pointerDown(document.body)
+    expect(panelOpen()).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
+    fireEvent.click(screen.getByText('acme/api · ~/repos/api'))
+    expect(panelOpen()).toBe(false)
+  })
 })
