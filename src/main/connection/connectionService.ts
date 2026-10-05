@@ -1,0 +1,93 @@
+import { EventEmitter } from 'node:events'
+import type { HostStatus } from '../../shared/types'
+import type { SandboxTarget } from '../sandbox/target'
+import type { ProcResult } from '../proc/run'
+import { PREFLIGHT_SCRIPT, parsePreflight } from '../sandbox/preflight'
+
+export type ConnectionDeps = {
+  targetFor(hostId: string): SandboxTarget
+  sshHostFor(hostId: string): string
+  checkForward(hostId: string): Promise<boolean>
+  onDisconnect(hostId: string): void
+}
+
+const NO_GIT =
+  'ไม่พบ git บนเครื่องนี้ — ติดตั้งก่อน เช่น sudo apt install git หรือ sudo dnf install git แล้วกด Reload'
+const NO_HTTP = 'git บนเครื่องนี้ไม่รองรับ HTTP — push/pull จาก terminal ของแอปจะใช้ไม่ได้'
+const NO_FORWARD = 'sshd ปิด AllowTcpForwarding — push/pull จาก terminal ของแอปจะใช้ไม่ได้'
+
+export class ConnectionService extends EventEmitter {
+  private readonly statuses = new Map<string, HostStatus>()
+  private readonly inFlight = new Map<string, Promise<HostStatus>>()
+  private readonly generations = new Map<string, number>()
+
+  constructor(private readonly deps: ConnectionDeps) {
+    super()
+  }
+
+  status(hostId: string): HostStatus {
+    return this.statuses.get(hostId) ?? { state: 'disconnected', warnings: [] }
+  }
+
+  connect(hostId: string): Promise<HostStatus> {
+    const existing = this.inFlight.get(hostId)
+    if (existing) return existing
+    const p = this.doConnect(hostId).finally(() => this.inFlight.delete(hostId))
+    this.inFlight.set(hostId, p)
+    return p
+  }
+
+  disconnect(hostId: string): void {
+    this.generations.set(hostId, (this.generations.get(hostId) ?? 0) + 1)
+    this.set(hostId, { state: 'disconnected', warnings: [] })
+    this.deps.onDisconnect(hostId)
+  }
+
+  requireConnected(hostId: string): void {
+    if (this.status(hostId).state !== 'connected') throw new Error('Host ยังไม่ได้ connect')
+  }
+
+  private set(hostId: string, status: HostStatus): HostStatus {
+    this.statuses.set(hostId, status)
+    this.emit('status', hostId, status)
+    return status
+  }
+
+  private async doConnect(hostId: string): Promise<HostStatus> {
+    const gen = this.generations.get(hostId) ?? 0
+    const stale = (): boolean => (this.generations.get(hostId) ?? 0) !== gen
+    this.set(hostId, { state: 'connecting', warnings: [] })
+    const sshFail = (detail: string): HostStatus =>
+      stale()
+        ? this.status(hostId)
+        : this.set(hostId, {
+            state: 'error',
+            warnings: [],
+            error: `${detail}\nลองรัน ssh ${this.deps.sshHostFor(hostId)} ใน terminal ของระบบก่อน`
+          })
+
+    let r: ProcResult
+    try {
+      r = await this.deps.targetFor(hostId).exec(PREFLIGHT_SCRIPT)
+    } catch (e) {
+      return sshFail((e as Error).message)
+    }
+    if (stale()) return this.status(hostId)
+    if (r.code === 255) return sshFail(r.stderr.trim() || 'ssh exit 255')
+
+    const { gitVersion, remoteHttp } = parsePreflight(r.stdout)
+    if (!gitVersion) return this.set(hostId, { state: 'error', warnings: [], error: NO_GIT })
+
+    const warnings: string[] = []
+    if (!remoteHttp) warnings.push(NO_HTTP)
+    let forwardOk = false
+    try {
+      forwardOk = await this.deps.checkForward(hostId)
+    } catch {
+      forwardOk = false
+    }
+    if (!forwardOk) warnings.push(NO_FORWARD)
+    if (stale()) return this.status(hostId)
+    return this.set(hostId, { state: 'connected', gitVersion, warnings })
+  }
+}

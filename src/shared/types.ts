@@ -1,0 +1,81 @@
+// Shared between main and renderer: types only, no node imports.
+
+export type Host = { id: string; sshHost: string; label: string }
+
+export type Repo = {
+  id: string
+  owner: string
+  name: string
+  defaultBranch: string
+  protectedBranches: string[]
+  alwaysAllowPush: boolean
+  enforceRules: boolean
+}
+
+export type Workspace = { id: string; repoId: string; hostId: string; sandboxPath: string }
+
+export type Config = { hosts: Host[]; repos: Repo[]; workspaces: Workspace[] }
+
+export type RefUpdate = { oldSha: string; newSha: string; ref: string }
+
+export type PushLogEntry = {
+  time: string
+  repo: string
+  workspaceId: string | null
+  channel: 'review' | 'bridge'
+  updates: RefUpdate[]
+  result: 'ok' | 'denied' | 'blocked' | 'rejected' | 'error'
+  detail?: string
+}
+
+export type BranchInfo = {
+  name: string
+  sha: string
+  base: string
+  ahead: number
+  behind: number
+  merged: boolean
+  rewritten: boolean
+}
+
+export type FileChange = {
+  path: string
+  oldPath?: string
+  status: 'A' | 'M' | 'D' | 'R'
+  additions: number | null
+  deletions: number | null
+}
+
+export type CommitInfo = { sha: string; subject: string; author: string; date: string }
+
+export type WorktreeInfo = {
+  path: string
+  branch: string | null
+  head: string | null
+  dirty: number
+}
+
+export type SyncInfo = { kind: 'light' | 'full'; at: number; error?: string }
+
+export type HostState = 'disconnected' | 'connecting' | 'connected' | 'error'
+
+export type HostStatus = {
+  state: HostState
+  gitVersion?: string
+  warnings: string[]
+  error?: string
+}
+
+export type PushOutcome =
+  { ok: true } | { ok: false; reason: 'protected' | 'non-fast-forward' | 'error'; message: string }
+
+export type ApprovalDecision = 'once' | 'session' | 'always' | 'deny'
+
+export type ApprovalRequest = {
+  id: string
+  repoId: string
+  repoLabel: string
+  sessionId: string
+  tabLabel: string
+  updates: RefUpdate[]
+}

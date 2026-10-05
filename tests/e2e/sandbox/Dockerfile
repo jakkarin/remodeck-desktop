@@ -1,0 +1,13 @@
+# A stand-in AI sandbox: plain Linux with sshd and git, nothing regit-specific installed.
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssh-server git ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd -m -s /bin/bash dev \
+ && mkdir -p /run/sshd \
+ && printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nAllowTcpForwarding yes\n' \
+      > /etc/ssh/sshd_config.d/regit-e2e.conf
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 22
+ENTRYPOINT ["/entrypoint.sh"]
