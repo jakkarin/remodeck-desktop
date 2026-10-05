@@ -12,6 +12,13 @@ export type Repo = {
   enforceRules: boolean
 }
 
+/** What an existing sandbox repo resolves to, shown to the user before anything is fetched. */
+export type ExistingRepoInfo = {
+  owner: string
+  name: string
+  known: boolean
+  alwaysAllowPush: boolean
+}
 export type Workspace = { id: string; repoId: string; hostId: string; sandboxPath: string }
 
 export type Config = { hosts: Host[]; repos: Repo[]; workspaces: Workspace[] }

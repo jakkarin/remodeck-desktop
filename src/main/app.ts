@@ -200,12 +200,19 @@ export async function createApp(opts: {
         }
         return ws
       },
-      addExisting: async (hostId, sandboxPath) => {
+      inspectExisting: async (hostId, sandboxPath) => {
         validateSandboxPath(sandboxPath)
         hostOf(hostId)
         connection.requireConnected(hostId)
-        // Rejects duplicates, probes the repo read-only and rolls back only our own records on failure.
-        return sync.addExisting(hostId, sandboxPath)
+        // Read-only: resolves owner/name from the sandbox's origin; nothing is written or fetched.
+        return sync.describeExisting(hostId, sandboxPath)
+      },
+      addExisting: async (hostId, sandboxPath, expected) => {
+        validateSandboxPath(sandboxPath)
+        hostOf(hostId)
+        connection.requireConnected(hostId)
+        // Rejects duplicates and a changed origin before any write, then rolls back only our own records on failure.
+        return sync.addExisting(hostId, sandboxPath, expected)
       },
       remove: async (id, deleteMirrorIfLast) => {
         const ws = wsOf(id)

@@ -322,9 +322,12 @@ describe('regit against real sandboxes', () => {
       )
     const before = await probe()
 
-    const ws = await api.workspaces.addExisting(h1.id, '~/existing')
+    const info = await api.workspaces.inspectExisting(h1.id, '~/existing')
+    expect(info).toMatchObject({ owner: 'acme', name: 'widget' })
+    const expected = { owner: info.owner, name: info.name }
+    const ws = await api.workspaces.addExisting(h1.id, '~/existing', expected)
     expect(ws).toMatchObject({ hostId: h1.id, sandboxPath: '~/existing' })
-    await expect(api.workspaces.addExisting(h1.id, '~/existing')).rejects.toThrow(
+    await expect(api.workspaces.addExisting(h1.id, '~/existing', expected)).rejects.toThrow(
       /มี workspace นี้อยู่แล้ว/
     )
 

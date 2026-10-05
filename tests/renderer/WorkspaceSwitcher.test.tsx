@@ -12,7 +12,13 @@ vi.mock('../../src/renderer/src/api', () => ({
       status: vi.fn()
     },
     repos: { listGitHub: vi.fn().mockResolvedValue([]) },
-    workspaces: { clone: vi.fn(), addExisting: vi.fn(), remove: vi.fn(), rebuildMirror: vi.fn() }
+    workspaces: {
+      clone: vi.fn(),
+      inspectExisting: vi.fn(),
+      addExisting: vi.fn(),
+      remove: vi.fn(),
+      rebuildMirror: vi.fn()
+    }
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
@@ -168,12 +174,24 @@ describe('WorkspaceSwitcher', () => {
       hostId: 'h1',
       sandboxPath: '~/work/app'
     })
+    vi.mocked(api.workspaces.inspectExisting).mockResolvedValue({
+      owner: 'o',
+      name: 'r',
+      known: true,
+      alwaysAllowPush: false
+    })
     const v = renderWith({ h1: up, h2: down })
     fireEvent.click(screen.getByRole('button', { name: /Add existing repo/ }))
     const dialog = screen.getByRole('dialog', { name: 'Add existing repo' })
     fireEvent.change(within(dialog).getByLabelText('Path'), { target: { value: '~/work/app' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-    await waitFor(() => expect(api.workspaces.addExisting).toHaveBeenCalledWith('h1', '~/work/app'))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Check' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Confirm & Add' }))
+    await waitFor(() =>
+      expect(api.workspaces.addExisting).toHaveBeenCalledWith('h1', '~/work/app', {
+        owner: 'o',
+        name: 'r'
+      })
+    )
     await waitFor(() => expect(v.selectWorkspace).toHaveBeenCalledWith('w9'))
     expect(v.refresh).toHaveBeenCalled()
     expect(screen.queryByRole('dialog', { name: 'Add existing repo' })).toBeNull()
