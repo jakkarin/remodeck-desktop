@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import type { Host, HostStatus, Workspace } from '../../src/shared/types'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { DEFAULT_PREFS, type Host, type HostStatus, type Workspace } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
@@ -16,14 +16,21 @@ vi.mock('../../src/renderer/src/api', () => ({
       files: vi.fn().mockResolvedValue([]),
       diff: vi.fn().mockResolvedValue('')
     },
-    terminal: { open: vi.fn() }
+    terminal: { open: vi.fn() },
+    prefs: { get: vi.fn(), update: vi.fn() }
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
+const terminals = vi.hoisted(() => [] as { options: Record<string, unknown> }[])
+
 vi.mock('@xterm/xterm', () => ({
   Terminal: class {
-    options = {}
+    options: Record<string, unknown>
+    constructor(opts: Record<string, unknown>) {
+      this.options = { ...opts }
+      terminals.push(this)
+    }
     loadAddon = vi.fn()
     open = vi.fn()
     onData = vi.fn(() => ({ dispose: vi.fn() }))
@@ -54,6 +61,7 @@ function setup(hosts: Host[], workspaces: Workspace[], status: HostStatus): void
   vi.mocked(api.hosts.status).mockResolvedValue(status)
   vi.mocked(api.repos.list).mockResolvedValue([])
   vi.mocked(api.workspaces.list).mockResolvedValue(workspaces)
+  vi.mocked(api.prefs.get).mockResolvedValue(DEFAULT_PREFS)
 }
 
 beforeEach(() => {
@@ -70,6 +78,8 @@ beforeEach(() => {
     }
   )
   vi.clearAllMocks()
+  terminals.length = 0
+  document.documentElement.removeAttribute('data-theme')
   localStorage.clear()
 })
 
@@ -127,5 +137,75 @@ describe('App with a workspace', () => {
     const plus = await screen.findByRole('button', { name: 'New terminal' })
     expect(plus).toBeDisabled()
     expect(plus).toHaveAttribute('title')
+  })
+})
+
+describe('App prefs', () => {
+  const repo = {
+    id: 'r1',
+    owner: 'acme',
+    name: 'api',
+    defaultBranch: 'main',
+    protectedBranches: ['main'],
+    alwaysAllowPush: false,
+    enforceRules: true
+  }
+
+  it('applies the stored theme at startup', async () => {
+    setup([host], [ws], { state: 'connected', warnings: [] })
+    vi.mocked(api.prefs.get).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'dark' })
+    render(<App />)
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'))
+  })
+
+  it('the top bar opens settings; changing the theme updates prefs and data-theme', async () => {
+    setup([host], [ws], { state: 'connected', warnings: [] })
+    vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'light' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    const dialog = screen.getByRole('dialog', { name: 'Settings' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Appearance' }))
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Light' }))
+    await waitFor(() => expect(api.prefs.update).toHaveBeenCalledWith({ theme: 'light' }))
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('light'))
+  })
+
+  it('Repo settings in the workspace menu opens settings at that repo', async () => {
+    setup([host], [ws], { state: 'connected', warnings: [] })
+    vi.mocked(api.repos.list).mockResolvedValue([{ ...repo, id: 'r0', name: 'other' }, repo])
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Repo settings…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Settings' })
+    expect(within(dialog).getByRole('button', { name: 'Repositories' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    expect(within(dialog).getByLabelText('Protected branches for acme/api')).toBeInTheDocument()
+  })
+
+  it('font size change updates open terminals without recreating them', async () => {
+    setup([host], [ws], { state: 'connected', warnings: [] })
+    vi.mocked(api.prefs.get).mockResolvedValue({ ...DEFAULT_PREFS, terminalFontSize: 15 })
+    vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, terminalFontSize: 18 })
+    vi.mocked(api.terminal.open).mockResolvedValue({ tabId: 't1', label: 'x' })
+    render(<App />)
+    await waitFor(() => expect(document.documentElement).toBeTruthy())
+    const plus = await screen.findByRole('button', { name: 'New terminal' })
+    await waitFor(() => expect(plus).toBeEnabled())
+    // wait for prefs to load before opening so the terminal is created with the stored size
+    await new Promise((r) => setTimeout(r, 0))
+    fireEvent.click(plus)
+    await waitFor(() => expect(terminals).toHaveLength(1))
+    expect(terminals[0].options.fontSize).toBe(15)
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    const dialog = screen.getByRole('dialog', { name: 'Settings' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Appearance' }))
+    fireEvent.change(within(dialog).getByLabelText('Terminal font size'), {
+      target: { value: '18' }
+    })
+    await waitFor(() => expect(terminals[0].options.fontSize).toBe(18))
+    expect(terminals).toHaveLength(1)
   })
 })

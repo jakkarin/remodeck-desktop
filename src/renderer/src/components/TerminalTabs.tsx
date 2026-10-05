@@ -31,12 +31,15 @@ function TerminalPane({
   const host = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const [uploading, setUploading] = useState(false)
+  const { prefs } = useAppState()
+  const fontSizeRef = useRef(prefs.terminalFontSize)
+  const termRef = useRef<Terminal | null>(null)
 
   useEffect(() => {
     const readTheme = (): ITheme =>
       xtermTheme((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim())
     const term = new Terminal({
-      fontSize: 13,
+      fontSize: fontSizeRef.current,
       fontFamily:
         getComputedStyle(document.documentElement).getPropertyValue('--font-code').trim() ||
         undefined,
@@ -48,6 +51,7 @@ function TerminalPane({
     })
     const fit = new FitAddon()
     fitRef.current = fit
+    termRef.current = term
     term.loadAddon(fit)
     term.open(host.current!)
     const busy = createBusyIndicator(setUploading)
@@ -88,8 +92,21 @@ function TerminalPane({
       onResize.dispose()
       term.dispose()
       fitRef.current = null
+      termRef.current = null
     }
   }, [tabId, register, onError])
+
+  useEffect(() => {
+    fontSizeRef.current = prefs.terminalFontSize
+    const term = termRef.current
+    if (!term || term.options.fontSize === prefs.terminalFontSize) return
+    term.options.fontSize = prefs.terminalFontSize
+    try {
+      fitRef.current?.fit()
+    } catch {
+      /* container not measurable yet (hidden) */
+    }
+  }, [prefs.terminalFontSize])
 
   useEffect(() => {
     if (active) {

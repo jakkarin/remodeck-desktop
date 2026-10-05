@@ -7,10 +7,13 @@ import { TerminalTabs } from './components/TerminalTabs'
 import { TopBar } from './components/TopBar'
 import { WorkspaceScreen } from './components/WorkspaceScreen'
 import { AppStateProvider, useAppState } from './state'
+import { SettingsOpenerContext, type SettingsSection } from './settingsOpener'
 
 function Layout(): React.JSX.Element {
   const { activeWorkspaceId, workspaces } = useAppState()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string } | null>(
+    null
+  )
   const [collapsed, setCollapsed] = useState(() => readLayout().collapsed)
 
   const toggle = (): void => {
@@ -20,21 +23,30 @@ function Layout(): React.JSX.Element {
 
   const active = workspaces.find((w) => w.id === activeWorkspaceId)
   return (
-    <div className="app">
-      <TopBar onOpenSettings={() => setSettingsOpen(true)} />
-      <main className="main">
-        {active ? (
-          <WorkspaceScreen
-            workspaceId={active.id}
-            bottom={<TerminalTabs collapsed={collapsed} onToggle={toggle} />}
-            bottomCollapsed={collapsed}
+    <SettingsOpenerContext.Provider value={(section, repoId) => setSettings({ section, repoId })}>
+      <div className="app">
+        <TopBar onOpenSettings={() => setSettings({ section: 'general' })} />
+        <main className="main">
+          {active ? (
+            <WorkspaceScreen
+              workspaceId={active.id}
+              bottom={<TerminalTabs collapsed={collapsed} onToggle={toggle} />}
+              bottomCollapsed={collapsed}
+            />
+          ) : (
+            <EmptyState />
+          )}
+        </main>
+        {settings && (
+          <SettingsDialog
+            key={`${settings.section}:${settings.repoId ?? ''}`}
+            initialSection={settings.section}
+            initialRepoId={settings.repoId}
+            onClose={() => setSettings(null)}
           />
-        ) : (
-          <EmptyState />
         )}
-      </main>
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
-    </div>
+      </div>
+    </SettingsOpenerContext.Provider>
   )
 }
 

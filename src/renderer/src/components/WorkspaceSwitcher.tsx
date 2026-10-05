@@ -3,8 +3,10 @@ import { ChevronDown, FolderGit2, MoreHorizontal, Plus } from 'lucide-react'
 import type { Host, HostStatus, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { useOpenSettings } from '../settingsOpener'
 import { Button, IconButton } from './ui'
 import { AddHostDialog } from './AddHostDialog'
+import { HostSettingsDialog } from './HostSettingsDialog'
 import { AddExistingDialog } from './AddExistingDialog'
 import { CloneDialog } from './CloneDialog'
 import { RemoveHostDialog, RemoveWorkspaceDialog } from './RemoveDialogs'
@@ -22,6 +24,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
     setStatus,
     refresh
   } = useAppState()
+  const openSettings = useOpenSettings()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<string | null>(null)
@@ -30,6 +33,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [removingHost, setRemovingHost] = useState<Host | null>(null)
+  const [editingHost, setEditingHost] = useState<Host | null>(null)
   const [removingWs, setRemovingWs] = useState<{ ws: Workspace; label: string } | null>(null)
 
   const labelOf = (w: Workspace): string => {
@@ -115,6 +119,14 @@ export function WorkspaceSwitcher(): React.JSX.Element {
                 </div>
                 {menu === hostMenu && (
                   <div className="menu">
+                    <Button
+                      onClick={() => {
+                        setMenu(null)
+                        setEditingHost(host)
+                      }}
+                    >
+                      Host settings…
+                    </Button>
                     {connected && (
                       <Button
                         onClick={() => {
@@ -178,6 +190,15 @@ export function WorkspaceSwitcher(): React.JSX.Element {
                             <Button
                               onClick={() => {
                                 setMenu(null)
+                                setOpen(false)
+                                openSettings('repositories', w.repoId)
+                              }}
+                            >
+                              Repo settings…
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setMenu(null)
                                 void run(() => api.workspaces.rebuildMirror(w.repoId, w.id))
                               }}
                             >
@@ -215,6 +236,9 @@ export function WorkspaceSwitcher(): React.JSX.Element {
         </div>
       )}
       {adding && <AddHostDialog onClose={() => setAdding(false)} />}
+      {editingHost && (
+        <HostSettingsDialog host={editingHost} onClose={() => setEditingHost(null)} />
+      )}
       {removingHost && (
         <RemoveHostDialog host={removingHost} onClose={() => setRemovingHost(null)} />
       )}

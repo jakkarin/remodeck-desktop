@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import type { HostStatus } from '../../src/shared/types'
+import { DEFAULT_PREFS, type HostStatus } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
@@ -9,6 +9,7 @@ vi.mock('../../src/renderer/src/api', () => ({
       disconnect: vi.fn(),
       add: vi.fn(),
       remove: vi.fn(),
+      update: vi.fn(),
       status: vi.fn()
     },
     repos: { listGitHub: vi.fn().mockResolvedValue([]) },
@@ -26,6 +27,9 @@ vi.mock('../../src/renderer/src/api', () => ({
 import { api } from '../../src/renderer/src/api'
 import { WorkspaceSwitcher } from '../../src/renderer/src/components/WorkspaceSwitcher'
 import { AppStateContext, type AppState } from '../../src/renderer/src/state'
+import { SettingsOpenerContext } from '../../src/renderer/src/settingsOpener'
+
+const openSettings = vi.fn()
 
 const down: HostStatus = { state: 'disconnected', warnings: [] }
 const up: HostStatus = { state: 'connected', warnings: [] }
@@ -54,11 +58,15 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
     syncInfo: {},
     setStatus: vi.fn(),
     refresh: vi.fn().mockResolvedValue(undefined),
+    prefs: DEFAULT_PREFS,
+    updatePrefs: vi.fn().mockResolvedValue(undefined),
     ...over
   }
   render(
     <AppStateContext.Provider value={value}>
-      <WorkspaceSwitcher />
+      <SettingsOpenerContext.Provider value={openSettings}>
+        <WorkspaceSwitcher />
+      </SettingsOpenerContext.Provider>
     </AppStateContext.Provider>
   )
   fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
@@ -123,6 +131,38 @@ describe('WorkspaceSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
     fireEvent.click(screen.getByRole('button', { name: 'Rebuild mirror' }))
     await waitFor(() => expect(api.workspaces.rebuildMirror).toHaveBeenCalledWith('r1', 'w1'))
+  })
+
+  it('workspace menu Repo settings opens settings at that repo', () => {
+    renderWith({ h1: up, h2: up })
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Repo settings…' }))
+    expect(openSettings).toHaveBeenCalledWith('repositories', 'r1')
+  })
+
+  it('host menu Host settings saves the new label', async () => {
+    vi.mocked(api.hosts.update).mockResolvedValue({ id: 'h1', sshHost: 'a', label: 'Work' })
+    const v = renderWith({ h1: up, h2: up })
+    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Host settings' })
+    expect(within(dialog).getByLabelText('SSH host')).toHaveAttribute('readonly')
+    expect(within(dialog).getByLabelText('SSH host')).toHaveValue('a')
+    fireEvent.change(within(dialog).getByLabelText('Label'), { target: { value: ' Work ' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(api.hosts.update).toHaveBeenCalledWith('h1', { label: 'Work' }))
+    await waitFor(() => expect(v.refresh).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Host settings' })).toBeNull())
+  })
+
+  it('Host settings shows the error and keeps the dialog open', async () => {
+    vi.mocked(api.hosts.update).mockRejectedValue(new Error('nope'))
+    renderWith({ h1: up, h2: up })
+    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Host settings' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByText('nope')).toBeInTheDocument()
   })
 
   it('workspace menu removes the workspace', async () => {
