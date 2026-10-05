@@ -1,6 +1,6 @@
-import type { BranchInfo, CommitInfo, WorktreeInfo } from '../../shared/types'
+import type { BranchInfo, CommitInfo, FileChange, WorktreeInfo } from '../../shared/types'
 import type { HostGit } from '../git/hostGit'
-import { countDirty, parseRefs, parseWorktrees } from '../git/parsers'
+import { countDirty, parseFileChanges, parseRefs, parseWorktrees } from '../git/parsers'
 import { shPath, shQuote } from '../sandbox/shell'
 import type { SandboxTarget } from '../sandbox/target'
 
@@ -67,8 +67,56 @@ export async function listCommits(
     })
 }
 
-export async function getDiff(git: HostGit, mirrorPath: string, base: string, ref: string): Promise<string> {
-  return (await git.run(mirrorPath, ['diff', `${base}...${ref}`])).stdout
+const NOT_IN_BRANCH = 'commit ไม่อยู่ใน branch นี้'
+
+/** Throws unless `sha` is a full sha that is in `ref` but not in `base`. */
+export async function requireCommitInRange(
+  git: HostGit,
+  mirrorPath: string,
+  base: string,
+  ref: string,
+  sha: string
+): Promise<void> {
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(NOT_IN_BRANCH)
+  const inRef = await git.run(mirrorPath, ['merge-base', '--is-ancestor', sha, ref], { allowFail: true })
+  if (inRef.code !== 0) throw new Error(NOT_IN_BRANCH)
+  const inBase = await git.run(mirrorPath, ['merge-base', '--is-ancestor', sha, base], { allowFail: true })
+  if (inBase.code === 0) throw new Error(NOT_IN_BRANCH)
+}
+
+/** Files changed over `base...ref`, or by a single commit of that range. */
+export async function listFiles(
+  git: HostGit,
+  mirrorPath: string,
+  base: string,
+  ref: string,
+  commit?: string
+): Promise<FileChange[]> {
+  const prefix = commit
+    ? ['diff-tree', '-r', '--root', '-M', '--no-commit-id']
+    : ['diff', '-M']
+  const target = commit ? [commit] : [`${base}...${ref}`]
+  const numstat = await git.run(mirrorPath, [...prefix, '--numstat', '-z', ...target])
+  const nameStatus = await git.run(mirrorPath, [...prefix, '--name-status', '-z', ...target])
+  return parseFileChanges(numstat.stdout, nameStatus.stdout)
+}
+
+export async function getDiff(
+  git: HostGit,
+  mirrorPath: string,
+  base: string,
+  ref: string,
+  opts: { commit?: string; file?: string } = {}
+): Promise<string> {
+  const { commit, file } = opts
+  const args = commit ? ['diff-tree', '-r', '--root', '-M', '--no-commit-id', '-p', commit] : ['diff', `${base}...${ref}`]
+  if (file !== undefined) {
+    const paths = [file]
+    const change = (await listFiles(git, mirrorPath, base, ref, commit)).find((f) => f.path === file)
+    if (change?.oldPath) paths.push(change.oldPath)
+    args.push('--', ...paths.map((p) => `:(literal)${p}`))
+  }
+  return (await git.run(mirrorPath, args)).stdout
 }
 
 const LIST_END = '@@REGIT-LIST-END@@'

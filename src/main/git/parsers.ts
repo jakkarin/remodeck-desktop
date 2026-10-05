@@ -1,3 +1,5 @@
+import type { FileChange } from '../../shared/types'
+
 /** `git ls-remote --symref <url> HEAD` output -> default branch name. */
 export function parseSymrefHead(lsRemote: string): string | null {
   for (const line of lsRemote.split('\n')) {
@@ -40,4 +42,42 @@ export function parseWorktrees(
 /** `git status --porcelain=v2` output -> number of changed/untracked entries. */
 export function countDirty(statusV2: string): number {
   return statusV2.split('\n').filter((l) => /^([12u?]) /.test(l)).length
+}
+
+/** `git diff --numstat -z` + `--name-status -z` output -> per-file changes (order follows name-status). */
+export function parseFileChanges(numstatZ: string, nameStatusZ: string): FileChange[] {
+  const counts = new Map<string, { additions: number | null; deletions: number | null }>()
+  const nt = numstatZ.split('\0')
+  for (let i = 0; i < nt.length; i++) {
+    const m = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(nt[i])
+    if (!m) continue
+    const additions = m[1] === '-' ? null : Number(m[1])
+    const deletions = m[2] === '-' ? null : Number(m[2])
+    let p = m[3]
+    if (p === '') {
+      // rename/copy: the next two tokens are the old and new path
+      p = nt[i + 2] ?? ''
+      i += 2
+    }
+    counts.set(p, { additions, deletions })
+  }
+  const result: FileChange[] = []
+  const ns = nameStatusZ.split('\0')
+  for (let i = 0; i < ns.length; i++) {
+    const code = ns[i]
+    if (!code) continue
+    const letter = code[0]
+    if (letter === 'R' || letter === 'C') {
+      const oldPath = ns[i + 1]
+      const p = ns[i + 2]
+      i += 2
+      const c = counts.get(p) ?? { additions: 0, deletions: 0 }
+      result.push(letter === 'R' ? { path: p, oldPath, status: 'R', ...c } : { path: p, status: 'A', ...c })
+    } else {
+      const p = ns[++i]
+      const c = counts.get(p) ?? { additions: 0, deletions: 0 }
+      result.push({ path: p, status: letter === 'A' || letter === 'D' ? letter : 'M', ...c })
+    }
+  }
+  return result
 }

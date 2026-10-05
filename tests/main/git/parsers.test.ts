@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countDirty, parseRefs, parseSymrefHead, parseWorktrees } from '../../../src/main/git/parsers'
+import { countDirty, parseFileChanges, parseRefs, parseSymrefHead, parseWorktrees } from '../../../src/main/git/parsers'
 
 describe('parsers', () => {
   it('parseSymrefHead', () => {
@@ -27,5 +27,41 @@ describe('parsers', () => {
     expect(countDirty('# branch.oid x\n1 .M N... a\n? new.txt\n')).toBe(2)
     expect(countDirty('2 R. x\nu UU y\n! ign\n')).toBe(2)
     expect(countDirty('')).toBe(0)
+  })
+})
+
+describe('parseFileChanges', () => {
+  it('add and modify', () => {
+    expect(parseFileChanges('3\t0\ta.txt\0' + '1\t1\tb.txt\0', 'A\0a.txt\0M\0b.txt\0')).toEqual([
+      { path: 'a.txt', status: 'A', additions: 3, deletions: 0 },
+      { path: 'b.txt', status: 'M', additions: 1, deletions: 1 }
+    ])
+  })
+
+  it('delete', () => {
+    expect(parseFileChanges('0\t4\tgone.txt\0', 'D\0gone.txt\0')).toEqual([
+      { path: 'gone.txt', status: 'D', additions: 0, deletions: 4 }
+    ])
+  })
+
+  it('rename', () => {
+    expect(parseFileChanges('0\t0\t\0old name.txt\0ใหม่.txt\0', 'R100\0old name.txt\0ใหม่.txt\0')).toEqual([
+      { path: 'ใหม่.txt', oldPath: 'old name.txt', status: 'R', additions: 0, deletions: 0 }
+    ])
+  })
+
+  it('binary', () => {
+    expect(parseFileChanges('-\t-\timg.png\0', 'M\0img.png\0')).toEqual([
+      { path: 'img.png', status: 'M', additions: null, deletions: null }
+    ])
+  })
+
+  it('maps copy and type change', () => {
+    const r = parseFileChanges('1\t0\tc.txt\0' + '0\t0\tt.txt\0', 'C100\0src.txt\0c.txt\0T\0t.txt\0')
+    expect(r.map((f) => f.status)).toEqual(['A', 'M'])
+  })
+
+  it('empty input', () => {
+    expect(parseFileChanges('', '')).toEqual([])
   })
 })

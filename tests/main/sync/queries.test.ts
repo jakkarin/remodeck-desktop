@@ -5,7 +5,7 @@ import { HostGit } from '../../../src/main/git/hostGit'
 import { MirrorService } from '../../../src/main/mirror/mirrorService'
 import { LocalTarget } from '../../../src/main/sandbox/target'
 import { Store } from '../../../src/main/store/store'
-import { getDiff, listBranches, listCommits, listWorktrees } from '../../../src/main/sync/queries'
+import { getDiff, listBranches, listCommits, listFiles, listWorktrees, requireCommitInRange } from '../../../src/main/sync/queries'
 import { SyncService } from '../../../src/main/sync/syncService'
 import { git, makeFakeGitHub, makeTmp } from '../../helpers/repos'
 
@@ -108,5 +108,64 @@ describe('workspace queries', () => {
     await svc.sync(ws)
     const list = await listBranches(host, mirrorPath, ws.id, repo.defaultBranch, new Set())
     expect(list.find((b) => b.name === 'feat/a')).toMatchObject({ base: 'origin/feat/a', ahead: 1, behind: 0 })
+  })
+
+  describe('per-file queries', () => {
+    const setup = async () => {
+      const { ws } = await makeWs('w1')
+      const dir = sb('w1')
+      await git(dir, 'checkout', '-b', 'feat/a')
+      fs.mkdirSync(path.join(dir, 'dir'))
+      fs.writeFileSync(path.join(dir, 'dir', 'with space.txt'), 'one\n')
+      await git(dir, 'add', '-A')
+      await git(dir, ...ident, 'commit', '-m', 'older')
+      const older = (await git(dir, 'rev-parse', 'HEAD')).trim()
+      fs.writeFileSync(path.join(dir, 'dir', 'with space.txt'), 'one\ntwo\n')
+      fs.writeFileSync(path.join(dir, 'g.txt'), 'g\n')
+      await git(dir, 'add', '-A')
+      await git(dir, ...ident, 'commit', '-m', 'newer')
+      const newer = (await git(dir, 'rev-parse', 'HEAD')).trim()
+      await svc.sync(ws)
+      return { ws, older, newer, ref: `refs/remotes/ws-${ws.id}/feat/a`, base: 'refs/remotes/origin/main' }
+    }
+
+    it('listFiles over the branch and for a single commit', async () => {
+      const { ref, base, older } = await setup()
+      const all = await listFiles(host, mirrorPath, base, ref)
+      expect(all.map((f) => f.path).sort()).toEqual(['dir/with space.txt', 'g.txt'])
+      expect(all.find((f) => f.path === 'dir/with space.txt')).toMatchObject({ status: 'A', additions: 2, deletions: 0 })
+      const one = await listFiles(host, mirrorPath, base, ref, older)
+      expect(one).toEqual([{ path: 'dir/with space.txt', status: 'A', additions: 1, deletions: 0 }])
+    })
+
+    it('listFiles works for a root commit', async () => {
+      const { ref, base } = await setup()
+      const root = (await git(mirrorPath, 'rev-list', '--max-parents=0', base)).trim()
+      const files = await listFiles(host, mirrorPath, base, ref, root)
+      expect(files).toEqual([{ path: 'a.txt', status: 'A', additions: 1, deletions: 0 }])
+    })
+
+    it('getDiff without opts is the plain range diff; file and commit narrow it', async () => {
+      const { ref, base, older, newer } = await setup()
+      const plain = await getDiff(host, mirrorPath, base, ref)
+      expect(plain).toBe(await git(mirrorPath, 'diff', `${base}...${ref}`))
+      const one = await getDiff(host, mirrorPath, base, ref, { file: 'dir/with space.txt' })
+      expect(one).toContain('with space.txt')
+      expect(one).not.toContain('g.txt')
+      const both = await getDiff(host, mirrorPath, base, ref, { commit: newer, file: 'dir/with space.txt' })
+      expect(both).toContain('+two')
+      expect(both).not.toContain('+one')
+      const first = await getDiff(host, mirrorPath, base, ref, { commit: older })
+      expect(first).toContain('+one')
+    })
+
+    it('requireCommitInRange accepts branch commits only', async () => {
+      const { ref, base, older } = await setup()
+      await expect(requireCommitInRange(host, mirrorPath, base, ref, older)).resolves.toBeUndefined()
+      const onMain = (await git(mirrorPath, 'rev-parse', base)).trim()
+      await expect(requireCommitInRange(host, mirrorPath, base, ref, onMain)).rejects.toThrow('commit ไม่อยู่ใน branch นี้')
+      await expect(requireCommitInRange(host, mirrorPath, base, ref, 'HEAD')).rejects.toThrow('commit ไม่อยู่ใน branch นี้')
+      await expect(requireCommitInRange(host, mirrorPath, base, ref, '--output=x')).rejects.toThrow('commit ไม่อยู่ใน branch นี้')
+    })
   })
 })

@@ -38,6 +38,14 @@ export type BranchInfo = {
   rewritten: boolean
 }
 
+export type FileChange = {
+  path: string
+  oldPath?: string
+  status: 'A' | 'M' | 'D' | 'R'
+  additions: number | null
+  deletions: number | null
+}
+
 export type CommitInfo = { sha: string; subject: string; author: string; date: string }
 
 export type WorktreeInfo = { path: string; branch: string | null; head: string | null; dirty: number }
