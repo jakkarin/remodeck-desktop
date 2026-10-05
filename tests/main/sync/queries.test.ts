@@ -168,4 +168,22 @@ describe('workspace queries', () => {
       await expect(requireCommitInRange(host, mirrorPath, base, ref, '--output=x')).rejects.toThrow('commit ไม่อยู่ใน branch นี้')
     })
   })
+
+  it('reports a renamed file with oldPath and shows the rename in the per-file diff', async () => {
+    await gh.seed({ 'a.txt': Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n') + '\n' })
+    const { ws } = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'feat/r')
+    await git(sb('w1'), 'mv', 'a.txt', 'renamed.txt')
+    fs.appendFileSync(path.join(sb('w1'), 'renamed.txt'), 'extra\n')
+    await git(sb('w1'), 'add', '-A')
+    await git(sb('w1'), ...ident, 'commit', '-m', 'rename')
+    await svc.sync(ws)
+    const ref = `refs/remotes/ws-${ws.id}/feat/r`
+    const files = await listFiles(host, mirrorPath, 'origin/main', ref)
+    expect(files.find((f) => f.path === 'renamed.txt')).toMatchObject({ status: 'R', oldPath: 'a.txt' })
+    const text = await getDiff(host, mirrorPath, 'origin/main', ref, { file: 'renamed.txt' })
+    expect(text).toContain('rename from a.txt')
+    expect(text).toContain('rename to renamed.txt')
+    expect(text).toContain('+extra')
+  })
 })
