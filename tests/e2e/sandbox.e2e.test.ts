@@ -308,6 +308,35 @@ describe('regit against real sandboxes', () => {
     expect(hg(upstream, 'rev-parse', 'refs/heads/feat-a-2')).toBe(sha2)
   })
 
+  it('adds an existing sandbox repo without touching its HEAD, working tree or config', async () => {
+    // A repo that already lives in the sandbox: its origin points at GitHub, plus a VM-only branch and a dirty tree.
+    await sx(
+      c1,
+      'git clone -q ~/work/widget ~/existing && cd ~/existing && git remote set-url origin https://github.com/acme/widget.git && ' +
+        'git checkout -q -b vm-only && echo v > v.txt && git add v.txt && git commit -qm "vm only" && echo dirty >> README.md && echo u > untracked.txt'
+    )
+    const probe = (): Promise<string> =>
+      sx(
+        c1,
+        'cd ~/existing && git rev-parse HEAD && git symbolic-ref HEAD && git status --porcelain && cat .git/config && git for-each-ref refs/heads'
+      )
+    const before = await probe()
+
+    const ws = await api.workspaces.addExisting(h1.id, '~/existing')
+    expect(ws).toMatchObject({ hostId: h1.id, sandboxPath: '~/existing' })
+    await expect(api.workspaces.addExisting(h1.id, '~/existing')).rejects.toThrow(
+      /มี workspace นี้อยู่แล้ว/
+    )
+
+    expect((await api.workspaces.branches(ws.id)).map((b) => b.name)).toContain('vm-only')
+    await api.workspaces.sync(ws.id)
+    expect((await api.workspaces.commits(ws.id, 'vm-only')).map((c) => c.subject)).toContain(
+      'vm only'
+    )
+    expect(await probe()).toBe(before)
+    expect(before).toContain('M README.md')
+  })
+
   describe('integrated terminal', () => {
     let tabId: string
     let approvalsSeen = 0

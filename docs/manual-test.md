@@ -101,6 +101,18 @@
 | 7.2 | ลบ mirror ตัวเดิมและสร้างใหม่ | ☐ |
 | 7.3 | Mirror rebuild สำเร็จ; workspace ยังสามารถ Sync ได้ | ☐ |
 
+### 8. Add Existing Repo
+
+| ลำดับ | ขั้นตอน | ผล |
+|---|---|---|
+| 8.1 | ใน sandbox มี repo ที่ clone มาเองอยู่แล้ว (origin ชี้ไป GitHub) พร้อม branch ที่ยังไม่ push และไฟล์ที่ยังไม่ commit; จด `git rev-parse HEAD`, `git status --porcelain` และ `cat .git/config` ไว้ | ☐ |
+| 8.2 | Host connected → เปิด Switcher → กด "＋ Add existing repo…" → ใส่ path (เช่น `~/work/my-app`) → Add | ☐ |
+| 8.3 | Workspace ใหม่ถูกเลือกอัตโนมัติ; branch ที่มีเฉพาะใน sandbox แสดงในรายการ branch และ review ได้ | ☐ |
+| 8.4 | ใน sandbox: `git rev-parse HEAD`, `git status --porcelain` และ `.git/config` เหมือนที่จดไว้ทุกไบต์ (ไม่มี checkout, ไม่เปลี่ยน origin) | ☐ |
+| 8.5 | เพิ่ม path เดิมซ้ำ → ข้อความ "มี workspace นี้อยู่แล้ว" | ☐ |
+| 8.6 | path ที่ไม่มี / ไม่ใช่ git repo / bare repo / subdirectory ของ repo / repo ที่ไม่มี origin / origin ที่ไม่ใช่ GitHub → แสดงข้อความ error ภาษาไทยที่ตรงกรณี และไม่มี workspace เพิ่ม | ☐ |
+| 8.7 | origin แบบ `git@github.com:o/r.git` หรือ `ssh://git@github.com/o/r.git` ก็เพิ่มได้ และ `git fetch`/`git push` ใน Open Terminal ของแอปผ่าน bridge (popup อนุมัติ push ปรากฏ) | ☐ |
+
 ## Automated Results
 
 ### npx vitest run
