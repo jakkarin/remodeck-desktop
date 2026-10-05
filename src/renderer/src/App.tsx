@@ -1,25 +1,39 @@
+import { useState } from 'react'
 import { ApprovalModal } from './components/ApprovalModal'
-import { SettingsView } from './components/SettingsView'
-import { Sidebar } from './components/Sidebar'
+import { EmptyState } from './components/EmptyState'
+import { SettingsDialog } from './components/SettingsDialog'
+import { readLayout, saveCollapsed } from './components/SplitLayout'
 import { TerminalTabs } from './components/TerminalTabs'
-import { WorkspaceView } from './components/WorkspaceView'
+import { TopBar } from './components/TopBar'
+import { WorkspaceScreen } from './components/WorkspaceScreen'
 import { AppStateProvider, useAppState } from './state'
 
 function Layout(): React.JSX.Element {
-  const { activeWorkspaceId } = useAppState()
+  const { activeWorkspaceId, workspaces } = useAppState()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => readLayout().collapsed)
+
+  const toggle = (): void => {
+    saveCollapsed(!collapsed)
+    setCollapsed(!collapsed)
+  }
+
+  const active = workspaces.find((w) => w.id === activeWorkspaceId)
   return (
     <div className="app">
-      <Sidebar />
-      <div className="content">
-        <main className="main">
-          {activeWorkspaceId ? (
-            <WorkspaceView key={activeWorkspaceId} workspaceId={activeWorkspaceId} />
-          ) : (
-            <SettingsView />
-          )}
-        </main>
-        <TerminalTabs />
-      </div>
+      <TopBar onOpenSettings={() => setSettingsOpen(true)} />
+      <main className="main">
+        {active ? (
+          <WorkspaceScreen
+            workspaceId={active.id}
+            bottom={<TerminalTabs collapsed={collapsed} onToggle={toggle} />}
+            bottomCollapsed={collapsed}
+          />
+        ) : (
+          <EmptyState />
+        )}
+      </main>
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

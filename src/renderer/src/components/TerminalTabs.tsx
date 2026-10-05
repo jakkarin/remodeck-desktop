@@ -3,8 +3,10 @@ import { Terminal, type ITheme } from '@xterm/xterm'
 import { watchColorScheme, xtermTheme } from '../theme'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { api } from '../api'
-import { onTerminalOpened } from '../terminalEvents'
+import { ChevronDown, ChevronUp, Plus } from 'lucide-react'
+import { api, errorMessage } from '../api'
+import { useAppState } from '../state'
+import { onTerminalOpened, openTerminal } from '../terminalEvents'
 
 type Tab = { tabId: string; label: string; exited: boolean }
 
@@ -72,7 +74,17 @@ function TerminalPane({
   return <div className="terminal-pane" style={{ display: active ? 'block' : 'none' }} ref={host} />
 }
 
-export function TerminalTabs(): React.JSX.Element | null {
+export function TerminalTabs({
+  collapsed,
+  onToggle
+}: {
+  collapsed: boolean
+  onToggle(): void
+}): React.JSX.Element {
+  const { activeWorkspaceId, workspaces, statuses } = useAppState()
+  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId)
+  const hostUp = !!activeWs && statuses[activeWs.hostId]?.state === 'connected'
+  const [openError, setOpenError] = useState<string | null>(null)
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const panes = useRef(new Map<string, PaneHandle>())
@@ -122,10 +134,25 @@ export function TerminalTabs(): React.JSX.Element | null {
     if (activeId === tabId) setActiveId(next[next.length - 1]?.tabId ?? null)
   }
 
-  if (tabs.length === 0) return null
+  async function openNew(): Promise<void> {
+    if (!activeWorkspaceId) return
+    setOpenError(null)
+    try {
+      await openTerminal(activeWorkspaceId)
+    } catch (e) {
+      setOpenError(errorMessage(e))
+    }
+  }
+
+  const plusTitle = !activeWs
+    ? 'ยังไม่ได้เลือก workspace'
+    : hostUp
+      ? undefined
+      : 'Host ยังไม่ได้ connect'
   return (
     <div className="terminal-panel" id="terminal-panel">
       <div className="terminal-tabbar">
+        <span className="terminal-title">Terminal</span>
         {tabs.map((t) => (
           <div key={t.tabId} className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}>
             <button className="terminal-tab-label" onClick={() => setActiveId(t.tabId)}>
@@ -137,8 +164,26 @@ export function TerminalTabs(): React.JSX.Element | null {
             </button>
           </div>
         ))}
+        <button
+          className="icon-btn"
+          aria-label="New terminal"
+          disabled={!hostUp}
+          title={plusTitle}
+          onClick={() => void openNew()}
+        >
+          <Plus size={14} />
+        </button>
+        {openError && <span className="error">{openError}</span>}
+        <span className="topbar-spacer" />
+        <button
+          className="icon-btn"
+          aria-label={collapsed ? 'Expand terminal' : 'Collapse terminal'}
+          onClick={onToggle}
+        >
+          {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
       </div>
-      <div className="terminal-body">
+      <div className="terminal-body" style={{ display: collapsed ? 'none' : undefined }}>
         {tabs.map((t) => (
           <TerminalPane
             key={t.tabId}

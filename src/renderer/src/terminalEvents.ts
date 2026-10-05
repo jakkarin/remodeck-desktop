@@ -1,3 +1,5 @@
+import { api } from './api'
+
 export type OpenedTab = { tabId: string; label: string }
 
 const listeners = new Set<(tab: OpenedTab) => void>()
@@ -12,4 +14,11 @@ export function onTerminalOpened(cb: (tab: OpenedTab) => void): () => void {
   return () => {
     listeners.delete(cb)
   }
+}
+
+/** Opens a terminal for the workspace; TerminalTabs shows the new tab via the announce event. */
+export async function openTerminal(workspaceId: string, path?: string): Promise<unknown> {
+  const tab = await api.terminal.open(workspaceId, path)
+  if (tab && typeof tab === 'object' && 'tabId' in tab) announceTerminal(tab)
+  return tab
 }
