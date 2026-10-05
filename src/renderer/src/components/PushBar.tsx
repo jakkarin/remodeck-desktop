@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { BranchInfo } from '../../../shared/types'
 import { api, errorMessage } from '../api'
+import { Button, TextInput } from './ui'
 
 export function PushBar({
   workspaceId,
@@ -47,21 +48,21 @@ export function PushBar({
     <div className="push-bar">
       <label>
         Target branch
-        <input value={target} onChange={(e) => setTarget(e.target.value)} />
+        <TextInput value={target} onChange={(e) => setTarget(e.target.value)} />
       </label>
       <div className="push-actions">
-        <button
-          className="success"
+        <Button
+          variant="primary"
           aria-label="Push to GitHub"
           disabled={!connected || busy || !target}
           title={connected ? undefined : 'Host ยังไม่ได้ connect'}
           onClick={() => void push()}
         >
           ↑ Push
-        </button>
-        <button disabled={!canOpenPR} onClick={() => void openPR()}>
+        </Button>
+        <Button disabled={!canOpenPR} onClick={() => void openPR()}>
           Open PR
-        </button>
+        </Button>
       </div>
       {pushed && <div className="ok">Pushed</div>}
       {error && <div className="error">{error}</div>}

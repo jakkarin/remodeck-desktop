@@ -3,6 +3,7 @@ import type { Workspace } from '../../../shared/types'
 import { parseRepoInput } from '../../../shared/validate'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button, TextInput } from './ui'
 
 type GhRepo = { owner: string; name: string; defaultBranch: string }
 
@@ -91,19 +92,19 @@ export function CloneDialog({
         {repos.length > 0 && (
           <div className="repo-list">
             {repos.map((r) => (
-              <button
+              <Button
                 key={`${r.owner}/${r.name}`}
                 className={repoInput === `${r.owner}/${r.name}` ? 'active' : ''}
                 onClick={() => pick(r)}
                 disabled={busy}
               >
                 {r.owner}/{r.name}
-              </button>
+              </Button>
             ))}
           </div>
         )}
         <label htmlFor="clone-repo">Repository</label>
-        <input
+        <TextInput
           id="clone-repo"
           value={repoInput}
           placeholder="URL or owner/name"
@@ -111,7 +112,7 @@ export function CloneDialog({
           disabled={busy}
         />
         <label htmlFor="clone-path">Path</label>
-        <input
+        <TextInput
           id="clone-path"
           value={path}
           placeholder="~/repos/name"
@@ -120,16 +121,16 @@ export function CloneDialog({
         />
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
-          <button onClick={onClose} disabled={busy}>
+          <Button onClick={onClose} disabled={busy}>
             Cancel
-          </button>
-          <button
-            className="primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => void submit()}
             disabled={busy || !repoInput.trim() || !path.trim()}
           >
             {busy ? 'Cloning...' : 'Clone'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

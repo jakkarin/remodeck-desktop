@@ -5,7 +5,7 @@ export function xtermTheme(read: (name: string) => string): ITheme {
     background: read('--bg-inset'),
     foreground: read('--fg'),
     cursor: read('--fg'),
-    selectionBackground: read('--selected-bg')
+    selectionBackground: read('--terminal-selection')
   }
 }
 

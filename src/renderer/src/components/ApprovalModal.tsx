@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from 'react'
 import type { ApprovalDecision, ApprovalRequest, RefUpdate } from '../../../shared/types'
 import { api } from '../api'
 import { AppStateContext } from '../state'
+import { Button } from './ui'
 
 /** Main denies on its own after this long; the modal drops the request at the same point. */
 const APPROVAL_TIMEOUT_MS = 60_000
@@ -59,10 +60,10 @@ export function ApprovalModal(): React.JSX.Element | null {
         </ul>
         {queue.length > 1 && <p className="dim">{queue.length - 1} more waiting</p>}
         <div className="modal-actions">
-          <button onClick={() => respond('once')}>Allow once</button>
-          <button onClick={() => respond('session')}>Allow for this session</button>
-          <button onClick={() => respond('always')}>Always allow for this repo</button>
-          <button onClick={() => respond('deny')}>Deny</button>
+          <Button onClick={() => respond('once')}>Allow once</Button>
+          <Button onClick={() => respond('session')}>Allow for this session</Button>
+          <Button onClick={() => respond('always')}>Always allow for this repo</Button>
+          <Button onClick={() => respond('deny')}>Deny</Button>
         </div>
       </div>
     </div>

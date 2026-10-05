@@ -3,6 +3,7 @@ import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { openTerminal } from '../terminalEvents'
 import { useWorkspaceData } from '../useWorkspaceData'
+import { Button, PaneHeader } from './ui'
 import { BranchPane } from './BranchPane'
 import { ChangesPane } from './ChangesPane'
 import { DiffPane } from './DiffPane'
@@ -69,9 +70,9 @@ export function WorkspaceScreen({
           {hostStatus?.state === 'error' && hostStatus.error && (
             <span className="error">{hostStatus.error}</span>
           )}
-          <button disabled={hostStatus?.state === 'connecting'} onClick={() => void connect()}>
+          <Button disabled={hostStatus?.state === 'connecting'} onClick={() => void connect()}>
             {hostStatus?.state === 'error' ? 'Retry' : 'Connect'}
-          </button>
+          </Button>
         </div>
       )}
       <SplitLayout
@@ -118,7 +119,7 @@ export function WorkspaceScreen({
               />
             ) : (
               <>
-                <div className="pane-header">Diff</div>
+                <PaneHeader>Diff</PaneHeader>
                 <div className="muted pad">เลือกไฟล์เพื่อดู diff</div>
               </>
             )}

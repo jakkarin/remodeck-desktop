@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ExistingRepoInfo, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button, TextInput } from './ui'
 
 export function AddExistingDialog({
   hostIds,
@@ -89,7 +90,7 @@ export function AddExistingDialog({
           </>
         )}
         <label htmlFor="existing-path">Path</label>
-        <input
+        <TextInput
           id="existing-path"
           value={path}
           placeholder="~/work/my-app"
@@ -123,26 +124,22 @@ export function AddExistingDialog({
         )}
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
-          <button onClick={onClose} disabled={busy}>
+          <Button onClick={onClose} disabled={busy}>
             Cancel
-          </button>
+          </Button>
           {info ? (
             <>
-              <button onClick={back} disabled={busy}>
+              <Button onClick={back} disabled={busy}>
                 Back
-              </button>
-              <button className="primary" onClick={() => void confirm()} disabled={busy}>
+              </Button>
+              <Button variant="primary" onClick={() => void confirm()} disabled={busy}>
                 {busy ? 'Adding...' : 'Confirm & Add'}
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              className="primary"
-              onClick={() => void check()}
-              disabled={busy || !path.trim()}
-            >
+            <Button variant="primary" onClick={() => void check()} disabled={busy || !path.trim()}>
               {busy ? 'Checking...' : 'Check'}
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@ import type { PushLogEntry, Repo } from '../../../shared/types'
 import type { RepoPolicyPatch } from '../../../shared/ipc'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button, TextInput } from './ui'
 
 function parseBranches(v: string): string[] {
   return v
@@ -36,7 +37,7 @@ function RepoSettings({ repo }: { repo: Repo }): React.JSX.Element {
   return (
     <section className="settings-repo">
       <h3>{name}</h3>
-      <label>
+      <label className="checkbox">
         <input
           type="checkbox"
           checked={repo.enforceRules}
@@ -46,7 +47,7 @@ function RepoSettings({ repo }: { repo: Repo }): React.JSX.Element {
       </label>
       <label>
         Protected branches (comma-separated){' '}
-        <input
+        <TextInput
           aria-label={`Protected branches for ${name}`}
           value={branches}
           onChange={(e) => setBranches(e.target.value)}
@@ -59,7 +60,7 @@ function RepoSettings({ repo }: { repo: Repo }): React.JSX.Element {
       <div>
         Always allow push: {repo.alwaysAllowPush ? 'on' : 'off'}{' '}
         {repo.alwaysAllowPush && (
-          <button onClick={() => void update({ alwaysAllowPush: false })}>Revoke</button>
+          <Button onClick={() => void update({ alwaysAllowPush: false })}>Revoke</Button>
         )}
       </div>
       {error && <div className="error">{error}</div>}

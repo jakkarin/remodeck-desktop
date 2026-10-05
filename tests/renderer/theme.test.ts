@@ -6,14 +6,15 @@ describe('xtermTheme', () => {
     const vars: Record<string, string> = {
       '--bg-inset': '#010409',
       '--fg': '#e6edf3',
-      '--selected-bg': '#1f6feb'
+      '--selected-bg': '#303030',
+      '--terminal-selection': '#3d4b60'
     }
     const theme = xtermTheme((name) => vars[name] ?? '')
     expect(theme).toEqual({
       background: '#010409',
       foreground: '#e6edf3',
       cursor: '#e6edf3',
-      selectionBackground: '#1f6feb'
+      selectionBackground: '#3d4b60'
     })
   })
 })

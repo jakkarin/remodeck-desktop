@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp, Plus } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { onTerminalOpened, openTerminal } from '../terminalEvents'
+import { Button, IconButton } from './ui'
 
 type Tab = { tabId: string; label: string; exited: boolean }
 
@@ -29,7 +30,14 @@ function TerminalPane({
   useEffect(() => {
     const readTheme = (): ITheme =>
       xtermTheme((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim())
-    const term = new Terminal({ fontSize: 13, cursorBlink: true, theme: readTheme() })
+    const term = new Terminal({
+      fontSize: 13,
+      fontFamily:
+        getComputedStyle(document.documentElement).getPropertyValue('--font-code').trim() ||
+        undefined,
+      cursorBlink: true,
+      theme: readTheme()
+    })
     const unwatch = watchColorScheme(() => {
       term.options.theme = readTheme()
     })
@@ -155,33 +163,31 @@ export function TerminalTabs({
         <span className="terminal-title">Terminal</span>
         {tabs.map((t) => (
           <div key={t.tabId} className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}>
-            <button className="terminal-tab-label" onClick={() => setActiveId(t.tabId)}>
+            <Button className="terminal-tab-label" onClick={() => setActiveId(t.tabId)}>
               {t.label}
               {t.exited ? ` ${CLOSED}` : ''}
-            </button>
-            <button aria-label={`Close ${t.label}`} onClick={() => close(t.tabId)}>
+            </Button>
+            <IconButton aria-label={`Close ${t.label}`} onClick={() => close(t.tabId)}>
               ×
-            </button>
+            </IconButton>
           </div>
         ))}
-        <button
-          className="icon-btn"
+        <IconButton
           aria-label="New terminal"
           disabled={!hostUp}
           title={plusTitle}
           onClick={() => void openNew()}
         >
           <Plus size={14} />
-        </button>
+        </IconButton>
         {openError && <span className="error">{openError}</span>}
         <span className="topbar-spacer" />
-        <button
-          className="icon-btn"
+        <IconButton
           aria-label={collapsed ? 'Expand terminal' : 'Collapse terminal'}
           onClick={onToggle}
         >
           {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
+        </IconButton>
       </div>
       <div className="terminal-body" style={{ display: collapsed ? 'none' : undefined }}>
         {tabs.map((t) => (

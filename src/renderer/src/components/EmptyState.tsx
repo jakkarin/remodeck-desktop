@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button } from './ui'
 import { AddHostDialog } from './AddHostDialog'
 import { CloneDialog } from './CloneDialog'
 
@@ -29,21 +30,21 @@ export function EmptyState(): React.JSX.Element {
       {hosts.length === 0 ? (
         <>
           <h2>เพิ่ม sandbox แรก</h2>
-          <button className="primary" onClick={() => setAdding(true)}>
+          <Button variant="primary" onClick={() => setAdding(true)}>
             Add host
-          </button>
+          </Button>
         </>
       ) : (
         <>
           <h2>ยังไม่มี workspace</h2>
           {connectedIds.length > 0 ? (
-            <button className="primary" onClick={() => setCloning(true)}>
+            <Button variant="primary" onClick={() => setCloning(true)}>
               Clone repo
-            </button>
+            </Button>
           ) : (
-            <button className="primary" onClick={() => void connect()}>
+            <Button variant="primary" onClick={() => void connect()}>
               Connect
-            </button>
+            </Button>
           )}
         </>
       )}
