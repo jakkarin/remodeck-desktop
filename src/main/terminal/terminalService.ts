@@ -38,8 +38,11 @@ type Tab = {
   sessionId: string
   pty: PtyLike | null
   cancelAttempt: () => void
+  idleTimer: ReturnType<typeof setTimeout> | null
 }
 
+/** Quiet period after the last output before a tab's workspace is reported idle. */
+export const IDLE_MS = 3000
 const MAX_ATTEMPTS = 5
 const RETRY_WINDOW_MS = 3000
 const FORWARD_FAILED = 'remote port forwarding failed'
@@ -94,7 +97,8 @@ export class TerminalService extends EventEmitter {
       token,
       sessionId,
       pty: null,
-      cancelAttempt: () => {}
+      cancelAttempt: () => {},
+      idleTimer: null
     }
     this.tabs.set(tabId, tab)
     bridge.registerSession({ token, sessionId, workspaceId, repo, tabLabel: label })
@@ -142,8 +146,18 @@ export class TerminalService extends EventEmitter {
   private release(tabId: string, tab: Tab): void {
     if (this.tabs.get(tabId) !== tab) return
     this.tabs.delete(tabId)
+    if (tab.idleTimer) clearTimeout(tab.idleTimer)
+    tab.idleTimer = null
     this.deps.bridge.revokeSession(tab.token)
     this.deps.approval.revokeSession(tab.sessionId)
+  }
+
+  private armIdle(tab: Tab): void {
+    if (tab.idleTimer) clearTimeout(tab.idleTimer)
+    tab.idleTimer = setTimeout(() => {
+      tab.idleTimer = null
+      this.emit('idle', tab.workspaceId)
+    }, IDLE_MS)
   }
 
   private attempt(
@@ -196,6 +210,7 @@ export class TerminalService extends EventEmitter {
       if (cancelled) return
       if (inWindow) seen += d
       this.emit('data', tabId, d)
+      this.armIdle(tab)
     })
     pty.onExit(({ exitCode }) => {
       if (cancelled) return

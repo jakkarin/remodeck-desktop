@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildTerminalSshArgs, randomPort } from '../../src/main/terminal/sshCommand'
-import { TerminalService, type PtyLike } from '../../src/main/terminal/terminalService'
+import { IDLE_MS, TerminalService, type PtyLike } from '../../src/main/terminal/terminalService'
 
 class FakePty implements PtyLike {
   dataCb: (d: string) => void = () => {}
@@ -336,5 +336,58 @@ describe('TerminalService', () => {
     expect(events.slice(-2)).toEqual(['data:\r\n[regit] conpty boom\r\n', 'exit:-1'])
     expect(bridge.revokeSession).toHaveBeenCalledOnce()
     expect(approval.revokeSession).toHaveBeenCalledOnce()
+  })
+
+  describe('idle signal', () => {
+    it('emits one idle with the workspaceId after IDLE_MS of silence', async () => {
+      const { svc, ptys } = setup()
+      const onIdle = vi.fn()
+      svc.on('idle', onIdle)
+      await svc.open('w1')
+      ptys[0].dataCb('x')
+      vi.advanceTimersByTime(IDLE_MS - 1)
+      expect(onIdle).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(onIdle).toHaveBeenCalledOnce()
+      expect(onIdle).toHaveBeenCalledWith('w1')
+    })
+
+    it('does not emit idle while data keeps arriving', async () => {
+      const { svc, ptys } = setup()
+      const onIdle = vi.fn()
+      svc.on('idle', onIdle)
+      await svc.open('w1')
+      for (let i = 0; i < 5; i++) {
+        ptys[0].dataCb('x')
+        vi.advanceTimersByTime(1000)
+      }
+      expect(onIdle).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(IDLE_MS)
+      expect(onIdle).toHaveBeenCalledOnce()
+    })
+
+    it('emits nothing more after idle until new data re-arms', async () => {
+      const { svc, ptys } = setup()
+      const onIdle = vi.fn()
+      svc.on('idle', onIdle)
+      await svc.open('w1')
+      ptys[0].dataCb('x')
+      vi.advanceTimersByTime(IDLE_MS * 3)
+      expect(onIdle).toHaveBeenCalledOnce()
+      ptys[0].dataCb('y')
+      vi.advanceTimersByTime(IDLE_MS)
+      expect(onIdle).toHaveBeenCalledTimes(2)
+    })
+
+    it('emits no idle when the tab is closed before IDLE_MS', async () => {
+      const { svc, ptys } = setup()
+      const onIdle = vi.fn()
+      svc.on('idle', onIdle)
+      const { tabId } = await svc.open('w1')
+      ptys[0].dataCb('x')
+      svc.close(tabId)
+      vi.advanceTimersByTime(IDLE_MS * 2)
+      expect(onIdle).not.toHaveBeenCalled()
+    })
   })
 })
