@@ -37,6 +37,8 @@ export interface RegitApi {
   workspaces: {
     list(): Promise<Workspace[]>
     clone(hostId: string, repoInput: string, sandboxPath: string): Promise<Workspace>
+    /** Registers a repo that already exists in the sandbox; never modifies it. */
+    addExisting(hostId: string, sandboxPath: string): Promise<Workspace>
     remove(id: string, deleteMirrorIfLast: boolean): Promise<void>
     sync(id: string): Promise<{ rewritten: string[] }>
     branches(id: string): Promise<BranchInfo[]>
@@ -88,6 +90,7 @@ export const IPC_CHANNELS = {
   workspaces: {
     list: 'workspaces:list',
     clone: 'workspaces:clone',
+    addExisting: 'workspaces:addExisting',
     remove: 'workspaces:remove',
     sync: 'workspaces:sync',
     branches: 'workspaces:branches',

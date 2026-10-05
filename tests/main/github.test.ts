@@ -4,13 +4,18 @@ import { GitHubClient, compareUrl, parseRepoInput } from '../../src/main/github/
 
 describe('parseCredentialOutput', () => {
   it('parses username and password', () => {
-    expect(parseCredentialOutput('protocol=https\nhost=github.com\nusername=u\npassword=p\n')).toEqual({
+    expect(
+      parseCredentialOutput('protocol=https\nhost=github.com\nusername=u\npassword=p\n')
+    ).toEqual({
       username: 'u',
       password: 'p'
     })
   })
   it('handles CRLF and passwords containing =', () => {
-    expect(parseCredentialOutput('username=u\r\npassword=a=b\r\n')).toEqual({ username: 'u', password: 'a=b' })
+    expect(parseCredentialOutput('username=u\r\npassword=a=b\r\n')).toEqual({
+      username: 'u',
+      password: 'a=b'
+    })
   })
   it('returns null without password', () => {
     expect(parseCredentialOutput('username=u\n')).toBeNull()
@@ -47,15 +52,24 @@ describe('getGitHubCredential', () => {
 describe('parseRepoInput', () => {
   it('accepts supported forms', () => {
     expect(parseRepoInput('https://github.com/acme/api')).toEqual({ owner: 'acme', name: 'api' })
-    expect(parseRepoInput('https://github.com/acme/api.git')).toEqual({ owner: 'acme', name: 'api' })
+    expect(parseRepoInput('https://github.com/acme/api.git')).toEqual({
+      owner: 'acme',
+      name: 'api'
+    })
     expect(parseRepoInput('https://github.com/acme/api/')).toEqual({ owner: 'acme', name: 'api' })
     expect(parseRepoInput('git@github.com:acme/api.git')).toEqual({ owner: 'acme', name: 'api' })
     expect(parseRepoInput('acme/api')).toEqual({ owner: 'acme', name: 'api' })
+    expect(parseRepoInput('ssh://git@github.com/acme/api.git')).toEqual({
+      owner: 'acme',
+      name: 'api'
+    })
+    expect(parseRepoInput('ssh://git@github.com/acme/api')).toEqual({ owner: 'acme', name: 'api' })
   })
   it('rejects invalid input', () => {
     expect(parseRepoInput('nope')).toBeNull()
     expect(parseRepoInput('https://github.com/a/b/tree/x')).toBeNull()
     expect(parseRepoInput('')).toBeNull()
+    expect(parseRepoInput('ssh://git@gitlab.com/acme/api.git')).toBeNull()
   })
 })
 
@@ -90,8 +104,13 @@ describe('GitHubClient', () => {
     expect(headers.Authorization).toBe('Bearer tok')
   })
   it('throws Thai error without credential', async () => {
-    const c = new GitHubClient(async () => null, (async () => new Response('[]')) as unknown as typeof fetch)
-    await expect(c.listRepos()).rejects.toThrow('ยังไม่ได้ login GitHub — รัน git credential-manager github login ก่อน')
+    const c = new GitHubClient(
+      async () => null,
+      (async () => new Response('[]')) as unknown as typeof fetch
+    )
+    await expect(c.listRepos()).rejects.toThrow(
+      'ยังไม่ได้ login GitHub — รัน git credential-manager github login ก่อน'
+    )
   })
   it('throws on non-OK status', async () => {
     const c = new GitHubClient(

@@ -99,7 +99,7 @@ describe('buildTerminalSshArgs', () => {
       '-R',
       '127.0.0.1:30000:127.0.0.1:4242',
       'box1',
-      `cd "$HOME"/'repos/api' && export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_0='https://github.com/' && exec "$SHELL" -l`
+      `cd "$HOME"/'repos/api' && export GIT_CONFIG_COUNT=3 GIT_CONFIG_KEY_0='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_0='https://github.com/' GIT_CONFIG_KEY_1='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_1='git@github.com:' GIT_CONFIG_KEY_2='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_2='ssh://git@github.com/' && exec "$SHELL" -l`
     ])
   })
 })

@@ -1,11 +1,11 @@
 // Pure input helpers shared between main and renderer: no node imports.
 
-/** Parses `owner/name`, a github.com https URL or a `git@github.com:` URL. */
+/** Parses `owner/name`, a github.com https URL, a `git@github.com:` URL or an `ssh://git@github.com/` URL. */
 export function parseRepoInput(input: string): { owner: string; name: string } | null {
   let s = input.trim()
   const ssh = s.match(/^git@github\.com:(.+)$/)
   if (ssh) s = ssh[1]
-  else s = s.replace(/^https?:\/\/(www\.)?github\.com\//, '')
+  else s = s.replace(/^(https?:\/\/(www\.)?|ssh:\/\/git@)github\.com\//, '')
   s = s.replace(/\/+$/, '').replace(/\.git$/, '')
   const m = s.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/)
   return m ? { owner: m[1], name: m[2] } : null

@@ -1,4 +1,6 @@
-import type { PushLogEntry, PushOutcome, Workspace } from '../../shared/types'
+import fs from 'node:fs'
+import type { PushLogEntry, PushOutcome, Repo, Workspace } from '../../shared/types'
+import { parseRepoInput } from '../../shared/validate'
 import { GitError, type HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
 import { parseRefs, parseSymrefHead } from '../git/parsers'
@@ -10,6 +12,20 @@ import type { Store } from '../store/store'
 const NOT_EMPTY_CODE = 3
 /** Target is a leftover of an earlier failed clone (bare `git init`): resume without re-initialising. */
 const RESUMABLE_CODE = 4
+
+// Exit codes of the read-only probe run by inspectExisting.
+const NOT_FOUND_CODE = 11
+const NOT_REPO_CODE = 12
+const BARE_CODE = 13
+const NOT_ROOT_CODE = 14
+const NO_ORIGIN_CODE = 15
+
+/** Thrown by sync() when the sandbox refused some tags; branch refs were still synced. */
+class TagConflictError extends Error {
+  constructor(tags: string[]) {
+    super(`tag ชนกับใน sandbox: ${tags.join(', ')}`)
+  }
+}
 
 export class SyncService {
   private readonly git: HostGit
@@ -79,7 +95,7 @@ export class SyncService {
       return { result, tagConflicts }
     })
     if (outcome.tagConflicts.length > 0) {
-      throw new Error(`tag ชนกับใน sandbox: ${outcome.tagConflicts.join(', ')}`)
+      throw new TagConflictError(outcome.tagConflicts)
     }
     return { rewritten: outcome.result }
   }
@@ -220,8 +236,31 @@ export class SyncService {
     if (check.code !== 0 && check.code !== RESUMABLE_CODE) throw new Error(check.stderr)
     const resume = check.code === RESUMABLE_CODE
 
+    const { mirrorPath, defaultBranch } = await this.prepareMirror(repo)
+
+    if (!resume) await this.sandboxRun(target, `set -e\np=${p}\nmkdir -p "$p"\ngit init "$p"\n`)
+
+    const name = this.remoteName(ws.id)
+    await this.mirror.addWorkspace(mirrorPath, ws.id, target.gitUrl(ws.sandboxPath))
+    await this.pushOriginRefs(mirrorPath, name)
+
+    const url = `https://github.com/${repo.owner}/${repo.name}.git`
+    const remoteRef = shQuote(`refs/remotes/origin/${defaultBranch}`)
+    const branch = shQuote(defaultBranch)
+    const originBranch = shQuote(`origin/${defaultBranch}`)
+    await this.sandboxRun(
+      target,
+      `set -e\ncd ${p}\ngit remote add origin ${shQuote(url)}\n` +
+        `if git show-ref --verify --quiet ${remoteRef}; then git checkout -q -b ${branch} ${originBranch}; fi\n`
+    )
+  }
+
+  /**
+   * Make sure the repo's mirror exists and is fresh, and learn GitHub's default branch (stored on the repo).
+   * mirror.ensure/addWorkspace take the mirror lock themselves (not reentrant), so each section locks on its own.
+   */
+  private async prepareMirror(repo: Repo): Promise<{ mirrorPath: string; defaultBranch: string }> {
     const mirrorPath = this.store.mirrorPath(repo)
-    // mirror.ensure/addWorkspace take the mirror lock themselves (not reentrant), so lock per section.
     await this.mirror.ensure(repo, mirrorPath)
     let defaultBranch = repo.defaultBranch
     await withLock(mirrorPath, async () => {
@@ -233,11 +272,11 @@ export class SyncService {
         this.store.updateRepo(repo.id, { defaultBranch: detected })
       }
     })
+    return { mirrorPath, defaultBranch }
+  }
 
-    if (!resume) await this.sandboxRun(target, `set -e\np=${p}\nmkdir -p "$p"\ngit init "$p"\n`)
-
-    const name = this.remoteName(ws.id)
-    await this.mirror.addWorkspace(mirrorPath, ws.id, target.gitUrl(ws.sandboxPath))
+  /** Push the mirror's origin branches and tags to the sandbox repo `name` (a no-op while the mirror is empty). */
+  private async pushOriginRefs(mirrorPath: string, name: string): Promise<void> {
     await withLock(mirrorPath, async () => {
       const refs = await this.git.run(mirrorPath, [
         'for-each-ref',
@@ -253,16 +292,102 @@ export class SyncService {
         'refs/tags/*:refs/tags/*'
       ])
     })
+  }
 
-    const url = `https://github.com/${repo.owner}/${repo.name}.git`
-    const remoteRef = shQuote(`refs/remotes/origin/${defaultBranch}`)
-    const branch = shQuote(defaultBranch)
-    const originBranch = shQuote(`origin/${defaultBranch}`)
-    await this.sandboxRun(
-      target,
-      `set -e\ncd ${p}\ngit remote add origin ${shQuote(url)}\n` +
-        `if git show-ref --verify --quiet ${remoteRef}; then git checkout -q -b ${branch} ${originBranch}; fi\n`
+  /**
+   * Register a repo that already exists in the sandbox as a workspace, without modifying it.
+   * The only writes to the sandbox repo are the ones sync() always does (origin refs and tags pushed from the mirror):
+   * no `git init`, no remote changes, no checkout. On failure only regit's own records are rolled back.
+   */
+  async addExisting(hostId: string, sandboxPath: string): Promise<Workspace> {
+    validateSandboxPath(sandboxPath)
+    const path = sandboxPath.replace(/\/+$/, '')
+    if (this.store.config.workspaces.some((w) => w.hostId === hostId && w.sandboxPath === path))
+      throw new Error(`มี workspace นี้อยู่แล้ว: ${path}`)
+    const { owner, name } = await this.inspectExisting(hostId, path)
+    const repo = this.store.upsertRepo(owner, name)
+    const ws = this.store.addWorkspace(repo.id, hostId, path)
+    try {
+      await this.adoptExisting(ws)
+    } catch (err) {
+      // Undo only our own records; never delete anything in the sandbox.
+      this.store.removeWorkspace(ws.id)
+      const mirrorPath = this.store.mirrorPath(repo)
+      if (fs.existsSync(mirrorPath))
+        await this.mirror.removeWorkspace(mirrorPath, ws.id).catch(() => undefined)
+      throw err
+    }
+    return ws
+  }
+
+  /** One read-only probe of the sandbox path; resolves GitHub's owner/name from the repo's origin URL. */
+  async inspectExisting(
+    hostId: string,
+    sandboxPath: string
+  ): Promise<{ owner: string; name: string }> {
+    const target = this.targetFor(hostId)
+    // Compare physical paths on both sides (symlinks, `~`); the toplevel is normalised through `cd` as well
+    // because git for Windows prints C:/... where bash's pwd prints /c/...
+    const res = await target.exec(
+      [
+        `p=${shPath(sandboxPath)}`,
+        `[ -d "$p" ] || exit ${NOT_FOUND_CODE}`,
+        `git -C "$p" rev-parse --git-dir >/dev/null 2>&1 || exit ${NOT_REPO_CODE}`,
+        `[ "$(git -C "$p" rev-parse --is-bare-repository)" = false ] || exit ${BARE_CODE}`,
+        'top="$(git -C "$p" rev-parse --show-toplevel 2>/dev/null)"',
+        'real="$(cd "$p" && pwd -P)"',
+        'toppath=""',
+        '[ -n "$top" ] && toppath="$(cd "$top" 2>/dev/null && pwd -P)"',
+        `[ "$toppath" = "$real" ] || { printf '%s' "$toppath"; exit ${NOT_ROOT_CODE}; }`,
+        'url="$(git -C "$p" config --get remote.origin.url 2>/dev/null)"',
+        `[ -n "$url" ] || exit ${NO_ORIGIN_CODE}`,
+        'printf "%s" "$url"',
+        ''
+      ].join('\n')
     )
+    switch (res.code) {
+      case 0:
+        break
+      case NOT_FOUND_CODE:
+        throw new Error(`ไม่พบ path ใน sandbox: ${sandboxPath}`)
+      case NOT_REPO_CODE:
+        throw new Error(`ไม่ใช่ git repo: ${sandboxPath}`)
+      case BARE_CODE:
+        throw new Error(`เป็น bare repo (ต้องมี working tree): ${sandboxPath}`)
+      case NOT_ROOT_CODE: {
+        const root = res.stdout.trim()
+        throw new Error(
+          `path ไม่ใช่ root ของ repo: ${sandboxPath}` + (root ? ` (root คือ ${root})` : '')
+        )
+      }
+      case NO_ORIGIN_CODE:
+        throw new Error(`repo ไม่มี remote origin: ${sandboxPath}`)
+      default:
+        throw new Error(res.stderr)
+    }
+    const url = res.stdout.trim()
+    const parsed = /github\.com[/:]/.test(url) ? parseRepoInput(url) : null
+    if (!parsed) throw new Error(`origin ไม่ได้ชี้ไป GitHub: ${url}`)
+    return parsed
+  }
+
+  /** Mirror setup for an adopted workspace, then a normal full sync so the sandbox's branches show up in the mirror. */
+  private async adoptExisting(ws: Workspace): Promise<void> {
+    const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
+    if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
+    const { mirrorPath } = await this.prepareMirror(repo)
+    await this.mirror.addWorkspace(
+      mirrorPath,
+      ws.id,
+      this.targetFor(ws.hostId).gitUrl(ws.sandboxPath)
+    )
+    try {
+      await this.sync(ws)
+    } catch (err) {
+      // Deliberately keep the workspace when only tags conflict: branches are already synced and the
+      // next manual Sync reports the conflict again, which is more useful than refusing to add the repo.
+      if (!(err instanceof TagConflictError)) throw err
+    }
   }
 
   private async sandboxRun(target: SandboxTarget, script: string): Promise<void> {

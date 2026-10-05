@@ -28,6 +28,7 @@ const regit: RegitApi = {
   workspaces: {
     list: invoke(C.workspaces.list),
     clone: invoke(C.workspaces.clone),
+    addExisting: invoke(C.workspaces.addExisting),
     remove: invoke(C.workspaces.remove),
     sync: invoke(C.workspaces.sync),
     branches: invoke(C.workspaces.branches),
