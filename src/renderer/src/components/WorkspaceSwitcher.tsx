@@ -3,6 +3,7 @@ import { ChevronDown, FolderGit2, MoreHorizontal, Plus } from 'lucide-react'
 import type { Host, HostStatus, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button, IconButton } from './ui'
 import { AddHostDialog } from './AddHostDialog'
 import { AddExistingDialog } from './AddExistingDialog'
 import { CloneDialog } from './CloneDialog'
@@ -72,7 +73,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
 
   return (
     <div className="switcher" ref={rootRef}>
-      <button
+      <Button
         className="switcher-trigger"
         aria-label="Switch workspace"
         aria-haspopup="true"
@@ -85,7 +86,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
         <FolderGit2 size={14} />
         <span>{active ? labelOf(active) : 'Select workspace'}</span>
         <ChevronDown size={14} />
-      </button>
+      </Button>
       {open && (
         <div className="switcher-panel">
           {hosts.length === 0 && <div className="muted pad">No hosts yet</div>}
@@ -100,32 +101,31 @@ export function WorkspaceSwitcher(): React.JSX.Element {
                   <span className={`dot ${status.state}`} title={status.state} />
                   <span className="host-label">{host.label}</span>
                   {status.state === 'disconnected' && (
-                    <button onClick={() => void connect(host.id)}>Connect</button>
+                    <Button onClick={() => void connect(host.id)}>Connect</Button>
                   )}
                   {status.state === 'error' && (
-                    <button onClick={() => void connect(host.id)}>Retry</button>
+                    <Button onClick={() => void connect(host.id)}>Retry</Button>
                   )}
-                  <button
-                    className="icon-btn"
+                  <IconButton
                     aria-label={`Host menu ${host.label}`}
                     onClick={() => setMenu(menu === hostMenu ? null : hostMenu)}
                   >
                     <MoreHorizontal size={14} />
-                  </button>
+                  </IconButton>
                 </div>
                 {menu === hostMenu && (
                   <div className="menu">
                     {connected && (
-                      <button
+                      <Button
                         onClick={() => {
                           setMenu(null)
                           void disconnect(host.id)
                         }}
                       >
                         Disconnect
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
                       disabled={hostWorkspaces.length > 0}
                       title={
                         hostWorkspaces.length > 0 ? 'ลบ workspace ของ host นี้ก่อน' : undefined
@@ -136,7 +136,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
                       }}
                     >
                       Remove host
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {status.state === 'error' && status.error && (
@@ -167,31 +167,30 @@ export function WorkspaceSwitcher(): React.JSX.Element {
                         >
                           {`${label} · ${w.sandboxPath}`}
                         </span>
-                        <button
-                          className="icon-btn"
+                        <IconButton
                           aria-label={`Workspace menu ${label}`}
                           onClick={() => setMenu(menu === wsMenu ? null : wsMenu)}
                         >
                           <MoreHorizontal size={14} />
-                        </button>
+                        </IconButton>
                         {menu === wsMenu && (
                           <div className="menu">
-                            <button
+                            <Button
                               onClick={() => {
                                 setMenu(null)
                                 void run(() => api.workspaces.rebuildMirror(w.repoId, w.id))
                               }}
                             >
                               Rebuild mirror
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={() => {
                                 setMenu(null)
                                 setRemovingWs({ ws: w, label })
                               }}
                             >
                               Remove workspace
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </li>
@@ -203,15 +202,15 @@ export function WorkspaceSwitcher(): React.JSX.Element {
           })}
           {actionError && <div className="error pad">{actionError}</div>}
           <div className="switcher-footer">
-            <button disabled={connectedIds.length === 0} onClick={() => setCloning(true)}>
+            <Button disabled={connectedIds.length === 0} onClick={() => setCloning(true)}>
               ＋ Clone repo…
-            </button>
-            <button disabled={connectedIds.length === 0} onClick={() => setAddingExisting(true)}>
+            </Button>
+            <Button disabled={connectedIds.length === 0} onClick={() => setAddingExisting(true)}>
               ＋ Add existing repo…
-            </button>
-            <button onClick={() => setAdding(true)}>
+            </Button>
+            <Button onClick={() => setAdding(true)}>
               <Plus size={14} /> Add host
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { GitBranch, SquareTerminal } from 'lucide-react'
 import type { BranchInfo, WorktreeInfo } from '../../../shared/types'
+import { IconButton, PaneHeader, Badge } from './ui'
 import { ErrorBanner } from './ErrorBanner'
 
 const baseName = (p: string): string => p.split(/[\\/]/).filter(Boolean).pop() ?? p
@@ -36,7 +37,7 @@ export function BranchPane({
 
   return (
     <div className="pane">
-      <div className="pane-header">Branches</div>
+      <PaneHeader icon={<GitBranch size={14} />}>Branches</PaneHeader>
       {error && <ErrorBanner message={error} onRebuild={onRebuild} />}
       <div
         className="branch-list"
@@ -62,8 +63,8 @@ export function BranchPane({
                 ●
               </span>
             )}
-            {b.merged && <span className="badge">merged</span>}
-            {b.rewritten && <span className="badge warn">⚠ rewritten</span>}
+            {b.merged && <Badge>merged</Badge>}
+            {b.rewritten && <Badge tone="warning">⚠ rewritten</Badge>}
           </div>
         ))}
       </div>
@@ -74,14 +75,13 @@ export function BranchPane({
             <div key={w.path} className="worktree-row" title={w.path}>
               <span className="branch-name">{baseName(w.path)}</span>
               <span className="muted">{w.branch ?? 'detached'}</span>
-              {w.dirty > 0 && <span className="badge warn">{`${w.dirty}✎`}</span>}
-              <button
-                className="icon-btn"
+              {w.dirty > 0 && <Badge tone="warning">{`${w.dirty}✎`}</Badge>}
+              <IconButton
                 aria-label={`Open terminal in ${baseName(w.path)}`}
                 onClick={() => onOpenTerminal(w.path)}
               >
                 <SquareTerminal size={14} />
-              </button>
+              </IconButton>
             </div>
           ))}
         </div>

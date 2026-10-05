@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Host, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button } from './ui'
 
 function ConfirmDialog({
   title,
@@ -34,12 +35,12 @@ function ConfirmDialog({
         {children}
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
-          <button onClick={onClose} disabled={busy}>
+          <Button onClick={onClose} disabled={busy}>
             Cancel
-          </button>
-          <button className="primary" onClick={() => void confirm()} disabled={busy}>
+          </Button>
+          <Button variant="danger" onClick={() => void confirm()} disabled={busy}>
             Remove
-          </button>
+          </Button>
         </div>
       </div>
     </div>

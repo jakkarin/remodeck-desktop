@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RefreshCw, Settings } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { Button, IconButton } from './ui'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
 function syncLabel(elapsedMs: number): string {
@@ -52,7 +53,8 @@ export function TopBar({
   return (
     <header className="topbar">
       <WorkspaceSwitcher />
-      <button
+      <Button
+        variant="ghost"
         className={`sync-btn${info?.error ? ' warn' : ''}`}
         disabled={!active || hostDown || pending}
         title={title}
@@ -60,11 +62,11 @@ export function TopBar({
       >
         <RefreshCw size={14} className={pending ? 'spinning' : undefined} />
         {label}
-      </button>
+      </Button>
       <span className="topbar-spacer" />
-      <button className="icon-btn" aria-label="Settings" onClick={onOpenSettings}>
+      <IconButton aria-label="Settings" onClick={onOpenSettings}>
         <Settings size={16} />
-      </button>
+      </IconButton>
       {error && <div className="error topbar-error">{error}</div>}
     </header>
   )

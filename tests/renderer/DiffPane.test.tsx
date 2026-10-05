@@ -12,6 +12,12 @@ describe('DiffPane', () => {
     expect(screen.getByText('@@ -1 +1 @@').className).toContain('diff-hunk')
   })
 
+  it('renders lines inside the width-wrapping container', () => {
+    render(<DiffPane text={'+a\n-b'} path="a.ts" />)
+    expect(screen.getByText('+a').parentElement?.className).toBe('diff-lines')
+    expect(screen.getByText('-b').parentElement?.className).toBe('diff-lines')
+  })
+
   it('shows the path, and old → new for renames', () => {
     const { rerender } = render(<DiffPane text="" path="a.ts" />)
     expect(screen.getByText('a.ts')).toBeInTheDocument()

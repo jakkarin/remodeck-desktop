@@ -1,4 +1,5 @@
 import type { BranchInfo, CommitInfo, FileChange } from '../../../shared/types'
+import { PaneHeader } from './ui'
 import { CommitList } from './CommitList'
 import { ErrorBanner } from './ErrorBanner'
 import { FileList } from './FileList'
@@ -32,14 +33,14 @@ export function ChangesPane({
   if (!branch) {
     return (
       <div className="pane">
-        <div className="pane-header">Changes</div>
+        <PaneHeader>Changes</PaneHeader>
         <div className="muted pad">เลือก branch ทางซ้าย</div>
       </div>
     )
   }
   return (
     <div className="pane changes-pane">
-      <div className="pane-header">{`${branch.name} → ${branch.base.replace(/^origin\//, '')}`}</div>
+      <PaneHeader>{`${branch.name} → ${branch.base.replace(/^origin\//, '')}`}</PaneHeader>
       <div className="pane-scroll">
         {error && <ErrorBanner message={error} onRebuild={onRebuild} />}
         {branch.rewritten && (

@@ -19,8 +19,11 @@ export function CommitList({
             className={c.sha === selected ? 'selected' : undefined}
             onClick={() => onSelect(c.sha === selected ? null : c.sha)}
           >
-            <code>{c.sha.slice(0, 7)}</code> <span>{c.subject}</span>{' '}
-            <span className="muted">
+            <code>{c.sha.slice(0, 7)}</code>
+            <span className="commit-subject" title={c.subject}>
+              {c.subject}
+            </span>
+            <span className="muted commit-meta" title={`${c.author} · ${c.date}`}>
               {c.author} · {c.date}
             </span>
           </li>
