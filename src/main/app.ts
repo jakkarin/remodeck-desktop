@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { Notification, shell, type BrowserWindow } from 'electron'
+import { Notification, clipboard, shell, type BrowserWindow } from 'electron'
 import type { ApprovalDecision, ApprovalRequest, Host, Repo, Workspace } from '../shared/types'
 import { IPC_CHANNELS, type MainApi } from '../shared/ipc'
 import { ApprovalService } from './approval/approvalService'
@@ -25,6 +25,7 @@ import {
 } from './sync/queries'
 import { SyncService } from './sync/syncService'
 import { TerminalService, nodePtySpawner } from './terminal/terminalService'
+import { IMAGE_EXTS, MAX_IMAGE_BYTES, type ImageExt } from './terminal/imageUpload'
 
 const EV = IPC_CHANNELS.events
 // ApprovalService gives up after 60 s; drop our side of an unanswered prompt shortly after.
@@ -116,7 +117,8 @@ export async function createApp(opts: {
     store,
     bridge,
     approval,
-    connection
+    connection,
+    targetFor
   })
   const term = terminal
 
@@ -289,7 +291,21 @@ export async function createApp(opts: {
       open: (workspaceId, path) => term.open(workspaceId, path),
       write: (tabId, d) => term.write(tabId, d),
       resize: (tabId, c, r) => term.resize(tabId, c, r),
-      close: (tabId) => term.close(tabId)
+      close: (tabId) => term.close(tabId),
+      pasteImage: async (tabId) => {
+        const img = clipboard.readImage()
+        if (img.isEmpty()) return null
+        return term.uploadImage(tabId, new Uint8Array(img.toPNG()), 'png')
+      },
+      uploadImage: async (tabId, bytes, ext) => {
+        if (!(bytes instanceof Uint8Array)) throw new Error('ข้อมูลรูปภาพไม่ถูกต้อง')
+        const e = ext.toLowerCase() === 'jpeg' ? 'jpg' : ext.toLowerCase()
+        if (!(IMAGE_EXTS as readonly string[]).includes(e))
+          throw new Error('ไม่รองรับไฟล์รูปประเภทนี้')
+        if (bytes.length === 0) throw new Error('รูปภาพว่างเปล่า')
+        if (bytes.length > MAX_IMAGE_BYTES) throw new Error('รูปภาพใหญ่เกิน 10MB')
+        return term.uploadImage(tabId, bytes, e as ImageExt)
+      }
     },
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)

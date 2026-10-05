@@ -43,7 +43,14 @@ function fakeApi(): MainApi {
       openPR: fn(),
       rebuildMirror: fn()
     },
-    terminal: { open: fn(), write: vi.fn(), resize: vi.fn(), close: vi.fn() },
+    terminal: {
+      open: fn(),
+      write: vi.fn(),
+      resize: vi.fn(),
+      close: vi.fn(),
+      pasteImage: fn(),
+      uploadImage: fn()
+    },
     approval: { respond: vi.fn() },
     pushLog: { read: fn() }
   } as unknown as MainApi

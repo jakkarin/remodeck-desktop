@@ -4,6 +4,8 @@ import type { ApprovalService } from '../approval/approvalService'
 import type { GitBridge } from '../bridge/gitBridge'
 import type { ConnectionService } from '../connection/connectionService'
 import type { Store } from '../store/store'
+import type { SandboxTarget } from '../sandbox/target'
+import { uploadImage, type ImageExt } from './imageUpload'
 import { buildTerminalSshArgs, randomPort } from './sshCommand'
 
 export interface PtyLike {
@@ -28,6 +30,7 @@ type Deps = {
   bridge: GitBridge
   approval: ApprovalService
   connection: ConnectionService
+  targetFor: (hostId: string) => SandboxTarget
   rand?: () => number
 }
 
@@ -69,6 +72,8 @@ export function nodePtySpawner(): PtySpawner {
     }
   }
 }
+
+export type { ImageExt }
 
 export class TerminalService extends EventEmitter {
   private readonly tabs = new Map<string, Tab>()
@@ -113,6 +118,13 @@ export class TerminalService extends EventEmitter {
 
   resize(tabId: string, cols: number, rows: number): void {
     this.tabs.get(tabId)?.pty?.resize(cols, rows)
+  }
+
+  /** Uploads an image to the tab's host and returns its remote path. */
+  async uploadImage(tabId: string, bytes: Uint8Array, ext: ImageExt): Promise<string> {
+    const tab = this.tabs.get(tabId)
+    if (!tab) throw new Error('ไม่พบ terminal tab')
+    return uploadImage(this.deps.targetFor(tab.hostId), bytes, ext)
   }
 
   /** Renderer-initiated close: the renderer already dropped the tab, so no exit event. */

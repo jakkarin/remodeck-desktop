@@ -68,6 +68,15 @@ function setup(connected: (h: string) => boolean = () => true) {
       if (!connected(h)) throw new Error('Host ยังไม่ได้ connect')
     })
   }
+  const targetFor = vi.fn((h: string) => ({
+    exec: vi.fn(async () => ({
+      code: 0,
+      stdout: `/home/u/${h}.png
+`,
+      stderr: ''
+    })),
+    gitUrl: () => ''
+  }))
   const svc = new TerminalService({
     sshPath: 'ssh',
     bridgePort: () => 4242,
@@ -75,9 +84,10 @@ function setup(connected: (h: string) => boolean = () => true) {
     store: store as never,
     bridge: bridge as never,
     approval: approval as never,
-    connection: connection as never
+    connection: connection as never,
+    targetFor: targetFor as never
   })
-  return { svc, ptys, calls, spawn, bridge, approval, connection }
+  return { svc, targetFor, ptys, calls, spawn, bridge, approval, connection }
 }
 
 const rportOf = (args: string[]): string => args[args.indexOf('-R') + 1].split(':')[1]
@@ -389,5 +399,20 @@ describe('TerminalService', () => {
       vi.advanceTimersByTime(IDLE_MS * 2)
       expect(onIdle).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('TerminalService.uploadImage', () => {
+  it('throws for an unknown tab', async () => {
+    const { svc, targetFor } = setup()
+    await expect(svc.uploadImage('nope', new Uint8Array([1]), 'png')).rejects.toThrow()
+    expect(targetFor).not.toHaveBeenCalled()
+  })
+
+  it("uploads through the tab's host target", async () => {
+    const { svc, targetFor } = setup()
+    const { tabId } = await svc.open('w2')
+    await expect(svc.uploadImage(tabId, new Uint8Array([1]), 'png')).resolves.toBe('/home/u/h2.png')
+    expect(targetFor).toHaveBeenCalledWith('h2')
   })
 })
