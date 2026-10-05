@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { countDirty, parseFileChanges, parseRefs, parseSymrefHead, parseWorktrees } from '../../../src/main/git/parsers'
+import {
+  countDirty,
+  parseFileChanges,
+  parseRefs,
+  parseSymrefHead,
+  parseWorktrees
+} from '../../../src/main/git/parsers'
 
 describe('parsers', () => {
   it('parseSymrefHead', () => {
@@ -45,7 +51,9 @@ describe('parseFileChanges', () => {
   })
 
   it('rename', () => {
-    expect(parseFileChanges('0\t0\t\0old name.txt\0ใหม่.txt\0', 'R100\0old name.txt\0ใหม่.txt\0')).toEqual([
+    expect(
+      parseFileChanges('0\t0\t\0old name.txt\0ใหม่.txt\0', 'R100\0old name.txt\0ใหม่.txt\0')
+    ).toEqual([
       { path: 'ใหม่.txt', oldPath: 'old name.txt', status: 'R', additions: 0, deletions: 0 }
     ])
   })
@@ -57,7 +65,10 @@ describe('parseFileChanges', () => {
   })
 
   it('maps copy and type change', () => {
-    const r = parseFileChanges('1\t0\tc.txt\0' + '0\t0\tt.txt\0', 'C100\0src.txt\0c.txt\0T\0t.txt\0')
+    const r = parseFileChanges(
+      '1\t0\tc.txt\0' + '0\t0\tt.txt\0',
+      'C100\0src.txt\0c.txt\0T\0t.txt\0'
+    )
     expect(r.map((f) => f.status)).toEqual(['A', 'M'])
   })
 

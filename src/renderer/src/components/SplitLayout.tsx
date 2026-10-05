@@ -1,37 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type PointerEvent } from 'react'
-import { readJson, writeJson } from '../storage'
+import { writeJson } from '../storage'
+import { LAYOUT_KEY, MIN_BOTTOM, MIN_COL, readLayout, type LayoutState } from '../layout'
 
-const KEY = 'regit.layout'
-const MIN_COL = 160
-const MIN_BOTTOM = 80
 const SEP = 6
-
-export interface LayoutState {
-  left: number
-  middle: number
-  bottom: number
-  collapsed: boolean
-}
-
-const DEFAULTS: LayoutState = { left: 240, middle: 320, bottom: 260, collapsed: false }
-
-const num = (v: unknown, fallback: number): number =>
-  typeof v === 'number' && Number.isFinite(v) ? v : fallback
-
-export function readLayout(): LayoutState {
-  const v = readJson<Partial<LayoutState> | null>(KEY, null)
-  if (!v || typeof v !== 'object') return { ...DEFAULTS }
-  return {
-    left: num(v.left, DEFAULTS.left),
-    middle: num(v.middle, DEFAULTS.middle),
-    bottom: num(v.bottom, DEFAULTS.bottom),
-    collapsed: v.collapsed === true
-  }
-}
-
-export function saveCollapsed(collapsed: boolean): void {
-  writeJson(KEY, { ...readLayout(), collapsed })
-}
 
 type Handle = 'left' | 'middle' | 'bottom'
 
@@ -83,7 +54,7 @@ export function SplitLayout({
     const onUp = (): void => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      writeJson(KEY, latest.current)
+      writeJson(LAYOUT_KEY, latest.current)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)

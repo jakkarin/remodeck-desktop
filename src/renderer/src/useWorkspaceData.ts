@@ -114,8 +114,6 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
   }, [workspaceId, connected, update])
 
   useEffect(() => {
-    // reload is async: state is set after awaiting IPC, not synchronously in the effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload])
 

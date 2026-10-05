@@ -1,17 +1,28 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { AutoSync, FULL_MS, LIGHT_MS } from '../../../src/main/sync/autoSync'
 
 const NOT_CONNECTED = 'Host ยังไม่ได้ connect'
 
-function make(opts: { canSync?: (id: string) => boolean } = {}) {
-  const deps = {
-    light: vi.fn(async (_id: string): Promise<unknown> => undefined),
-    full: vi.fn(async (_id: string): Promise<{ rewritten: string[] }> => ({ rewritten: [] })),
-    canSync: vi.fn(opts.canSync ?? ((_id: string) => true)),
+interface Made {
+  deps: {
+    light: Mock<(id: string) => Promise<unknown>>
+    full: Mock<(id: string) => Promise<{ rewritten: string[] }>>
+    canSync: Mock<(id: string) => boolean>
+    onSynced: Mock<(id: string, info: unknown) => void>
+    now: () => number
+  }
+  sync: AutoSync
+}
+
+function make(opts: { canSync?: (id: string) => boolean } = {}): Made {
+  const deps: Made['deps'] = {
+    light: vi.fn(async (): Promise<unknown> => undefined),
+    full: vi.fn(async (): Promise<{ rewritten: string[] }> => ({ rewritten: [] })),
+    canSync: vi.fn(opts.canSync ?? ((): boolean => true)),
     onSynced: vi.fn(),
     now: () => 1234
   }
-  const sync = new AutoSync(deps)
+  const sync = new AutoSync(deps as ConstructorParameters<typeof AutoSync>[0])
   return { deps, sync }
 }
 
@@ -65,7 +76,12 @@ describe('AutoSync', () => {
     const { deps, sync } = make()
     current = sync
     let release: () => void = () => {}
-    deps.light.mockImplementation(() => new Promise<void>((r) => { release = r }))
+    deps.light.mockImplementation(
+      () =>
+        new Promise<void>((r) => {
+          release = r
+        })
+    )
     sync.setActive('w1')
     sync.idle('w1')
     await vi.advanceTimersByTimeAsync(0)
@@ -99,7 +115,11 @@ describe('AutoSync', () => {
     expect(deps.light).not.toHaveBeenCalled()
     expect(deps.full).not.toHaveBeenCalled()
     await expect(sync.syncNow('w1')).rejects.toThrow(NOT_CONNECTED)
-    expect(deps.onSynced).toHaveBeenCalledWith('w1', { kind: 'full', at: 1234, error: NOT_CONNECTED })
+    expect(deps.onSynced).toHaveBeenCalledWith('w1', {
+      kind: 'full',
+      at: 1234,
+      error: NOT_CONNECTED
+    })
   })
 
   it('unknown workspace is a no-op', async () => {

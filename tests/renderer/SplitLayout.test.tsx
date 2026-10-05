@@ -1,12 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import {
-  SplitLayout,
-  readLayout,
-  saveCollapsed
-} from '../../src/renderer/src/components/SplitLayout'
+import { SplitLayout } from '../../src/renderer/src/components/SplitLayout'
+import { readLayout, saveCollapsed } from '../../src/renderer/src/layout'
 
-const renderLayout = (collapsed = false) =>
+const renderLayout = (collapsed = false): ReturnType<typeof render> =>
   render(
     <SplitLayout
       left={<div>L</div>}

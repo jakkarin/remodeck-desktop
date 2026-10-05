@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { BranchInfo } from '../../src/shared/types'
-import {
-  markBaseline,
-  isNew,
-  markSeen,
-  loadSeen,
-  saveSeen
-} from '../../src/renderer/src/seen'
+import { markBaseline, isNew, markSeen, loadSeen, saveSeen } from '../../src/renderer/src/seen'
 
 const br = (name: string, sha: string): BranchInfo => ({
   name,

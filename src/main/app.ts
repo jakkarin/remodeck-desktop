@@ -71,10 +71,7 @@ export async function createApp(opts: {
   const targetFor = (hostId: string): SshTarget => new SshTarget(hostOf(hostId).sshHost, sshPath)
   const sshHostFor = (hostId: string): string => hostOf(hostId).sshHost
 
-  const mirror = new MirrorService(
-    git,
-    (repo) => `${githubBase}/${repo.owner}/${repo.name}.git`
-  )
+  const mirror = new MirrorService(git, (repo) => `${githubBase}/${repo.owner}/${repo.name}.git`)
   const sync = new SyncService({ git, mirror, store, targetFor })
   const credential = (): ReturnType<typeof getGitHubCredential> => getGitHubCredential(git)
   const github = new GitHubClient(credential)

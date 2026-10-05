@@ -29,7 +29,10 @@ describe('watchColorScheme', () => {
         if (handler === h) handler = null
       })
     }
-    vi.stubGlobal('matchMedia', vi.fn(() => mq))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => mq)
+    )
     const cb = vi.fn()
     const off = watchColorScheme(cb)
     handler?.()

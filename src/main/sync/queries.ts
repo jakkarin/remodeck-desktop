@@ -5,7 +5,9 @@ import { shPath, shQuote } from '../sandbox/shell'
 import type { SandboxTarget } from '../sandbox/target'
 
 async function refExists(git: HostGit, mirrorPath: string, ref: string): Promise<boolean> {
-  const res = await git.run(mirrorPath, ['show-ref', '--verify', '--quiet', ref], { allowFail: true })
+  const res = await git.run(mirrorPath, ['show-ref', '--verify', '--quiet', ref], {
+    allowFail: true
+  })
   return res.code === 0
 }
 
@@ -19,7 +21,8 @@ export async function listBranches(
 ): Promise<BranchInfo[]> {
   const prefix = `refs/remotes/ws-${wsId}/`
   const refs = parseRefs(
-    (await git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix])).stdout
+    (await git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix]))
+      .stdout
   )
   const defaultRef = `refs/remotes/origin/${defaultBranch}`
   const hasDefault = await refExists(git, mirrorPath, defaultRef)
@@ -30,13 +33,20 @@ export async function listBranches(
     const base = (await refExists(git, mirrorPath, `refs/remotes/origin/${name}`))
       ? `origin/${name}`
       : `origin/${defaultBranch}`
-    const counts = await git.run(mirrorPath, ['rev-list', '--left-right', '--count', `refs/remotes/${base}...${ref}`], {
-      allowFail: true
-    })
-    const [behind = 0, ahead = 0] = counts.code === 0 ? counts.stdout.trim().split(/\s+/).map(Number) : []
+    const counts = await git.run(
+      mirrorPath,
+      ['rev-list', '--left-right', '--count', `refs/remotes/${base}...${ref}`],
+      {
+        allowFail: true
+      }
+    )
+    const [behind = 0, ahead = 0] =
+      counts.code === 0 ? counts.stdout.trim().split(/\s+/).map(Number) : []
     let merged = false
     if (hasDefault) {
-      const anc = await git.run(mirrorPath, ['merge-base', '--is-ancestor', ref, defaultRef], { allowFail: true })
+      const anc = await git.run(mirrorPath, ['merge-base', '--is-ancestor', ref, defaultRef], {
+        allowFail: true
+      })
       merged = anc.code === 0
     }
     result.push({ name, sha, base, ahead, behind, merged, rewritten: rewritten.has(name) })
@@ -78,9 +88,13 @@ export async function requireCommitInRange(
   sha: string
 ): Promise<void> {
   if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(NOT_IN_BRANCH)
-  const inRef = await git.run(mirrorPath, ['merge-base', '--is-ancestor', sha, ref], { allowFail: true })
+  const inRef = await git.run(mirrorPath, ['merge-base', '--is-ancestor', sha, ref], {
+    allowFail: true
+  })
   if (inRef.code !== 0) throw new Error(NOT_IN_BRANCH)
-  const inBase = await git.run(mirrorPath, ['merge-base', '--is-ancestor', sha, base], { allowFail: true })
+  const inBase = await git.run(mirrorPath, ['merge-base', '--is-ancestor', sha, base], {
+    allowFail: true
+  })
   if (inBase.code === 0) throw new Error(NOT_IN_BRANCH)
 }
 
@@ -92,9 +106,7 @@ export async function listFiles(
   ref: string,
   commit?: string
 ): Promise<FileChange[]> {
-  const prefix = commit
-    ? ['diff-tree', '-r', '--root', '-M', '--no-commit-id']
-    : ['diff', '-M']
+  const prefix = commit ? ['diff-tree', '-r', '--root', '-M', '--no-commit-id'] : ['diff', '-M']
   const target = commit ? [commit] : [`${base}...${ref}`]
   const numstat = await git.run(mirrorPath, [...prefix, '--numstat', '-z', ...target])
   const nameStatus = await git.run(mirrorPath, [...prefix, '--name-status', '-z', ...target])
@@ -109,10 +121,14 @@ export async function getDiff(
   opts: { commit?: string; file?: string } = {}
 ): Promise<string> {
   const { commit, file } = opts
-  const args = commit ? ['diff-tree', '-r', '--root', '-M', '--no-commit-id', '-p', commit] : ['diff', `${base}...${ref}`]
+  const args = commit
+    ? ['diff-tree', '-r', '--root', '-M', '--no-commit-id', '-p', commit]
+    : ['diff', `${base}...${ref}`]
   if (file !== undefined) {
     const paths = [file]
-    const change = (await listFiles(git, mirrorPath, base, ref, commit)).find((f) => f.path === file)
+    const change = (await listFiles(git, mirrorPath, base, ref, commit)).find(
+      (f) => f.path === file
+    )
     if (change?.oldPath) paths.push(change.oldPath)
     args.push('--', ...paths.map((p) => `:(literal)${p}`))
   }
@@ -123,7 +139,10 @@ const LIST_END = '@@REGIT-LIST-END@@'
 const WT_MARK = '@@REGIT-WT@@ '
 
 /** Worktrees of the sandbox repo with their dirty-entry counts, gathered in one round trip. */
-export async function listWorktrees(target: SandboxTarget, sandboxPath: string): Promise<WorktreeInfo[]> {
+export async function listWorktrees(
+  target: SandboxTarget,
+  sandboxPath: string
+): Promise<WorktreeInfo[]> {
   const script =
     `cd ${shPath(sandboxPath)} || exit 1\n` +
     `git worktree list --porcelain || exit 1\n` +

@@ -69,11 +69,7 @@ export interface RegitApi {
 export type MainApi = Omit<RegitApi, 'on'>
 
 export type RegitEvent =
-  | 'host-status'
-  | 'terminal-data'
-  | 'terminal-exit'
-  | 'approval-request'
-  | 'workspace-synced'
+  'host-status' | 'terminal-data' | 'terminal-exit' | 'approval-request' | 'workspace-synced'
 
 export const IPC_CHANNELS = {
   hosts: {

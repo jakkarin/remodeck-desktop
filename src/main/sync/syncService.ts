@@ -99,7 +99,13 @@ export class SyncService {
     const prefix = `refs/remotes/${name}/`
     const listWs = async (): Promise<Map<string, string>> =>
       parseRefs(
-        (await this.git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix])).stdout
+        (
+          await this.git.run(mirrorPath, [
+            'for-each-ref',
+            '--format=%(refname)%00%(objectname)',
+            prefix
+          ])
+        ).stdout
       )
     const before = await listWs()
     await this.git.run(mirrorPath, ['fetch', '--prune', '--no-tags', name])
@@ -113,7 +119,8 @@ export class SyncService {
         allowFail: true
       })
       if (res.code === 1) result.push(branch)
-      else if (res.code !== 0) throw new Error(`git merge-base --is-ancestor failed (${res.code}): ${res.stderr}`)
+      else if (res.code !== 0)
+        throw new Error(`git merge-base --is-ancestor failed (${res.code}): ${res.stderr}`)
     }
     // Flags accumulate across fetches; a branch leaves the set once it no longer exists in the sandbox.
     const flagged = new Set([...(this.rewritten.get(wsId) ?? []), ...result])
@@ -131,7 +138,9 @@ export class SyncService {
     const dstRef = `refs/heads/${target}`
     const ZERO = '0'.repeat(40)
     const sha = async (ref: string): Promise<string> => {
-      const res = await this.git.run(mirrorPath, ['rev-parse', '--verify', '--quiet', ref], { allowFail: true })
+      const res = await this.git.run(mirrorPath, ['rev-parse', '--verify', '--quiet', ref], {
+        allowFail: true
+      })
       return res.code === 0 ? res.stdout.trim() : ZERO
     }
     const log = (e: Pick<PushLogEntry, 'updates' | 'result' | 'detail'>): void =>
@@ -169,7 +178,9 @@ export class SyncService {
       }
       log({ updates, result: 'ok' })
       // Best effort refresh of origin refs; the push already succeeded and is logged.
-      await this.git.run(mirrorPath, ['fetch', 'origin'], { allowFail: true }).catch(() => undefined)
+      await this.git
+        .run(mirrorPath, ['fetch', 'origin'], { allowFail: true })
+        .catch(() => undefined)
       return { ok: true }
     })
   }
@@ -228,7 +239,12 @@ export class SyncService {
     const name = this.remoteName(ws.id)
     await this.mirror.addWorkspace(mirrorPath, ws.id, target.gitUrl(ws.sandboxPath))
     await withLock(mirrorPath, async () => {
-      const refs = await this.git.run(mirrorPath, ['for-each-ref', '--format=%(refname)', 'refs/remotes/origin', 'refs/tags'])
+      const refs = await this.git.run(mirrorPath, [
+        'for-each-ref',
+        '--format=%(refname)',
+        'refs/remotes/origin',
+        'refs/tags'
+      ])
       if (refs.stdout.trim() === '') return
       await this.git.run(mirrorPath, [
         'push',

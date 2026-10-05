@@ -48,17 +48,26 @@ export type FileChange = {
 
 export type CommitInfo = { sha: string; subject: string; author: string; date: string }
 
-export type WorktreeInfo = { path: string; branch: string | null; head: string | null; dirty: number }
+export type WorktreeInfo = {
+  path: string
+  branch: string | null
+  head: string | null
+  dirty: number
+}
 
 export type SyncInfo = { kind: 'light' | 'full'; at: number; error?: string }
 
 export type HostState = 'disconnected' | 'connecting' | 'connected' | 'error'
 
-export type HostStatus = { state: HostState; gitVersion?: string; warnings: string[]; error?: string }
+export type HostStatus = {
+  state: HostState
+  gitVersion?: string
+  warnings: string[]
+  error?: string
+}
 
 export type PushOutcome =
-  | { ok: true }
-  | { ok: false; reason: 'protected' | 'non-fast-forward' | 'error'; message: string }
+  { ok: true } | { ok: false; reason: 'protected' | 'non-fast-forward' | 'error'; message: string }
 
 export type ApprovalDecision = 'once' | 'session' | 'always' | 'deny'
 

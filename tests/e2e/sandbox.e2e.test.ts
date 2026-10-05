@@ -45,12 +45,18 @@ async function sx(c: StartedTestContainer, script: string, user = 'dev'): Promis
   return r.output.trim()
 }
 
-async function waitFor<T>(what: string, fn: () => T | undefined | false, timeoutMs = 60_000, dump?: () => string): Promise<T> {
+async function waitFor<T>(
+  what: string,
+  fn: () => T | undefined | false,
+  timeoutMs = 60_000,
+  dump?: () => string
+): Promise<T> {
   const end = Date.now() + timeoutMs
   for (;;) {
     const v = fn()
     if (v) return v
-    if (Date.now() > end) throw new Error(`timed out waiting for ${what}${dump ? `\n--- output ---\n${dump()}` : ''}`)
+    if (Date.now() > end)
+      throw new Error(`timed out waiting for ${what}${dump ? `\n--- output ---\n${dump()}` : ''}`)
     await new Promise((r) => setTimeout(r, 100))
   }
 }
@@ -67,7 +73,10 @@ const seed = path.join(tmp, 'seed')
 const dataDir = path.join(tmp, 'data')
 const mirror = path.join(dataDir, 'mirrors', 'acme', 'widget.git')
 
-const startSandbox = (pubKey: string, env: Record<string, string> = {}): Promise<StartedTestContainer> =>
+const startSandbox = (
+  pubKey: string,
+  env: Record<string, string> = {}
+): Promise<StartedTestContainer> =>
   new GenericContainer(IMAGE)
     .withEnvironment({ AUTHORIZED_KEY: pubKey, ...env })
     .withExposedPorts(22)
@@ -103,8 +112,14 @@ beforeAll(async () => {
   execFileSync(SSH_KEYGEN, ['-q', '-t', 'ed25519', '-N', '', '-f', key])
   const pub = fs.readFileSync(`${key}.pub`, 'utf8').trim()
 
-  await GenericContainer.fromDockerfile(path.resolve('tests/e2e/sandbox')).build(IMAGE, { deleteOnExit: false })
-  ;[c1, c2, cNoGit] = await Promise.all([startSandbox(pub), startSandbox(pub), startSandbox(pub, { HIDE_GIT: '1' })])
+  await GenericContainer.fromDockerfile(path.resolve('tests/e2e/sandbox')).build(IMAGE, {
+    deleteOnExit: false
+  })
+  ;[c1, c2, cNoGit] = await Promise.all([
+    startSandbox(pub),
+    startSandbox(pub),
+    startSandbox(pub, { HIDE_GIT: '1' })
+  ])
 
   const alias = (name: string, c: StartedTestContainer): string =>
     [
@@ -145,7 +160,12 @@ beforeAll(async () => {
     focus: () => undefined,
     webContents: { send: (channel: string, ...args: unknown[]) => events.push({ channel, args }) }
   }
-  const app = await createApp({ dataDir, window: () => win as never, sshPath: SSH, githubBase: backend.url })
+  const app = await createApp({
+    dataDir,
+    window: () => win as never,
+    sshPath: SSH,
+    githubBase: backend.url
+  })
   api = app.api
   dispose = app.dispose
 })
@@ -186,7 +206,12 @@ describe('regit against real sandboxes', () => {
       c1,
       'cd ~/work/widget && git rev-parse --abbrev-ref HEAD && git remote get-url origin && cat README.md && git rev-parse HEAD'
     )
-    expect(out.split('\n')).toEqual(['main', 'https://github.com/acme/widget.git', '# widget', hg(upstream, 'rev-parse', 'main')])
+    expect(out.split('\n')).toEqual([
+      'main',
+      'https://github.com/acme/widget.git',
+      '# widget',
+      hg(upstream, 'rev-parse', 'main')
+    ])
   })
 
   it('refuses to clone into a non-empty path and leaves it untouched', async () => {
@@ -203,7 +228,9 @@ describe('regit against real sandboxes', () => {
     await api.workspaces.sync(ws1.id)
     const feat = (await api.workspaces.branches(ws1.id)).find((b) => b.name === 'feat-a')
     expect(feat).toMatchObject({ base: 'origin/main', ahead: 1, behind: 0, rewritten: false })
-    expect((await api.workspaces.commits(ws1.id, 'feat-a')).map((c) => c.subject)).toEqual(['add a'])
+    expect((await api.workspaces.commits(ws1.id, 'feat-a')).map((c) => c.subject)).toEqual([
+      'add a'
+    ])
     expect(await api.workspaces.diff(ws1.id, 'feat-a')).toContain('a.txt')
     expect(hg(mirror, 'tag', '-l')).not.toContain('ai-tag')
   })
@@ -218,7 +245,10 @@ describe('regit against real sandboxes', () => {
 
   it('review push to a protected branch is blocked', async () => {
     const before = hg(upstream, 'rev-parse', 'main')
-    expect(await api.workspaces.push(ws1.id, 'feat-a', 'main')).toMatchObject({ ok: false, reason: 'protected' })
+    expect(await api.workspaces.push(ws1.id, 'feat-a', 'main')).toMatchObject({
+      ok: false,
+      reason: 'protected'
+    })
     expect(hg(upstream, 'rev-parse', 'main')).toBe(before)
   })
 
@@ -241,7 +271,9 @@ describe('regit against real sandboxes', () => {
   it('a history rewrite in the sandbox is flagged', async () => {
     await sx(c1, 'cd ~/work/widget && git commit -q --amend -m "add a (amended)"')
     expect((await api.workspaces.sync(ws1.id)).rewritten).toEqual(['feat-a'])
-    expect((await api.workspaces.branches(ws1.id)).find((b) => b.name === 'feat-a')?.rewritten).toBe(true)
+    expect(
+      (await api.workspaces.branches(ws1.id)).find((b) => b.name === 'feat-a')?.rewritten
+    ).toBe(true)
   })
 
   it('lists worktrees the AI creates', async () => {
@@ -257,14 +289,20 @@ describe('regit against real sandboxes', () => {
     h2 = await api.hosts.add('sandbox-2', 'Sandbox 2')
     expect((await api.hosts.connect(h2.id)).state).toBe('connected')
     ws2 = await api.workspaces.clone(h2.id, 'acme/widget', '~/widget')
-    await sx(c2, 'cd ~/widget && git checkout -q -b feat-a && echo other > other.txt && git add . && git commit -qm "other a"')
+    await sx(
+      c2,
+      'cd ~/widget && git checkout -q -b feat-a && echo other > other.txt && git add . && git commit -qm "other a"'
+    )
     await api.workspaces.sync(ws2.id)
     const sha1 = (await api.workspaces.branches(ws1.id)).find((b) => b.name === 'feat-a')?.sha
     const sha2 = (await api.workspaces.branches(ws2.id)).find((b) => b.name === 'feat-a')?.sha
     expect(sha2).toBe(await sx(c2, 'git -C ~/widget rev-parse feat-a'))
     expect(sha1).not.toBe(sha2)
     const githubFeatA = hg(upstream, 'rev-parse', 'refs/heads/feat-a')
-    expect(await api.workspaces.push(ws2.id, 'feat-a', 'feat-a')).toMatchObject({ ok: false, reason: 'non-fast-forward' })
+    expect(await api.workspaces.push(ws2.id, 'feat-a', 'feat-a')).toMatchObject({
+      ok: false,
+      reason: 'non-fast-forward'
+    })
     expect(hg(upstream, 'rev-parse', 'refs/heads/feat-a')).toBe(githubFeatA)
     expect(await api.workspaces.push(ws2.id, 'feat-a', 'feat-a-2')).toEqual({ ok: true })
     expect(hg(upstream, 'rev-parse', 'refs/heads/feat-a-2')).toBe(sha2)
@@ -279,14 +317,24 @@ describe('regit against real sandboxes', () => {
         .map((e) => e.args[1] as string)
         .join('')
     const approvals = (): ApprovalRequest[] =>
-      events.filter((e) => e.channel === EV['approval-request']).map((e) => e.args[0] as ApprovalRequest)
+      events
+        .filter((e) => e.channel === EV['approval-request'])
+        .map((e) => e.args[0] as ApprovalRequest)
     let marker = 0
     /** Types a command into the tab; resolves with its exit code. */
-    const run = async (cmd: string, onApproval?: (req: ApprovalRequest) => void): Promise<number> => {
+    const run = async (
+      cmd: string,
+      onApproval?: (req: ApprovalRequest) => void
+    ): Promise<number> => {
       const m = `__RX${++marker}_`
       api.terminal.write(tabId, `${cmd}; echo ${m}$?__\r`)
       if (onApproval) {
-        const req = await waitFor('approval popup', () => approvals()[approvalsSeen], 60_000, output)
+        const req = await waitFor(
+          'approval popup',
+          () => approvals()[approvalsSeen],
+          60_000,
+          output
+        )
         approvalsSeen++
         onApproval(req)
       }
@@ -317,13 +365,16 @@ describe('regit against real sandboxes', () => {
       })
       expect(code).toBe(0)
       expect(req?.updates.map((u) => u.ref)).toEqual(['refs/heads/feat-b'])
-      expect(hg(upstream, 'rev-parse', 'refs/heads/feat-b')).toBe(await sx(c1, 'git -C ~/work/widget rev-parse feat-b'))
+      expect(hg(upstream, 'rev-parse', 'refs/heads/feat-b')).toBe(
+        await sx(c1, 'git -C ~/work/widget rev-parse feat-b')
+      )
     })
 
     it('Deny rejects the push and GitHub is unchanged', async () => {
       const before = hg(upstream, 'rev-parse', 'refs/heads/feat-b')
-      const code = await run('echo c > c.txt && git add c.txt && git commit -qm c && git push -q origin feat-b', (r) =>
-        api.approval.respond(r.id, 'deny')
+      const code = await run(
+        'echo c > c.txt && git add c.txt && git commit -qm c && git push -q origin feat-b',
+        (r) => api.approval.respond(r.id, 'deny')
       )
       expect(code).not.toBe(0)
       expect(hg(upstream, 'rev-parse', 'refs/heads/feat-b')).toBe(before)
@@ -360,7 +411,10 @@ describe('regit against real sandboxes', () => {
       api.workspaces.setActive(ws1.id)
       const lightEvents = (): number =>
         events.filter(
-          (e) => e.channel === EV['workspace-synced'] && e.args[0] === ws1.id && (e.args[1] as { kind: string }).kind === 'light'
+          (e) =>
+            e.channel === EV['workspace-synced'] &&
+            e.args[0] === ws1.id &&
+            (e.args[1] as { kind: string }).kind === 'light'
         ).length
       const seen = lightEvents()
       const requestsBefore = backend.requests.length
@@ -384,7 +438,9 @@ describe('regit against real sandboxes', () => {
     it('Disconnect closes the tab', async () => {
       api.hosts.disconnect(h1.id)
       await waitFor('terminal exit', () =>
-        events.some((e) => e.channel === EV['terminal-exit'] && e.args[0] === tabId && e.args[1] === -1)
+        events.some(
+          (e) => e.channel === EV['terminal-exit'] && e.args[0] === tabId && e.args[1] === -1
+        )
       )
     })
   })

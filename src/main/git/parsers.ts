@@ -32,7 +32,8 @@ export function parseWorktrees(
     for (const line of block.split(/\r?\n/)) {
       if (line.startsWith('worktree ')) wtPath = line.slice('worktree '.length)
       else if (line.startsWith('HEAD ')) head = line.slice('HEAD '.length)
-      else if (line.startsWith('branch ')) branch = line.slice('branch '.length).replace(/^refs\/heads\//, '')
+      else if (line.startsWith('branch '))
+        branch = line.slice('branch '.length).replace(/^refs\/heads\//, '')
     }
     if (wtPath !== null) result.push({ path: wtPath, branch, head })
   }
@@ -72,7 +73,9 @@ export function parseFileChanges(numstatZ: string, nameStatusZ: string): FileCha
       const p = ns[i + 2]
       i += 2
       const c = counts.get(p) ?? { additions: 0, deletions: 0 }
-      result.push(letter === 'R' ? { path: p, oldPath, status: 'R', ...c } : { path: p, status: 'A', ...c })
+      result.push(
+        letter === 'R' ? { path: p, oldPath, status: 'R', ...c } : { path: p, status: 'A', ...c }
+      )
     } else {
       const p = ns[++i]
       const c = counts.get(p) ?? { additions: 0, deletions: 0 }
