@@ -439,3 +439,32 @@ input {
   padding: 2px 8px;
   border-bottom: 1px solid var(--border);
 }
+
+/* SplitLayout */
+.split-root {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+}
+.split-slot {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.split-bottom {
+  overflow: hidden;
+}
+.split-sep {
+  background: var(--border);
+  touch-action: none;
+}
+.split-sep:hover {
+  background: var(--accent);
+}
+.split-sep-v {
+  cursor: col-resize;
+}
+.split-sep-h {
+  cursor: row-resize;
+}
