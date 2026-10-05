@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, type Mock } from 'vitest'
-import { attachClipboard } from '../../src/renderer/src/terminalClipboard'
+import {
+  attachClipboard,
+  attachImageDrop,
+  formatPath
+} from '../../src/renderer/src/terminalClipboard'
 
 type KeyHandler = (e: KeyboardEvent) => boolean
 type Clip = Parameters<typeof attachClipboard>[2]
@@ -19,7 +23,13 @@ type Setup = {
   rightClick: () => MouseEvent
 }
 
-function setup(opts: { selection?: string; clip?: Partial<NonNullable<Clip>> } = {}): Setup {
+function setup(
+  opts: {
+    selection?: string
+    clip?: Partial<NonNullable<Clip>>
+    clipOpts?: Parameters<typeof attachClipboard>[3]
+  } = {}
+): Setup {
   let handler: KeyHandler = () => true
   const term = {
     attachCustomKeyEventHandler: vi.fn((h: KeyHandler) => {
@@ -36,7 +46,7 @@ function setup(opts: { selection?: string; clip?: Partial<NonNullable<Clip>> } =
     ...opts.clip
   }
   const el = document.createElement('div')
-  const dispose = attachClipboard(term, el, clipboard)
+  const dispose = attachClipboard(term, el, clipboard, opts.clipOpts)
   const key = (
     init: KeyboardEventInit,
     type = 'keydown'
@@ -156,5 +166,154 @@ describe('attachClipboard', () => {
     const ev = t.rightClick()
     expect(ev.defaultPrevented).toBe(false)
     expect(t.clipboard.writeText).not.toHaveBeenCalled()
+  })
+})
+
+describe('image paste', () => {
+  const paste = (t: Setup): void => void t.key({ ...CS, code: 'KeyV' })
+
+  it('pastes the uploaded path plus a space and never reads text', async () => {
+    const pasteImage = vi.fn(async () => '/home/u/.cache/regit/paste/a.png')
+    const t = setup({ clipOpts: { pasteImage } })
+    paste(t)
+    await flush()
+    expect(t.term.paste).toHaveBeenCalledWith('/home/u/.cache/regit/paste/a.png ')
+    expect(t.clipboard.readText).not.toHaveBeenCalled()
+  })
+
+  it('falls back to text paste when there is no image', async () => {
+    const t = setup({ clipOpts: { pasteImage: async () => null } })
+    paste(t)
+    await flush()
+    expect(t.term.paste).toHaveBeenCalledWith('clip')
+  })
+
+  it('reports a rejection and pastes nothing', async () => {
+    const onError = vi.fn()
+    const t = setup({
+      clipOpts: {
+        pasteImage: async () => {
+          throw new Error('boom')
+        },
+        onError
+      }
+    })
+    paste(t)
+    await flush()
+    expect(onError).toHaveBeenCalledWith('boom')
+    expect(t.term.paste).not.toHaveBeenCalled()
+    expect(t.clipboard.readText).not.toHaveBeenCalled()
+  })
+})
+
+describe('formatPath', () => {
+  it('leaves plain paths raw and quotes the rest', () => {
+    expect(formatPath('/home/u/.cache/a-b_1.png')).toBe('/home/u/.cache/a-b_1.png')
+    expect(formatPath('/home/my user/a.png')).toBe("'/home/my user/a.png'")
+    expect(formatPath("/h/it's.png")).toBe("'/h/it'\\''s.png'")
+    expect(formatPath('/h/a;b$c.png')).toBe("'/h/a;b$c.png'")
+  })
+})
+
+describe('attachImageDrop', () => {
+  const file = (name: string, type: string, size = 3): File =>
+    new File([new Uint8Array(size)], name, { type })
+  const drop = (el: HTMLElement, files: File[]): Event => {
+    const ev = new Event('drop', { cancelable: true, bubbles: true })
+    Object.defineProperty(ev, 'dataTransfer', { value: { files } })
+    el.dispatchEvent(ev)
+    return ev
+  }
+  const make = (): {
+    el: HTMLElement
+    term: { paste: Mock }
+    upload: Mock
+    onError: Mock
+    dispose: () => void
+  } => {
+    const el = document.createElement('div')
+    const term = { paste: vi.fn() }
+    const upload = vi.fn(
+      async (_b: Uint8Array, ext: string) => `/r/${ext === 'png' ? 'a b' : 'c'}.${ext}`
+    )
+    const onError = vi.fn()
+    return { el, term, upload, onError, dispose: attachImageDrop(el, term, upload, onError) }
+  }
+  const settle = async (): Promise<void> => {
+    for (let i = 0; i < 5; i++) await flush()
+  }
+
+  it('uploads images and pastes all paths once', async () => {
+    const t = make()
+    const ev = drop(t.el, [file('a.png', 'image/png'), file('b.jpg', 'image/jpeg')])
+    expect(ev.defaultPrevented).toBe(true)
+    await settle()
+    expect(t.upload).toHaveBeenCalledTimes(2)
+    expect(t.upload.mock.calls[1][1]).toBe('jpg')
+    expect(t.term.paste).toHaveBeenCalledTimes(1)
+    expect(t.term.paste).toHaveBeenCalledWith("'/r/a b.png' /r/c.jpg ")
+  })
+
+  it('skips non-image and oversize files and reports them', async () => {
+    const t = make()
+    drop(t.el, [file('x.txt', 'text/plain'), file('big.png', 'image/png', 10 * 1024 * 1024 + 1)])
+    await settle()
+    expect(t.upload).not.toHaveBeenCalled()
+    expect(t.onError).toHaveBeenCalledTimes(2)
+    expect(t.term.paste).not.toHaveBeenCalled()
+  })
+
+  it('prevents default on dragover and removes listeners on dispose', () => {
+    const t = make()
+    const over = new Event('dragover', { cancelable: true })
+    t.el.dispatchEvent(over)
+    expect(over.defaultPrevented).toBe(true)
+    t.dispose()
+    const over2 = new Event('dragover', { cancelable: true })
+    t.el.dispatchEvent(over2)
+    expect(over2.defaultPrevented).toBe(false)
+    expect(drop(t.el, [file('a.png', 'image/png')]).defaultPrevented).toBe(false)
+  })
+})
+
+describe('onBusy wiring', () => {
+  it('clipboard paste begins and ends around pasteImage, also on rejection', async () => {
+    for (const fail of [false, true]) {
+      const end = vi.fn()
+      const onBusy = vi.fn(() => end)
+      const t = setup({
+        clipOpts: {
+          pasteImage: async () => {
+            if (fail) throw new Error('x')
+            return null
+          },
+          onError: () => {},
+          onBusy
+        }
+      })
+      t.key({ ...CS, code: 'KeyV' })
+      expect(onBusy).toHaveBeenCalledTimes(1)
+      await flush()
+      expect(end).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it('drop begins once per drop and ends after uploads settle', async () => {
+    const el = document.createElement('div')
+    const end = vi.fn()
+    const onBusy = vi.fn(() => end)
+    const upload = vi.fn(async () => {
+      throw new Error('nope')
+    })
+    attachImageDrop(el, { paste: vi.fn() }, upload, () => {}, onBusy)
+    const ev = new Event('drop', { cancelable: true })
+    Object.defineProperty(ev, 'dataTransfer', {
+      value: { files: [new File([new Uint8Array(2)], 'a.png', { type: 'image/png' })] }
+    })
+    el.dispatchEvent(ev)
+    expect(onBusy).toHaveBeenCalledTimes(1)
+    expect(end).not.toHaveBeenCalled()
+    for (let i = 0; i < 5; i++) await flush()
+    expect(end).toHaveBeenCalledTimes(1)
   })
 })

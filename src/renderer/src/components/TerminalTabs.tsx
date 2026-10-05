@@ -3,10 +3,11 @@ import { Terminal, type ITheme } from '@xterm/xterm'
 import { watchColorScheme, xtermTheme } from '../theme'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, Plus } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
-import { attachClipboard } from '../terminalClipboard'
+import { createBusyIndicator } from '../busyIndicator'
+import { attachClipboard, attachImageDrop } from '../terminalClipboard'
 import { onTerminalOpened, openTerminal } from '../terminalEvents'
 import { Button, IconButton } from './ui'
 
@@ -19,14 +20,17 @@ type PaneHandle = { write(d: string): void }
 function TerminalPane({
   tabId,
   active,
-  register
+  register,
+  onError
 }: {
   tabId: string
   active: boolean
   register: (tabId: string, h: PaneHandle | null) => void
+  onError: (msg: string) => void
 }): React.JSX.Element {
   const host = useRef<HTMLDivElement>(null)
   const fitRef = useRef<FitAddon | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     const readTheme = (): ITheme =>
@@ -46,7 +50,20 @@ function TerminalPane({
     fitRef.current = fit
     term.loadAddon(fit)
     term.open(host.current!)
-    const detachClipboard = attachClipboard(term, host.current!)
+    const busy = createBusyIndicator(setUploading)
+    const onBusy = (): (() => void) => busy.begin()
+    const detachClipboard = attachClipboard(term, host.current!, undefined, {
+      pasteImage: () => api.terminal.pasteImage(tabId),
+      onError,
+      onBusy
+    })
+    const detachDrop = attachImageDrop(
+      host.current!,
+      term,
+      (bytes, ext) => api.terminal.uploadImage(tabId, bytes, ext),
+      onError,
+      onBusy
+    )
     const onData = term.onData((d) => api.terminal.write(tabId, d))
     const onResize = term.onResize(({ cols, rows }) => api.terminal.resize(tabId, cols, rows))
     const doFit = (): void => {
@@ -64,13 +81,15 @@ function TerminalPane({
       ro.disconnect()
       unwatch()
       detachClipboard()
+      detachDrop()
+      busy.dispose()
       register(tabId, null)
       onData.dispose()
       onResize.dispose()
       term.dispose()
       fitRef.current = null
     }
-  }, [tabId, register])
+  }, [tabId, register, onError])
 
   useEffect(() => {
     if (active) {
@@ -82,7 +101,19 @@ function TerminalPane({
     }
   }, [active])
 
-  return <div className="terminal-pane" style={{ display: active ? 'block' : 'none' }} ref={host} />
+  return (
+    <div className="terminal-pane" style={{ display: active ? 'block' : 'none' }}>
+      <div className="terminal-host" ref={host} />
+      {uploading && (
+        <div className="terminal-busy" role="status" aria-live="polite">
+          <div className="terminal-busy-box">
+            <Loader2 size={16} className="spinning" aria-hidden="true" />
+            <span>กำลังอัปโหลดรูป…</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function TerminalTabs({
@@ -96,6 +127,18 @@ export function TerminalTabs({
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId)
   const hostUp = !!activeWs && statuses[activeWs.hostId]?.state === 'connected'
   const [openError, setOpenError] = useState<string | null>(null)
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showError = useCallback((msg: string) => {
+    setOpenError(msg)
+    if (errorTimer.current) clearTimeout(errorTimer.current)
+    errorTimer.current = setTimeout(() => setOpenError(null), 5000)
+  }, [])
+  useEffect(
+    () => () => {
+      if (errorTimer.current) clearTimeout(errorTimer.current)
+    },
+    []
+  )
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const panes = useRef(new Map<string, PaneHandle>())
@@ -199,6 +242,7 @@ export function TerminalTabs({
             tabId={t.tabId}
             active={t.tabId === activeId}
             register={register}
+            onError={showError}
           />
         ))}
       </div>

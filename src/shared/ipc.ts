@@ -63,6 +63,10 @@ export interface RegitApi {
     write(tabId: string, d: string): void
     resize(tabId: string, c: number, r: number): void
     close(tabId: string): void
+    /** Uploads the clipboard image to the tab's sandbox; resolves its remote path, or null when the clipboard has no image. */
+    pasteImage(tabId: string): Promise<string | null>
+    /** Uploads image bytes (png/jpg/jpeg/gif/webp, max 10MB) to the tab's sandbox; resolves the remote path. */
+    uploadImage(tabId: string, bytes: Uint8Array, ext: string): Promise<string>
   }
   approval: { respond(requestId: string, decision: ApprovalDecision): void }
   pushLog: { read(limit: number): Promise<PushLogEntry[]> }
@@ -114,7 +118,9 @@ export const IPC_CHANNELS = {
     open: 'terminal:open',
     write: 'terminal:write',
     resize: 'terminal:resize',
-    close: 'terminal:close'
+    close: 'terminal:close',
+    pasteImage: 'terminal:pasteImage',
+    uploadImage: 'terminal:uploadImage'
   },
   approval: { respond: 'approval:respond' },
   pushLog: { read: 'pushLog:read' },

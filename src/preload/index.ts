@@ -46,7 +46,9 @@ const regit: RegitApi = {
     open: invoke(C.terminal.open),
     write: send(C.terminal.write),
     resize: send(C.terminal.resize),
-    close: send(C.terminal.close)
+    close: send(C.terminal.close),
+    pasteImage: invoke(C.terminal.pasteImage),
+    uploadImage: invoke(C.terminal.uploadImage)
   },
   approval: { respond: send(C.approval.respond) },
   pushLog: { read: invoke(C.pushLog.read) },

@@ -346,6 +346,31 @@ textarea::placeholder {
   position: absolute;
   inset: var(--space-2);
 }
+.terminal-host {
+  position: absolute;
+  inset: 0;
+}
+.terminal-busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--backdrop);
+  z-index: 5;
+}
+.terminal-busy-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-subtle);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  box-shadow: var(--shadow-popover);
+}
 .modal-backdrop {
   position: fixed;
   inset: 0;
