@@ -15,6 +15,7 @@ const regit: RegitApi = {
   hosts: {
     list: invoke(C.hosts.list),
     add: invoke(C.hosts.add),
+    update: invoke(C.hosts.update),
     remove: invoke(C.hosts.remove),
     status: invoke(C.hosts.status),
     connect: invoke(C.hosts.connect),
@@ -51,6 +52,7 @@ const regit: RegitApi = {
     uploadImage: invoke(C.terminal.uploadImage)
   },
   approval: { respond: send(C.approval.respond) },
+  prefs: { get: invoke(C.prefs.get), update: invoke(C.prefs.update) },
   pushLog: { read: invoke(C.pushLog.read) },
   on(event: RegitEvent, cb: (...args: never[]) => void): () => void {
     const channel = C.events[event]

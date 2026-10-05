@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Store } from '../../src/main/store/store'
-import type { PushLogEntry } from '../../src/shared/types'
+import { DEFAULT_PREFS, type PushLogEntry } from '../../src/shared/types'
 
 let dir: string
 beforeEach(() => {
@@ -24,7 +24,12 @@ describe('Store', () => {
   it('starts empty and creates missing dir', () => {
     const nested = path.join(dir, 'a', 'b')
     const s = new Store(nested)
-    expect(s.config).toEqual({ hosts: [], repos: [], workspaces: [] })
+    expect(s.config).toEqual({
+      hosts: [],
+      repos: [],
+      workspaces: [],
+      prefs: DEFAULT_PREFS
+    })
     s.addHost('h', 'H')
     expect(fs.existsSync(path.join(nested, 'config.json'))).toBe(true)
     expect(fs.existsSync(path.join(nested, 'config.json.tmp'))).toBe(false)
@@ -109,5 +114,78 @@ describe('Store', () => {
     }
     expect(s.config.hosts).toEqual([])
     expect(s.addHost('user@box.example', 'Box').sshHost).toBe('user@box.example')
+  })
+
+  describe('prefs', () => {
+    const writeCfg = (raw: unknown): void =>
+      fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(raw))
+
+    it('defaults when config has no prefs', () => {
+      writeCfg({ hosts: [], repos: [], workspaces: [] })
+      expect(new Store(dir).config.prefs).toEqual(DEFAULT_PREFS)
+    })
+
+    it('invalid stored fields fall back individually', () => {
+      writeCfg({
+        prefs: { theme: 'neon', terminalFontSize: 99, defaultProtectedBranches: 'main' }
+      })
+      expect(new Store(dir).config.prefs).toEqual(DEFAULT_PREFS)
+      writeCfg({
+        prefs: { theme: 'dark', terminalFontSize: 12.5, defaultProtectedBranches: ['x', ''] }
+      })
+      expect(new Store(dir).config.prefs).toEqual({ ...DEFAULT_PREFS, theme: 'dark' })
+      writeCfg({
+        prefs: { theme: 'light', terminalFontSize: 16, defaultProtectedBranches: ['dev'] }
+      })
+      expect(new Store(dir).config.prefs).toEqual({
+        theme: 'light',
+        terminalFontSize: 16,
+        defaultProtectedBranches: ['dev']
+      })
+    })
+
+    it('updatePrefs validates, merges, dedupes and persists', () => {
+      const s = new Store(dir)
+      expect(s.updatePrefs({ theme: 'dark' })).toEqual({ ...DEFAULT_PREFS, theme: 'dark' })
+      const r = s.updatePrefs({ terminalFontSize: 18, defaultProtectedBranches: [' a ', 'b', 'a'] })
+      expect(r).toEqual({
+        theme: 'dark',
+        terminalFontSize: 18,
+        defaultProtectedBranches: ['a', 'b']
+      })
+      expect(new Store(dir).config.prefs).toEqual(r)
+    })
+
+    it('updatePrefs rejects invalid values without changing anything', () => {
+      const s = new Store(dir)
+      expect(() => s.updatePrefs({ theme: 'x' as never })).toThrow()
+      expect(() => s.updatePrefs({ terminalFontSize: 9 })).toThrow()
+      expect(() => s.updatePrefs({ terminalFontSize: 21 })).toThrow()
+      expect(() => s.updatePrefs({ terminalFontSize: 12.5 })).toThrow()
+      expect(() => s.updatePrefs({ defaultProtectedBranches: 'main' as never })).toThrow()
+      expect(() => s.updatePrefs({ defaultProtectedBranches: ['a', '  '] })).toThrow()
+      expect(s.config.prefs).toEqual(DEFAULT_PREFS)
+    })
+
+    it('upsertRepo uses default protected branches for new repos only', () => {
+      const s = new Store(dir)
+      const a = s.upsertRepo('a', 'one')
+      s.updatePrefs({ defaultProtectedBranches: ['release'] })
+      const b = s.upsertRepo('a', 'two')
+      expect(b.protectedBranches).toEqual(['release'])
+      expect(b.protectedBranches).not.toBe(s.config.prefs.defaultProtectedBranches)
+      expect(s.upsertRepo('a', 'one').protectedBranches).toEqual(a.protectedBranches)
+      expect(a.protectedBranches).toEqual(['main', 'master'])
+    })
+  })
+
+  it('updateHost renames, trims, persists; rejects blank label and unknown id', () => {
+    const s = new Store(dir)
+    const h = s.addHost('box', 'Box')
+    const u = s.updateHost(h.id, { label: '  Work box ' })
+    expect(u).toEqual({ id: h.id, sshHost: 'box', label: 'Work box' })
+    expect(new Store(dir).config.hosts[0].label).toBe('Work box')
+    expect(() => s.updateHost(h.id, { label: '   ' })).toThrow()
+    expect(() => s.updateHost('nope', { label: 'x' })).toThrow('Unknown host')
   })
 })

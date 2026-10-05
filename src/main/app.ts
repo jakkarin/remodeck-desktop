@@ -1,6 +1,13 @@
 import fs from 'node:fs'
 import { Notification, clipboard, shell, type BrowserWindow } from 'electron'
-import type { ApprovalDecision, ApprovalRequest, Host, Repo, Workspace } from '../shared/types'
+import type {
+  ApprovalDecision,
+  ApprovalRequest,
+  Host,
+  Prefs,
+  Repo,
+  Workspace
+} from '../shared/types'
 import { IPC_CHANNELS, type MainApi } from '../shared/ipc'
 import { ApprovalService } from './approval/approvalService'
 import { GitBridge } from './bridge/gitBridge'
@@ -28,6 +35,9 @@ import { TerminalService, nodePtySpawner } from './terminal/terminalService'
 import { IMAGE_EXTS, MAX_IMAGE_BYTES, type ImageExt } from './terminal/imageUpload'
 
 const EV = IPC_CHANNELS.events
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
 // ApprovalService gives up after 60 s; drop our side of an unanswered prompt shortly after.
 const PROMPT_CLEANUP_MS = 65_000
 
@@ -161,6 +171,11 @@ export async function createApp(opts: {
       remove: async (id) => {
         store.removeHost(id)
         if (connection.status(id).state !== 'disconnected') connection.disconnect(id)
+      },
+      update: async (id, patch) => {
+        if (!isPlainObject(patch) || typeof patch.label !== 'string')
+          throw new Error('Invalid host patch')
+        return store.updateHost(id, { label: patch.label })
       },
       status: async (id) => connection.status(id),
       connect: async (id) => {
@@ -309,6 +324,18 @@ export async function createApp(opts: {
     },
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)
+    },
+    prefs: {
+      get: async () => store.config.prefs,
+      update: async (patch) => {
+        if (!isPlainObject(patch)) throw new Error('Invalid prefs patch')
+        const clean: Partial<Prefs> = {}
+        if ('theme' in patch) clean.theme = patch.theme as Prefs['theme']
+        if ('terminalFontSize' in patch) clean.terminalFontSize = patch.terminalFontSize as number
+        if ('defaultProtectedBranches' in patch)
+          clean.defaultProtectedBranches = patch.defaultProtectedBranches as string[]
+        return store.updatePrefs(clean)
+      }
     },
     pushLog: {
       read: async (limit) => store.readPushLog(limit)

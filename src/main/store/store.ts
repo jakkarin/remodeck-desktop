@@ -1,10 +1,52 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Config, Host, PushLogEntry, Repo, Workspace } from '../../shared/types'
+import {
+  DEFAULT_PREFS,
+  TERMINAL_FONT_MAX,
+  TERMINAL_FONT_MIN,
+  THEMES,
+  type Config,
+  type Host,
+  type Prefs,
+  type PushLogEntry,
+  type Repo,
+  type Workspace
+} from '../../shared/types'
 import { INVALID_SSH_HOST, isValidSshHost } from '../../shared/validate'
 
 const newId = (): string => randomUUID().slice(0, 8)
+
+const isFontSize = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= TERMINAL_FONT_MIN && v <= TERMINAL_FONT_MAX
+
+/** Non-empty trimmed strings, deduped; null when the value is not an array of non-empty strings. */
+function cleanBranches(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null
+  const out: string[] = []
+  for (const b of v) {
+    if (typeof b !== 'string' || b.trim() === '') return null
+    const t = b.trim()
+    if (!out.includes(t)) out.push(t)
+  }
+  return out
+}
+
+/** Field-by-field merge over defaults; any invalid stored value falls back to its default. */
+function loadPrefs(raw: unknown): Prefs {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    theme: THEMES.includes(r.theme as Prefs['theme'])
+      ? (r.theme as Prefs['theme'])
+      : DEFAULT_PREFS.theme,
+    terminalFontSize: isFontSize(r.terminalFontSize)
+      ? r.terminalFontSize
+      : DEFAULT_PREFS.terminalFontSize,
+    defaultProtectedBranches: cleanBranches(r.defaultProtectedBranches) ?? [
+      ...DEFAULT_PREFS.defaultProtectedBranches
+    ]
+  }
+}
 
 export class Store {
   private cfg: Config
@@ -26,6 +68,43 @@ export class Store {
     return host
   }
 
+  updateHost(id: string, patch: { label?: string }): Host {
+    const i = this.cfg.hosts.findIndex((h) => h.id === id)
+    if (i < 0) throw new Error(`Unknown host ${id}`)
+    const next: Host = { ...this.cfg.hosts[i] }
+    if (patch.label !== undefined) {
+      const label = typeof patch.label === 'string' ? patch.label.trim() : ''
+      if (label === '') throw new Error('Host label must not be empty')
+      next.label = label
+    }
+    this.cfg.hosts[i] = next
+    this.save()
+    return next
+  }
+
+  updatePrefs(patch: Partial<Prefs>): Prefs {
+    const next: Prefs = { ...this.cfg.prefs }
+    if (patch.theme !== undefined) {
+      if (!THEMES.includes(patch.theme)) throw new Error(`Invalid theme ${String(patch.theme)}`)
+      next.theme = patch.theme
+    }
+    if (patch.terminalFontSize !== undefined) {
+      if (!isFontSize(patch.terminalFontSize))
+        throw new Error(
+          `Terminal font size must be an integer from ${TERMINAL_FONT_MIN} to ${TERMINAL_FONT_MAX}`
+        )
+      next.terminalFontSize = patch.terminalFontSize
+    }
+    if (patch.defaultProtectedBranches !== undefined) {
+      const branches = cleanBranches(patch.defaultProtectedBranches)
+      if (!branches) throw new Error('Default protected branches must be non-empty strings')
+      next.defaultProtectedBranches = branches
+    }
+    this.cfg.prefs = next
+    this.save()
+    return next
+  }
+
   removeHost(id: string): void {
     if (this.cfg.workspaces.some((w) => w.hostId === id)) {
       throw new Error(`Host ${id} still has workspaces`)
@@ -36,7 +115,8 @@ export class Store {
 
   upsertRepo(owner: string, name: string): Repo {
     const existing = this.cfg.repos.find(
-      (r) => r.owner.toLowerCase() === owner.toLowerCase() && r.name.toLowerCase() === name.toLowerCase()
+      (r) =>
+        r.owner.toLowerCase() === owner.toLowerCase() && r.name.toLowerCase() === name.toLowerCase()
     )
     if (existing) return existing
     const repo: Repo = {
@@ -44,7 +124,7 @@ export class Store {
       owner,
       name,
       defaultBranch: 'main',
-      protectedBranches: ['main', 'master'],
+      protectedBranches: [...this.cfg.prefs.defaultProtectedBranches],
       alwaysAllowPush: false,
       enforceRules: true
     }
@@ -76,7 +156,12 @@ export class Store {
   }
 
   mirrorPath(repo: Repo): string {
-    return path.join(this.dir, 'mirrors', repo.owner.toLowerCase(), `${repo.name.toLowerCase()}.git`)
+    return path.join(
+      this.dir,
+      'mirrors',
+      repo.owner.toLowerCase(),
+      `${repo.name.toLowerCase()}.git`
+    )
   }
 
   appendPushLog(e: PushLogEntry): void {
@@ -114,9 +199,15 @@ export class Store {
   private load(): Config {
     try {
       const raw = JSON.parse(fs.readFileSync(this.configPath, 'utf8')) as Partial<Config>
-      return { hosts: raw.hosts ?? [], repos: raw.repos ?? [], workspaces: raw.workspaces ?? [] }
+      return {
+        hosts: raw.hosts ?? [],
+        repos: raw.repos ?? [],
+        workspaces: raw.workspaces ?? [],
+        prefs: loadPrefs(raw.prefs)
+      }
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { hosts: [], repos: [], workspaces: [] }
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT')
+        return { hosts: [], repos: [], workspaces: [], prefs: loadPrefs(undefined) }
       throw err
     }
   }

@@ -21,7 +21,24 @@ export type ExistingRepoInfo = {
 }
 export type Workspace = { id: string; repoId: string; hostId: string; sandboxPath: string }
 
-export type Config = { hosts: Host[]; repos: Repo[]; workspaces: Workspace[] }
+export type Theme = 'system' | 'light' | 'dark'
+
+export type Prefs = {
+  theme: Theme
+  terminalFontSize: number
+  defaultProtectedBranches: string[]
+}
+
+export const THEMES: readonly Theme[] = ['system', 'light', 'dark']
+export const TERMINAL_FONT_MIN = 10
+export const TERMINAL_FONT_MAX = 20
+export const DEFAULT_PREFS: Prefs = {
+  theme: 'system',
+  terminalFontSize: 13,
+  defaultProtectedBranches: ['main', 'master']
+}
+
+export type Config = { hosts: Host[]; repos: Repo[]; workspaces: Workspace[]; prefs: Prefs }
 
 export type RefUpdate = { oldSha: string; newSha: string; ref: string }
 

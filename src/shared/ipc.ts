@@ -8,6 +8,7 @@ import type {
   FileChange,
   Host,
   HostStatus,
+  Prefs,
   PushLogEntry,
   PushOutcome,
   Repo,
@@ -25,6 +26,8 @@ export interface RegitApi {
   hosts: {
     list(): Promise<Host[]>
     add(sshHost: string, label: string): Promise<Host>
+    /** Only the label is editable; the ssh host alias is fixed. */
+    update(id: string, patch: { label: string }): Promise<Host>
     remove(id: string): Promise<void>
     status(id: string): Promise<HostStatus>
     connect(id: string): Promise<HostStatus>
@@ -69,6 +72,10 @@ export interface RegitApi {
     uploadImage(tabId: string, bytes: Uint8Array, ext: string): Promise<string>
   }
   approval: { respond(requestId: string, decision: ApprovalDecision): void }
+  prefs: {
+    get(): Promise<Prefs>
+    update(patch: Partial<Prefs>): Promise<Prefs>
+  }
   pushLog: { read(limit: number): Promise<PushLogEntry[]> }
   on(event: 'host-status', cb: (hostId: string, s: HostStatus) => void): () => void
   on(event: 'terminal-data', cb: (tabId: string, d: string) => void): () => void
@@ -87,6 +94,7 @@ export const IPC_CHANNELS = {
   hosts: {
     list: 'hosts:list',
     add: 'hosts:add',
+    update: 'hosts:update',
     remove: 'hosts:remove',
     status: 'hosts:status',
     connect: 'hosts:connect',
@@ -123,6 +131,7 @@ export const IPC_CHANNELS = {
     uploadImage: 'terminal:uploadImage'
   },
   approval: { respond: 'approval:respond' },
+  prefs: { get: 'prefs:get', update: 'prefs:update' },
   pushLog: { read: 'pushLog:read' },
   events: {
     'host-status': 'event:host-status',
