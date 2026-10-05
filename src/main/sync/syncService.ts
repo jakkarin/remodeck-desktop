@@ -1,5 +1,11 @@
 import fs from 'node:fs'
-import type { PushLogEntry, PushOutcome, Repo, Workspace } from '../../shared/types'
+import type {
+  ExistingRepoInfo,
+  PushLogEntry,
+  PushOutcome,
+  Repo,
+  Workspace
+} from '../../shared/types'
 import { parseRepoInput } from '../../shared/validate'
 import { GitError, type HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
@@ -299,12 +305,24 @@ export class SyncService {
    * The only writes to the sandbox repo are the ones sync() always does (origin refs and tags pushed from the mirror):
    * no `git init`, no remote changes, no checkout. On failure only regit's own records are rolled back.
    */
-  async addExisting(hostId: string, sandboxPath: string): Promise<Workspace> {
-    validateSandboxPath(sandboxPath)
-    const path = sandboxPath.replace(/\/+$/, '')
-    if (this.store.config.workspaces.some((w) => w.hostId === hostId && w.sandboxPath === path))
-      throw new Error(`มี workspace นี้อยู่แล้ว: ${path}`)
+  async addExisting(
+    hostId: string,
+    sandboxPath: string,
+    expected: { owner: string; name: string }
+  ): Promise<Workspace> {
+    const path = this.checkExistingPath(hostId, sandboxPath)
+    const want = parseRepoInput(`${expected?.owner}/${expected?.name}`)
+    if (!want || want.owner !== expected.owner || want.name !== expected.name)
+      throw new Error('repo ที่ยืนยันไม่ถูกต้อง')
+    // The sandbox is untrusted and may have changed origin since the user confirmed: re-probe before any write or fetch.
     const { owner, name } = await this.inspectExisting(hostId, path)
+    if (
+      owner.toLowerCase() !== want.owner.toLowerCase() ||
+      name.toLowerCase() !== want.name.toLowerCase()
+    )
+      throw new Error(
+        `origin ของ repo เปลี่ยนไปจากที่ยืนยัน (ตอนนี้ชี้ไป ${owner}/${name}) — กรุณาตรวจสอบใหม่`
+      )
     const repo = this.store.upsertRepo(owner, name)
     const ws = this.store.addWorkspace(repo.id, hostId, path)
     try {
@@ -318,6 +336,29 @@ export class SyncService {
       throw err
     }
     return ws
+  }
+
+  /** Validates the path and rejects duplicates; returns the normalised path. */
+  private checkExistingPath(hostId: string, sandboxPath: string): string {
+    validateSandboxPath(sandboxPath)
+    const path = sandboxPath.replace(/\/+$/, '')
+    if (this.store.config.workspaces.some((w) => w.hostId === hostId && w.sandboxPath === path))
+      throw new Error(`มี workspace นี้อยู่แล้ว: ${path}`)
+    return path
+  }
+
+  /**
+   * Read-only preview for the confirmation step: which GitHub repo this sandbox path resolves to, and whether
+   * regit already knows it. Writes nothing (no store change, no mirror, no fetch).
+   */
+  async describeExisting(hostId: string, sandboxPath: string): Promise<ExistingRepoInfo> {
+    const path = this.checkExistingPath(hostId, sandboxPath)
+    const { owner, name } = await this.inspectExisting(hostId, path)
+    const known = this.store.config.repos.find(
+      (r) =>
+        r.owner.toLowerCase() === owner.toLowerCase() && r.name.toLowerCase() === name.toLowerCase()
+    )
+    return { owner, name, known: !!known, alwaysAllowPush: known?.alwaysAllowPush ?? false }
   }
 
   /** One read-only probe of the sandbox path; resolves GitHub's owner/name from the repo's origin URL. */

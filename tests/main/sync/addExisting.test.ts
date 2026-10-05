@@ -8,6 +8,7 @@ import { Store } from '../../../src/main/store/store'
 import { SyncService } from '../../../src/main/sync/syncService'
 import { git, makeFakeGitHub, makeTmp } from '../../helpers/repos'
 
+const ACME = { owner: 'acme', name: 'api' }
 const ident = ['-c', 'user.name=t', '-c', 'user.email=t@e']
 
 describe('SyncService.addExisting', () => {
@@ -62,7 +63,7 @@ describe('SyncService.addExisting', () => {
   it('adopts a repo with an https origin', async () => {
     const sha = await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('work/api')
-    const ws = await svc.addExisting(hostId, '~/work/api')
+    const ws = await svc.addExisting(hostId, '~/work/api', ACME)
     expect(ws).toMatchObject({ hostId, sandboxPath: '~/work/api' })
     expect(store.config.workspaces).toHaveLength(1)
     const repo = store.config.repos.find((r) => r.id === ws.repoId)
@@ -75,7 +76,7 @@ describe('SyncService.addExisting', () => {
   it('adopts a repo with a git@github.com: origin', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('api', 'git@github.com:acme/api.git')
-    const ws = await svc.addExisting(hostId, '~/api')
+    const ws = await svc.addExisting(hostId, '~/api', ACME)
     const repo = store.config.repos.find((r) => r.id === ws.repoId)
     expect(repo).toMatchObject({ owner: 'acme', name: 'api' })
   })
@@ -83,7 +84,7 @@ describe('SyncService.addExisting', () => {
   it('adopts a repo with an ssh://git@github.com/ origin', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('api', 'ssh://git@github.com/acme/api.git')
-    const ws = await svc.addExisting(hostId, '~/api')
+    const ws = await svc.addExisting(hostId, '~/api', ACME)
     expect(store.config.repos.find((r) => r.id === ws.repoId)).toMatchObject({
       owner: 'acme',
       name: 'api'
@@ -93,43 +94,49 @@ describe('SyncService.addExisting', () => {
   it('accepts a trailing slash and a path with spaces', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('my work/api')
-    const ws = await svc.addExisting(hostId, '~/my work/api/')
+    const ws = await svc.addExisting(hostId, '~/my work/api/', ACME)
     expect(ws.sandboxPath).toBe('~/my work/api')
   })
 
   it('rejects a missing path', async () => {
-    await expect(svc.addExisting(hostId, '~/nope')).rejects.toThrow('ไม่พบ path ใน sandbox: ~/nope')
+    await expect(svc.addExisting(hostId, '~/nope', ACME)).rejects.toThrow(
+      'ไม่พบ path ใน sandbox: ~/nope'
+    )
     expect(store.config.workspaces).toHaveLength(0)
   })
 
   it('rejects a path that is a file', async () => {
     fs.writeFileSync(sb('file'), 'x')
-    await expect(svc.addExisting(hostId, '~/file')).rejects.toThrow('ไม่พบ path ใน sandbox')
+    await expect(svc.addExisting(hostId, '~/file', ACME)).rejects.toThrow('ไม่พบ path ใน sandbox')
   })
 
   it('rejects a directory that is not a git repo', async () => {
     fs.mkdirSync(sb('plain'))
-    await expect(svc.addExisting(hostId, '~/plain')).rejects.toThrow('ไม่ใช่ git repo: ~/plain')
+    await expect(svc.addExisting(hostId, '~/plain', ACME)).rejects.toThrow(
+      'ไม่ใช่ git repo: ~/plain'
+    )
     expect(store.config.workspaces).toHaveLength(0)
   })
 
   it('rejects a bare repo', async () => {
     fs.mkdirSync(sb('bare.git'))
     await git(sb('bare.git'), 'init', '--bare')
-    await expect(svc.addExisting(hostId, '~/bare.git')).rejects.toThrow('เป็น bare repo')
+    await expect(svc.addExisting(hostId, '~/bare.git', ACME)).rejects.toThrow('เป็น bare repo')
   })
 
   it('rejects a subdirectory of a repo', async () => {
     await gh.seed({ 'sub/a.txt': 'hi' })
     await vmRepo('api')
-    await expect(svc.addExisting(hostId, '~/api/sub')).rejects.toThrow('ไม่ใช่ root ของ repo')
+    await expect(svc.addExisting(hostId, '~/api/sub', ACME)).rejects.toThrow('ไม่ใช่ root ของ repo')
     expect(store.config.workspaces).toHaveLength(0)
   })
 
   it('rejects the .git directory itself', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('api')
-    await expect(svc.addExisting(hostId, '~/api/.git')).rejects.toThrow('ไม่ใช่ root ของ repo')
+    await expect(svc.addExisting(hostId, '~/api/.git', ACME)).rejects.toThrow(
+      'ไม่ใช่ root ของ repo'
+    )
   })
 
   it('accepts a path reached through a symlink', async () => {
@@ -140,20 +147,20 @@ describe('SyncService.addExisting', () => {
     } catch {
       return // symlinks unavailable (Windows without privilege)
     }
-    const ws = await svc.addExisting(hostId, '~/link')
+    const ws = await svc.addExisting(hostId, '~/link', ACME)
     expect(ws.sandboxPath).toBe('~/link')
   })
 
   it('rejects a repo without an origin remote', async () => {
     fs.mkdirSync(sb('noorigin'))
     await git(sb('noorigin'), 'init')
-    await expect(svc.addExisting(hostId, '~/noorigin')).rejects.toThrow('ไม่มี remote origin')
+    await expect(svc.addExisting(hostId, '~/noorigin', ACME)).rejects.toThrow('ไม่มี remote origin')
   })
 
   it('rejects a non-GitHub origin', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('gl', 'https://gitlab.com/a/b.git')
-    await expect(svc.addExisting(hostId, '~/gl')).rejects.toThrow(
+    await expect(svc.addExisting(hostId, '~/gl', ACME)).rejects.toThrow(
       'origin ไม่ได้ชี้ไป GitHub: https://gitlab.com/a/b.git'
     )
     expect(store.config.workspaces).toHaveLength(0)
@@ -162,19 +169,21 @@ describe('SyncService.addExisting', () => {
   it('never echoes credentials embedded in a rejected origin', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('cred', 'https://bob:s3cret@gitlab.com/a/b.git')
-    const err = await svc.addExisting(hostId, '~/cred').catch((e: Error) => e)
+    const err = await svc.addExisting(hostId, '~/cred', ACME).catch((e: Error) => e)
     expect((err as Error).message).toBe('origin ไม่ได้ชี้ไป GitHub: https://***@gitlab.com/a/b.git')
   })
 
   it('rejects a relative path before touching anything', async () => {
-    await expect(svc.addExisting(hostId, 'api')).rejects.toThrow('path ต้องขึ้นต้นด้วย / หรือ ~/')
+    await expect(svc.addExisting(hostId, 'api', ACME)).rejects.toThrow(
+      'path ต้องขึ้นต้นด้วย / หรือ ~/'
+    )
   })
 
   it('rejects a duplicate hostId + sandboxPath', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('api')
-    await svc.addExisting(hostId, '~/api')
-    await expect(svc.addExisting(hostId, '~/api')).rejects.toThrow('มี workspace นี้อยู่แล้ว')
+    await svc.addExisting(hostId, '~/api', ACME)
+    await expect(svc.addExisting(hostId, '~/api', ACME)).rejects.toThrow('มี workspace นี้อยู่แล้ว')
     expect(store.config.workspaces).toHaveLength(1)
   })
 
@@ -187,7 +196,7 @@ describe('SyncService.addExisting', () => {
       if (args[0] === 'push') throw new Error('mirror push boom')
       return realRun(cwd, args, opts)
     })
-    await expect(svc.addExisting(hostId, '~/api')).rejects.toThrow('mirror push boom')
+    await expect(svc.addExisting(hostId, '~/api', ACME)).rejects.toThrow('mirror push boom')
     spy.mockRestore()
     expect(store.config.workspaces).toHaveLength(0)
     const repo = store.config.repos[0]
@@ -207,7 +216,7 @@ describe('SyncService.addExisting', () => {
     await git(g, ...ident, 'commit', '--allow-empty', '-m', 'gh only')
     await git(g, 'tag', 'v1')
     await git(g, 'push', 'origin', 'v1')
-    const ws = await svc.addExisting(hostId, '~/api')
+    const ws = await svc.addExisting(hostId, '~/api', ACME)
     expect(store.config.workspaces.map((w) => w.id)).toEqual([ws.id])
     await expect(svc.sync(ws)).rejects.toThrow('tag ชนกับใน sandbox: v1')
   })
@@ -220,7 +229,7 @@ describe('SyncService.addExisting', () => {
     await git(dir, 'add', '-A')
     await git(dir, ...ident, 'commit', '-m', 'vm work')
     const vmSha = (await git(dir, 'rev-parse', 'HEAD')).trim()
-    const ws = await svc.addExisting(hostId, '~/api')
+    const ws = await svc.addExisting(hostId, '~/api', ACME)
     const mirror = store.mirrorPath(store.config.repos[0])
     expect((await git(mirror, 'rev-parse', `refs/remotes/ws-${ws.id}/feat-vm`)).trim()).toBe(vmSha)
   })
@@ -233,11 +242,102 @@ describe('SyncService.addExisting', () => {
     fs.writeFileSync(path.join(dir, 'untracked.txt'), 'u')
     const before = await snapshot(dir)
     const dirty = fs.readFileSync(path.join(dir, 'a.txt'), 'utf8')
-    const ws = await svc.addExisting(hostId, '~/api')
+    const ws = await svc.addExisting(hostId, '~/api', ACME)
     await svc.sync(ws)
     expect(await snapshot(dir)).toEqual(before)
     expect(before.status).toContain('a.txt')
     expect(fs.readFileSync(path.join(dir, 'a.txt'), 'utf8')).toBe(dirty)
     expect(fs.existsSync(path.join(dir, 'untracked.txt'))).toBe(true)
+  })
+  describe('describeExisting', () => {
+    it('resolves owner/name for a new repo without writing anything', async () => {
+      await gh.seed({ 'a.txt': 'hi' })
+      await vmRepo('api')
+      const before = JSON.stringify(store.config)
+      await expect(svc.describeExisting(hostId, '~/api/')).resolves.toEqual({
+        owner: 'acme',
+        name: 'api',
+        known: false,
+        alwaysAllowPush: false
+      })
+      expect(JSON.stringify(store.config)).toBe(before)
+      expect(store.config.repos).toHaveLength(0)
+      expect(store.config.workspaces).toHaveLength(0)
+      expect(fs.existsSync(path.join(tmp, 'data', 'mirrors'))).toBe(false)
+    })
+
+    it('reports a known repo (case-insensitive) with its alwaysAllowPush flag', async () => {
+      await gh.seed({ 'a.txt': 'hi' })
+      await vmRepo('api')
+      const repo = store.upsertRepo('ACME', 'API')
+      store.updateRepo(repo.id, { alwaysAllowPush: true })
+      const before = JSON.stringify(store.config)
+      await expect(svc.describeExisting(hostId, '~/api')).resolves.toEqual({
+        owner: 'acme',
+        name: 'api',
+        known: true,
+        alwaysAllowPush: true
+      })
+      expect(JSON.stringify(store.config)).toBe(before)
+    })
+
+    it('known repo without Always allow push reports false', async () => {
+      await gh.seed({ 'a.txt': 'hi' })
+      await vmRepo('api')
+      store.upsertRepo('acme', 'api')
+      expect(await svc.describeExisting(hostId, '~/api')).toMatchObject({
+        known: true,
+        alwaysAllowPush: false
+      })
+    })
+
+    it('validates the path and rejects duplicates like addExisting', async () => {
+      await gh.seed({ 'a.txt': 'hi' })
+      await vmRepo('api')
+      await expect(svc.describeExisting(hostId, 'api')).rejects.toThrow(
+        'path ต้องขึ้นต้นด้วย / หรือ ~/'
+      )
+      await svc.addExisting(hostId, '~/api', ACME)
+      await expect(svc.describeExisting(hostId, '~/api/')).rejects.toThrow(
+        'มี workspace นี้อยู่แล้ว'
+      )
+    })
+  })
+
+  describe('expected repo confirmation', () => {
+    it('refuses when the origin changed after the user confirmed, writing nothing and fetching nothing', async () => {
+      await gh.seed({ 'a.txt': 'hi' })
+      const dir = await vmRepo('api')
+      await git(dir, 'remote', 'set-url', 'origin', 'https://github.com/victim/private.git')
+      const spy = vi.spyOn(host, 'run')
+      await expect(svc.addExisting(hostId, '~/api', ACME)).rejects.toThrow(
+        'origin ของ repo เปลี่ยนไปจากที่ยืนยัน (ตอนนี้ชี้ไป victim/private) — กรุณาตรวจสอบใหม่'
+      )
+      expect(spy).not.toHaveBeenCalled()
+      spy.mockRestore()
+      expect(store.config.repos).toHaveLength(0)
+      expect(store.config.workspaces).toHaveLength(0)
+      expect(fs.existsSync(path.join(tmp, 'data', 'mirrors'))).toBe(false)
+    })
+
+    it('matches expected case-insensitively', async () => {
+      await gh.seed({ 'a.txt': 'hi' })
+      await vmRepo('api')
+      const ws = await svc.addExisting(hostId, '~/api', { owner: 'ACME', name: 'Api' })
+      expect(ws.sandboxPath).toBe('~/api')
+    })
+
+    it.each([
+      ['traversal owner', { owner: '../x', name: 'api' }],
+      ['empty owner', { owner: '', name: 'api' }],
+      ['empty name', { owner: 'acme', name: '' }],
+      ['slash in name', { owner: 'acme', name: 'a/b' }]
+    ])('rejects an invalid expected (%s)', async (_label, expected) => {
+      await gh.seed({ 'a.txt': 'hi' })
+      await vmRepo('api')
+      await expect(svc.addExisting(hostId, '~/api', expected)).rejects.toThrow()
+      expect(store.config.repos).toHaveLength(0)
+      expect(store.config.workspaces).toHaveLength(0)
+    })
   })
 })

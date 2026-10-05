@@ -29,6 +29,7 @@ function fakeApi(): MainApi {
     workspaces: {
       list: fn(),
       clone: fn(),
+      inspectExisting: fn(),
       addExisting: fn(),
       remove: fn(),
       sync: fn(),
