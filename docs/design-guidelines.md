@@ -11,7 +11,8 @@
 - `src/renderer/src/theme.ts`: mapping token ให้ xterm
 
 ใช้ semantic tokens แทนการใส่สี hex ใน component ธีมตามระบบด้วย `prefers-color-scheme`
-และ terminal เปลี่ยนสีตามระบบด้วยโดยไม่ต้องเปิดใหม่
+และ terminal เปลี่ยนสีตามระบบด้วยโดยไม่ต้องเปิดใหม่ ผู้ใช้เลือกบังคับ light/dark ได้ใน Settings > Appearance
+(เก็บใน config ของ regit) โดยตั้ง `data-theme` บน `<html>`; ค่า System จะไม่มี attribute นี้
 
 ## Surfaces and color
 

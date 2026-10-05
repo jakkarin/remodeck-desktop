@@ -403,25 +403,162 @@ textarea::placeholder {
   color: var(--fg-muted);
 }
 .settings {
-  padding: 16px 24px;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.settings-nav {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-3);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+.settings-nav h2 {
+  margin: 0 0 var(--space-2) var(--space-2);
+  font-size: var(--text-title);
+}
+.settings-nav button {
+  justify-content: flex-start;
+  background: transparent;
+  border-color: transparent;
+}
+.settings-nav button.active,
+.settings-repo-list button.active {
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+}
+.settings-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+}
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+.settings h3 {
+  margin: 0;
+  font-size: var(--text-base);
+}
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.settings-field > legend,
+.settings-field > label {
+  color: var(--fg-muted);
+  padding: 0;
+}
+.settings-field select.ui-input {
+  align-self: flex-start;
+  min-width: 96px;
+}
+.settings-help {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.settings-field.segmented {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.settings-field.segmented > legend {
+  flex: 0 0 100%;
+  margin-bottom: var(--space-1);
+}
+.settings-field.segmented > label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 12px;
+  background: var(--bg-control);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.settings-field.segmented > label.selected {
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+  border-color: var(--border-strong);
+}
+.settings-field.segmented > label:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.settings-repos {
+  flex-direction: row;
+  gap: var(--space-4);
+  flex: 1;
+}
+.settings-repo-list {
+  flex: 0 0 180px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+}
+.settings-repo-list button {
+  width: 100%;
+  justify-content: flex-start;
+  background: transparent;
+  border-color: transparent;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.settings-repo-detail {
+  flex: 1;
+  min-width: 0;
 }
 .settings-repo {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 16px;
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
 }
-.settings h2 {
-  margin-top: 0;
-  font-size: var(--text-title);
+.settings-log {
+  flex: 1;
 }
-.settings h3 {
-  font-size: var(--text-base);
+.settings-log-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
-.push-log td {
-  overflow-wrap: anywhere;
+.settings-log-bar label.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+.settings-log-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.nowrap {
+  white-space: nowrap;
 }
 .push-log {
   border-collapse: collapse;
@@ -430,8 +567,21 @@ textarea::placeholder {
 .push-log th,
 .push-log td {
   text-align: left;
-  padding: 2px 8px;
+  vertical-align: top;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
+}
+.push-log td {
+  overflow-wrap: anywhere;
+}
+.push-log td.nowrap {
+  overflow-wrap: normal;
+}
+.push-log td.refs {
+  word-break: break-all;
+}
+.push-log .badge {
+  margin-right: 0;
 }
 
 /* SplitLayout */
@@ -591,9 +741,42 @@ textarea::placeholder {
 
 .settings-dialog {
   position: relative;
-  width: min(720px, 90vw);
-  max-height: 85vh;
-  overflow-y: auto;
+  width: min(900px, 94vw);
+  height: min(640px, 90vh);
+  max-height: none;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.settings-dialog > .settings {
+  height: 100%;
+}
+@media (max-width: 640px) {
+  .settings {
+    flex-direction: column;
+  }
+  .settings-nav {
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-2) var(--space-3);
+  }
+  .settings-nav h2 {
+    flex: 0 0 100%;
+    margin: 0;
+  }
+  .settings-panel {
+    padding: var(--space-3);
+  }
+  .settings-repos {
+    flex-direction: column;
+  }
+  .settings-repo-list {
+    flex: 0 0 auto;
+    max-height: 120px;
+  }
 }
 .dialog-close {
   position: absolute;

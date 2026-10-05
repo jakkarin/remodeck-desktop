@@ -1,7 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Host, HostStatus, Repo, SyncInfo, Workspace } from '../../shared/types'
+import {
+  DEFAULT_PREFS,
+  type Host,
+  type HostStatus,
+  type Prefs,
+  type Repo,
+  type SyncInfo,
+  type Workspace
+} from '../../shared/types'
 import { api } from './api'
+import { applyTheme } from './theme'
 
 export type AppState = {
   hosts: Host[]
@@ -13,6 +22,8 @@ export type AppState = {
   syncInfo: Record<string, SyncInfo>
   setStatus(hostId: string, s: HostStatus): void
   refresh(): Promise<void>
+  prefs: Prefs
+  updatePrefs(patch: Partial<Prefs>): Promise<void>
 }
 
 /* eslint-disable react-refresh/only-export-components -- context + hook live with the provider */
@@ -31,6 +42,7 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
   const [syncInfo, setSyncInfo] = useState<Record<string, SyncInfo>>({})
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const activeRef = useRef<string | null>(null)
   const loadedRef = useRef(false)
 
@@ -60,6 +72,29 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     setStatuses(Object.fromEntries(entries))
   }, [selectWorkspace])
 
+  const updatePrefs = useCallback(async (patch: Partial<Prefs>) => {
+    setPrefs(await api.prefs.update(patch))
+  }, [])
+
+  useEffect(() => {
+    applyTheme(prefs.theme)
+  }, [prefs.theme])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const p = await api.prefs.get()
+        if (!cancelled && p) setPrefs(p)
+      } catch {
+        /* keep defaults */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     // refresh is async: state is set after awaiting IPC, not synchronously in the effect
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -84,7 +119,9 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       selectWorkspace,
       syncInfo,
       setStatus,
-      refresh
+      refresh,
+      prefs,
+      updatePrefs
     }),
     [
       hosts,
@@ -95,7 +132,9 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       selectWorkspace,
       syncInfo,
       setStatus,
-      refresh
+      refresh,
+      prefs,
+      updatePrefs
     ]
   )
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>

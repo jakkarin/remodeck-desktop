@@ -1,6 +1,6 @@
 /* Neutral theme: semantic tokens shared by UI and xterm. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #fafafa;
   --bg-subtle: #f2f2f2;
   --bg-inset: #fafafa;
@@ -47,8 +47,46 @@
   --duration-fast: 120ms;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #181818;
+  --bg-subtle: #1e1e1e;
+  --bg-inset: #181818;
+  --bg-hover: #303030;
+  --bg-control: #262626;
+  --border: #303030;
+  --border-strong: #505050;
+  --fg: #e4e4e4;
+  --fg-muted: #a0a0a0;
+  --accent: #8bb8ef;
+  --success: #61ce91;
+  --danger: #f08080;
+  --attention: #e2bd75;
+  --attention-bg: #332b1e;
+  --danger-bg: #362222;
+  --diff-add-bg: #193526;
+  --diff-add-fg: #c2e8ce;
+  --diff-del-bg: #3c2222;
+  --diff-del-fg: #f0c5c5;
+  --selected-bg: #303030;
+  --selected-fg: #f0f0f0;
+  --terminal-selection: #3d4b60;
+  --primary-bg: #dfdfdf;
+  --primary-fg: #202020;
+  --topbar-bg: #1e1e1e;
+  --topbar-fg: #e4e4e4;
+  --shadow-popover: 0 8px 28px rgb(0 0 0 / 32%);
+  --shadow-dialog: 0 20px 70px rgb(0 0 0 / 48%);
+  --backdrop: rgb(0 0 0 / 60%);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
     --bg: #181818;
     --bg-subtle: #1e1e1e;
     --bg-inset: #181818;

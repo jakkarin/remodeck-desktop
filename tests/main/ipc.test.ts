@@ -24,7 +24,15 @@ function fakeIpcMain(): IpcMainLike & {
 function fakeApi(): MainApi {
   const fn = (): ReturnType<typeof vi.fn> => vi.fn(async () => undefined)
   return {
-    hosts: { list: fn(), add: fn(), remove: fn(), status: fn(), connect: fn(), disconnect: fn() },
+    hosts: {
+      list: fn(),
+      add: fn(),
+      update: fn(),
+      remove: fn(),
+      status: fn(),
+      connect: fn(),
+      disconnect: fn()
+    },
     repos: { listGitHub: fn(), list: fn(), updatePolicy: fn() },
     workspaces: {
       list: fn(),
@@ -52,6 +60,7 @@ function fakeApi(): MainApi {
       uploadImage: fn()
     },
     approval: { respond: vi.fn() },
+    prefs: { get: fn(), update: fn() },
     pushLog: { read: fn() }
   } as unknown as MainApi
 }
