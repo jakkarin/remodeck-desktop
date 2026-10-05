@@ -216,7 +216,10 @@ export async function createApp(opts: {
         const last = !store.config.workspaces.some((w) => w.repoId === repo.id)
         if (last && deleteMirrorIfLast) await mirror.delete(mirrorPath)
       },
-      sync: async (id) => autoSync.syncNow(id),
+      sync: async (id) => {
+        sync.clearRewritten(id)
+        return autoSync.syncNow(id)
+      },
       branches: async (id) => {
         const ws = wsOf(id)
         const repo = repoOf(ws.repoId)

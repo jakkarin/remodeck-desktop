@@ -31,9 +31,14 @@ export class SyncService {
 
   private readonly rewritten = new Map<string, Set<string>>()
 
-  /** Branches whose history was rewritten in the sandbox as of the last sync (empty if never synced). */
+  /** Branches whose history was rewritten in the sandbox since the flag was last cleared (manual Sync). */
   rewrittenBranches(wsId: string): Set<string> {
     return new Set(this.rewritten.get(wsId) ?? [])
+  }
+
+  /** Forget the rewritten flags of a workspace (called when the user presses Sync). */
+  clearRewritten(wsId: string): void {
+    this.rewritten.delete(wsId)
   }
 
   /** Two-way sync. Never touches sandbox refs/heads or working tree: only refs/remotes/origin/* and tags are pushed. */
@@ -73,7 +78,6 @@ export class SyncService {
       }
       return { result, tagConflicts }
     })
-    this.rewritten.set(ws.id, new Set(outcome.result))
     if (outcome.tagConflicts.length > 0) {
       throw new Error(`tag ชนกับใน sandbox: ${outcome.tagConflicts.join(', ')}`)
     }
@@ -86,7 +90,6 @@ export class SyncService {
     if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
     const mirrorPath = this.store.mirrorPath(repo)
     const result = await withLock(mirrorPath, () => this.fetchWorkspace(mirrorPath, ws.id))
-    this.rewritten.set(ws.id, new Set(result))
     return { rewritten: result }
   }
 
@@ -112,6 +115,10 @@ export class SyncService {
       if (res.code === 1) result.push(branch)
       else if (res.code !== 0) throw new Error(`git merge-base --is-ancestor failed (${res.code}): ${res.stderr}`)
     }
+    // Flags accumulate across fetches; a branch leaves the set once it no longer exists in the sandbox.
+    const flagged = new Set([...(this.rewritten.get(wsId) ?? []), ...result])
+    for (const branch of flagged) if (!after.has(prefix + branch)) flagged.delete(branch)
+    this.rewritten.set(wsId, flagged)
     return result
   }
 
