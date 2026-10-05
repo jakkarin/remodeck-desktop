@@ -1,14 +1,48 @@
 :root {
-  --bg: #1b1b1f;
-  --bg-soft: #222226;
-  --bg-mute: #2c2c32;
-  --border: #38383f;
-  --text: rgba(255, 255, 245, 0.86);
-  --text-dim: rgba(235, 235, 245, 0.55);
-  --accent: #4f8cff;
-  --danger: #ff6b6b;
-  --warn: #e0b341;
-  --ok: #4cc38a;
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --bg-subtle: #f6f8fa;
+  --bg-inset: #f6f8fa;
+  --bg-hover: #eaeef2;
+  --border: #d0d7de;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --accent: #0969da;
+  --success: #1f883d;
+  --danger: #cf222e;
+  --attention: #9a6700;
+  --diff-add-bg: #dafbe1;
+  --diff-add-fg: #1f2328;
+  --diff-del-bg: #ffebe9;
+  --diff-del-fg: #1f2328;
+  --selected-bg: #0969da;
+  --selected-fg: #ffffff;
+  --topbar-bg: #24292f;
+  --topbar-fg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-subtle: #161b22;
+    --bg-inset: #010409;
+    --bg-hover: #21262d;
+    --border: #30363d;
+    --fg: #e6edf3;
+    --fg-muted: #8d96a0;
+    --accent: #4493f8;
+    --success: #238636;
+    --danger: #f85149;
+    --attention: #d29922;
+    --diff-add-bg: #12261e;
+    --diff-add-fg: #e6edf3;
+    --diff-del-bg: #2d1214;
+    --diff-del-fg: #e6edf3;
+    --selected-bg: #1f6feb;
+    --selected-fg: #ffffff;
+    --topbar-bg: #010409;
+    --topbar-fg: #e6edf3;
+  }
 }
 
 * {
@@ -24,7 +58,7 @@ body,
 
 body {
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   font-family:
     system-ui,
     -apple-system,
@@ -35,8 +69,8 @@ body {
 }
 
 button {
-  background: var(--bg-mute);
-  color: var(--text);
+  background: var(--bg-hover);
+  color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 3px 10px;
@@ -56,11 +90,16 @@ button.active {
   border-color: var(--accent);
   color: #fff;
 }
+button.success {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
 
 input {
   width: 100%;
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 5px 8px;
@@ -77,7 +116,7 @@ input {
   flex: none;
   display: flex;
   flex-direction: column;
-  background: var(--bg-soft);
+  background: var(--bg-subtle);
   border-right: 1px solid var(--border);
 }
 .sidebar-tree {
@@ -98,7 +137,7 @@ input {
   padding: 8px 12px;
 }
 .muted {
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 
 .host {
@@ -120,13 +159,13 @@ input {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--text-dim);
+  background: var(--fg-muted);
 }
 .dot.connected {
-  background: var(--ok);
+  background: var(--success);
 }
 .dot.connecting {
-  background: var(--warn);
+  background: var(--attention);
 }
 .dot.error {
   background: var(--danger);
@@ -142,7 +181,7 @@ input {
 .warnings {
   margin: 4px 0;
   padding-left: 16px;
-  color: var(--warn);
+  color: var(--attention);
   font-size: 12px;
 }
 .workspaces {
@@ -157,11 +196,11 @@ input {
   word-break: break-all;
 }
 .workspaces li:hover {
-  background: var(--bg-mute);
+  background: var(--bg-hover);
 }
 .workspaces li.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--selected-bg);
+  color: var(--selected-fg);
 }
 
 .content {
@@ -184,7 +223,7 @@ input {
 }
 .placeholder {
   padding: 24px;
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 
 .dialog-backdrop {
@@ -200,7 +239,7 @@ input {
   width: 420px;
   max-height: 80vh;
   overflow-y: auto;
-  background: var(--bg-soft);
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
@@ -216,7 +255,7 @@ input {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 .dialog label.checkbox {
   flex-direction: row;
@@ -273,19 +312,19 @@ input {
   cursor: pointer;
 }
 .branches tbody tr:hover {
-  background: var(--bg-mute);
+  background: var(--bg-hover);
 }
 .badge {
   display: inline-block;
   margin-right: 4px;
   padding: 0 6px;
   border-radius: 8px;
-  background: var(--bg-mute);
-  color: var(--text-dim);
+  background: var(--bg-hover);
+  color: var(--fg-muted);
   font-size: 11px;
 }
 .badge.warn {
-  color: var(--warn);
+  color: var(--attention);
 }
 .worktrees,
 .commits {
@@ -306,22 +345,24 @@ input {
   max-height: 50vh;
   overflow: auto;
   padding: 8px;
-  background: var(--bg-soft);
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
 }
 .diff-add {
-  color: var(--ok);
+  color: var(--diff-add-fg);
+  background: var(--diff-add-bg);
 }
 .diff-del {
-  color: var(--danger);
+  color: var(--diff-del-fg);
+  background: var(--diff-del-bg);
 }
 .diff-hunk {
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 .ok {
-  color: var(--ok);
+  color: var(--success);
 }
 
 .terminal-panel {
@@ -361,7 +402,7 @@ input {
   z-index: 100;
 }
 .modal {
-  background: var(--bg, #1e1e1e);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px 20px;
@@ -377,7 +418,7 @@ input {
   padding-left: 18px;
 }
 .dim {
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 .settings {
   padding: 16px 24px;

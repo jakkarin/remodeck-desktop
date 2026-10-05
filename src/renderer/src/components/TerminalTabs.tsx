@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type ITheme } from '@xterm/xterm'
+import { watchColorScheme, xtermTheme } from '../theme'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { api } from '../api'
@@ -24,7 +25,12 @@ function TerminalPane({
   const fitRef = useRef<FitAddon | null>(null)
 
   useEffect(() => {
-    const term = new Terminal({ fontSize: 13, cursorBlink: true })
+    const readTheme = (): ITheme =>
+      xtermTheme((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim())
+    const term = new Terminal({ fontSize: 13, cursorBlink: true, theme: readTheme() })
+    const unwatch = watchColorScheme(() => {
+      term.options.theme = readTheme()
+    })
     const fit = new FitAddon()
     fitRef.current = fit
     term.loadAddon(fit)
@@ -44,6 +50,7 @@ function TerminalPane({
     ro.observe(host.current!)
     return () => {
       ro.disconnect()
+      unwatch()
       register(tabId, null)
       onData.dispose()
       onResize.dispose()
