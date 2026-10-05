@@ -33,6 +33,8 @@ function fakeApi(): MainApi {
       sync: fn(),
       branches: fn(),
       commits: fn(),
+      files: fn(),
+      setActive: vi.fn(),
       diff: fn(),
       worktrees: fn(),
       push: fn(),
@@ -77,12 +79,15 @@ describe('IPC contract', () => {
     registerHandlers(ipc, fakeApi())
     expect([...ipc.listened.keys()].sort()).toEqual(
       [
+        IPC_CHANNELS.workspaces.setActive,
         IPC_CHANNELS.terminal.write,
         IPC_CHANNELS.terminal.resize,
         IPC_CHANNELS.terminal.close,
         IPC_CHANNELS.approval.respond
       ].sort()
     )
+    expect(ipc.listened.has('workspaces:setActive')).toBe(true)
+    expect(IPC_CHANNELS.events['workspace-synced']).toBe('event:workspace-synced')
     expect([...SEND_CHANNELS].sort()).toEqual([...ipc.listened.keys()].sort())
   })
 

@@ -4,11 +4,13 @@ import type {
   ApprovalRequest,
   BranchInfo,
   CommitInfo,
+  FileChange,
   Host,
   HostStatus,
   PushLogEntry,
   PushOutcome,
   Repo,
+  SyncInfo,
   Workspace,
   WorktreeInfo
 } from './types'
@@ -39,7 +41,9 @@ export interface RegitApi {
     sync(id: string): Promise<{ rewritten: string[] }>
     branches(id: string): Promise<BranchInfo[]>
     commits(id: string, branch: string): Promise<CommitInfo[]>
-    diff(id: string, branch: string): Promise<string>
+    files(id: string, branch: string, commit?: string): Promise<FileChange[]>
+    diff(id: string, branch: string, opts?: { commit?: string; file?: string }): Promise<string>
+    setActive(id: string | null): void
     worktrees(id: string): Promise<WorktreeInfo[]>
     push(id: string, branch: string, target: string): Promise<PushOutcome>
     openPR(id: string, target: string): Promise<void>
@@ -58,12 +62,18 @@ export interface RegitApi {
   on(event: 'terminal-data', cb: (tabId: string, d: string) => void): () => void
   on(event: 'terminal-exit', cb: (tabId: string, code: number) => void): () => void
   on(event: 'approval-request', cb: (req: ApprovalRequest) => void): () => void
+  on(event: 'workspace-synced', cb: (id: string, info: SyncInfo) => void): () => void
 }
 
 /** Main-side implementation of the API; events are pushed with webContents.send instead of `on`. */
 export type MainApi = Omit<RegitApi, 'on'>
 
-export type RegitEvent = 'host-status' | 'terminal-data' | 'terminal-exit' | 'approval-request'
+export type RegitEvent =
+  | 'host-status'
+  | 'terminal-data'
+  | 'terminal-exit'
+  | 'approval-request'
+  | 'workspace-synced'
 
 export const IPC_CHANNELS = {
   hosts: {
@@ -86,7 +96,9 @@ export const IPC_CHANNELS = {
     sync: 'workspaces:sync',
     branches: 'workspaces:branches',
     commits: 'workspaces:commits',
+    files: 'workspaces:files',
     diff: 'workspaces:diff',
+    setActive: 'workspaces:setActive',
     worktrees: 'workspaces:worktrees',
     push: 'workspaces:push',
     openPR: 'workspaces:openPR',
@@ -104,7 +116,8 @@ export const IPC_CHANNELS = {
     'host-status': 'event:host-status',
     'terminal-data': 'event:terminal-data',
     'terminal-exit': 'event:terminal-exit',
-    'approval-request': 'event:approval-request'
+    'approval-request': 'event:approval-request',
+    'workspace-synced': 'event:workspace-synced'
   }
 } as const satisfies { [G in keyof MainApi]: { [M in keyof MainApi[G]]: string } } & {
   events: Record<RegitEvent, string>
@@ -112,6 +125,7 @@ export const IPC_CHANNELS = {
 
 /** Fire-and-forget channels (ipcRenderer.send / ipcMain.on); every other method channel is invoke/handle. */
 export const SEND_CHANNELS: ReadonlySet<string> = new Set<string>([
+  IPC_CHANNELS.workspaces.setActive,
   IPC_CHANNELS.terminal.write,
   IPC_CHANNELS.terminal.resize,
   IPC_CHANNELS.terminal.close,

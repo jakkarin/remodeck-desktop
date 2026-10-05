@@ -14,7 +14,15 @@ import { checkRemoteForward } from './sandbox/preflight'
 import { validateSandboxPath } from './sandbox/shell'
 import { SshTarget } from './sandbox/target'
 import { Store } from './store/store'
-import { getDiff, listBranches, listCommits, listWorktrees } from './sync/queries'
+import { AutoSync } from './sync/autoSync'
+import {
+  getDiff,
+  listBranches,
+  listCommits,
+  listFiles,
+  listWorktrees,
+  requireCommitInRange
+} from './sync/queries'
 import { SyncService } from './sync/syncService'
 import { TerminalService, nodePtySpawner } from './terminal/terminalService'
 
@@ -136,6 +144,17 @@ export async function createApp(opts: {
     return { base: `refs/remotes/${b.base}`, ref: `refs/remotes/ws-${ws.id}/${branch}` }
   }
 
+  const autoSync = new AutoSync({
+    light: (id) => sync.fetchSandbox(wsOf(id)),
+    full: (id) => sync.sync(wsOf(id)),
+    canSync: (id) => {
+      const ws = store.config.workspaces.find((w) => w.id === id)
+      return !!ws && connection.status(ws.hostId).state === 'connected'
+    },
+    onSynced: (id, info) => send(EV['workspace-synced'], id, info)
+  })
+  term.on('idle', (wsId) => autoSync.idle(wsId))
+
   const api: MainApi = {
     hosts: {
       list: async () => store.config.hosts,
@@ -197,11 +216,7 @@ export async function createApp(opts: {
         const last = !store.config.workspaces.some((w) => w.repoId === repo.id)
         if (last && deleteMirrorIfLast) await mirror.delete(mirrorPath)
       },
-      sync: async (id) => {
-        const ws = wsOf(id)
-        connection.requireConnected(ws.hostId)
-        return sync.sync(ws)
-      },
+      sync: async (id) => autoSync.syncNow(id),
       branches: async (id) => {
         const ws = wsOf(id)
         const repo = repoOf(ws.repoId)
@@ -218,11 +233,21 @@ export async function createApp(opts: {
         const { base, ref } = await findBranch(ws, branch)
         return listCommits(git, store.mirrorPath(repoOf(ws.repoId)), base, ref)
       },
-      diff: async (id, branch) => {
+      files: async (id, branch, commit) => {
         const ws = wsOf(id)
         const { base, ref } = await findBranch(ws, branch)
-        return getDiff(git, store.mirrorPath(repoOf(ws.repoId)), base, ref)
+        const mirrorPath = store.mirrorPath(repoOf(ws.repoId))
+        if (commit) await requireCommitInRange(git, mirrorPath, base, ref, commit)
+        return listFiles(git, mirrorPath, base, ref, commit)
       },
+      diff: async (id, branch, opts) => {
+        const ws = wsOf(id)
+        const { base, ref } = await findBranch(ws, branch)
+        const mirrorPath = store.mirrorPath(repoOf(ws.repoId))
+        if (opts?.commit) await requireCommitInRange(git, mirrorPath, base, ref, opts.commit)
+        return getDiff(git, mirrorPath, base, ref, opts)
+      },
+      setActive: (id) => autoSync.setActive(id),
       worktrees: async (id) => {
         const ws = wsOf(id)
         connection.requireConnected(ws.hostId)
@@ -261,6 +286,7 @@ export async function createApp(opts: {
   }
 
   const dispose = async (): Promise<void> => {
+    autoSync.stop()
     for (const settle of [...pending.values()]) settle('deny')
     for (const h of store.config.hosts) term.closeAllForHost(h.id)
     await bridge.stop()
