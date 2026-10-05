@@ -50,6 +50,8 @@ export type CommitInfo = { sha: string; subject: string; author: string; date: s
 
 export type WorktreeInfo = { path: string; branch: string | null; head: string | null; dirty: number }
 
+export type SyncInfo = { kind: 'light' | 'full'; at: number; error?: string }
+
 export type HostState = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 export type HostStatus = { state: HostState; gitVersion?: string; warnings: string[]; error?: string }
