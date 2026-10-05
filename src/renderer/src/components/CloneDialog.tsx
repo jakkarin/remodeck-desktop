@@ -2,18 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import type { Workspace } from '../../../shared/types'
 import { parseRepoInput } from '../../../shared/validate'
 import { api, errorMessage } from '../api'
+import { useAppState } from '../state'
 
 type GhRepo = { owner: string; name: string; defaultBranch: string }
 
 export function CloneDialog({
-  hostId,
+  hostIds,
   onClose,
   onCloned
 }: {
-  hostId: string
+  hostIds: string[]
   onClose(): void
   onCloned(w: Workspace): void
 }): React.JSX.Element {
+  const { hosts } = useAppState()
+  const [hostId, setHostId] = useState(hostIds[0] ?? '')
   const [repos, setRepos] = useState<GhRepo[]>([])
   const [listError, setListError] = useState<string | null>(null)
   const [repoInput, setRepoInput] = useState('')
@@ -67,6 +70,23 @@ export function CloneDialog({
     <div className="dialog-backdrop">
       <div className="dialog" role="dialog" aria-label="Clone">
         <h2>Clone</h2>
+        {hostIds.length > 1 && (
+          <>
+            <label htmlFor="clone-host">Host</label>
+            <select
+              id="clone-host"
+              value={hostId}
+              onChange={(e) => setHostId(e.target.value)}
+              disabled={busy}
+            >
+              {hostIds.map((id) => (
+                <option key={id} value={id}>
+                  {hosts.find((h) => h.id === id)?.label ?? id}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         {listError && <div className="error">{listError}</div>}
         {repos.length > 0 && (
           <div className="repo-list">

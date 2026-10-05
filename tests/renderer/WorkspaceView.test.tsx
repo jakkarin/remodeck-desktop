@@ -50,8 +50,9 @@ function renderView(status: HostStatus): void {
       }
     ],
     workspaces: [{ id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }],
-    selected: { kind: 'workspace', id: 'w1' },
-    select: vi.fn(),
+    activeWorkspaceId: 'w1',
+    selectWorkspace: vi.fn(),
+    syncInfo: {},
     setStatus: vi.fn(),
     refresh: vi.fn().mockResolvedValue(undefined)
   }

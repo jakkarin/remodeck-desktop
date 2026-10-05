@@ -56,7 +56,7 @@ export function RemoveWorkspaceDialog({
   label: string
   onClose(): void
 }): React.JSX.Element {
-  const { workspaces, selected, select, refresh } = useAppState()
+  const { workspaces, refresh } = useAppState()
   const last = workspaces.filter((w) => w.repoId === workspace.repoId).length === 1
   const [deleteMirror, setDeleteMirror] = useState(false)
   return (
@@ -65,9 +65,6 @@ export function RemoveWorkspaceDialog({
       onClose={onClose}
       onConfirm={async () => {
         await api.workspaces.remove(workspace.id, last && deleteMirror)
-        if (selected.kind === 'workspace' && selected.id === workspace.id) {
-          select({ kind: 'settings' })
-        }
         await refresh()
       }}
     >

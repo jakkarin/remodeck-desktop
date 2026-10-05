@@ -7,7 +7,16 @@ import { CloneDialog } from './CloneDialog'
 import { RemoveHostDialog, RemoveWorkspaceDialog } from './RemoveDialogs'
 
 export function Sidebar(): React.JSX.Element {
-  const { hosts, statuses, repos, workspaces, selected, select, setStatus, refresh } = useAppState()
+  const {
+    hosts,
+    statuses,
+    repos,
+    workspaces,
+    activeWorkspaceId,
+    selectWorkspace,
+    setStatus,
+    refresh
+  } = useAppState()
   const [cloneHost, setCloneHost] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -86,12 +95,12 @@ export function Sidebar(): React.JSX.Element {
                   .map((w) => {
                     const repo = repos.find((r) => r.id === w.repoId)
                     const text = `${repo ? `${repo.owner}/${repo.name}` : w.repoId} · ${w.sandboxPath}`
-                    const active = selected.kind === 'workspace' && selected.id === w.id
+                    const active = activeWorkspaceId === w.id
                     return (
                       <li
                         key={w.id}
                         className={active ? 'active' : ''}
-                        onClick={() => select({ kind: 'workspace', id: w.id })}
+                        onClick={() => selectWorkspace(w.id)}
                       >
                         {text}
                         <button
@@ -115,8 +124,8 @@ export function Sidebar(): React.JSX.Element {
       <div className="sidebar-footer">
         <button onClick={() => setAdding(true)}>Add host</button>
         <button
-          className={selected.kind === 'settings' ? 'active' : ''}
-          onClick={() => select({ kind: 'settings' })}
+          className={activeWorkspaceId === null ? 'active' : ''}
+          onClick={() => selectWorkspace(null)}
         >
           Settings
         </button>
@@ -134,13 +143,13 @@ export function Sidebar(): React.JSX.Element {
       )}
       {cloneHost && (
         <CloneDialog
-          hostId={cloneHost}
+          hostIds={[cloneHost]}
           onClose={() => setCloneHost(null)}
           onCloned={(w) => {
             setCloneHost(null)
             void refresh()
               .catch(() => undefined)
-              .then(() => select({ kind: 'workspace', id: w.id }))
+              .then(() => selectWorkspace(w.id))
           }}
         />
       )}

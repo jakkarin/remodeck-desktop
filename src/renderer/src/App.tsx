@@ -6,14 +6,14 @@ import { WorkspaceView } from './components/WorkspaceView'
 import { AppStateProvider, useAppState } from './state'
 
 function Layout(): React.JSX.Element {
-  const { selected } = useAppState()
+  const { activeWorkspaceId } = useAppState()
   return (
     <div className="app">
       <Sidebar />
       <div className="content">
         <main className="main">
-          {selected.kind === 'workspace' && selected.id ? (
-            <WorkspaceView key={selected.id} workspaceId={selected.id} />
+          {activeWorkspaceId ? (
+            <WorkspaceView key={activeWorkspaceId} workspaceId={activeWorkspaceId} />
           ) : (
             <SettingsView />
           )}

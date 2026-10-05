@@ -31,8 +31,9 @@ function renderWith(status: HostStatus, over: Partial<AppState> = {}): void {
       }
     ],
     workspaces: [{ id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }],
-    selected: { kind: 'settings' },
-    select: vi.fn(),
+    activeWorkspaceId: null,
+    syncInfo: {},
+    selectWorkspace: vi.fn(),
     setStatus: vi.fn(),
     refresh: vi.fn().mockResolvedValue(undefined),
     ...over
@@ -69,9 +70,9 @@ describe('Sidebar', () => {
 
   it('lists workspaces as owner/name · path and selects on click', () => {
     const select = vi.fn()
-    renderWith({ state: 'connected', warnings: [] }, { select })
+    renderWith({ state: 'connected', warnings: [] }, { selectWorkspace: select })
     fireEvent.click(screen.getByText('acme/api · ~/repos/api'))
-    expect(select).toHaveBeenCalledWith({ kind: 'workspace', id: 'w1' })
+    expect(select).toHaveBeenCalledWith('w1')
     expect(screen.getByRole('button', { name: 'Clone' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Disconnect' })).toBeInTheDocument()
   })
@@ -95,31 +96,23 @@ describe('Sidebar', () => {
   it('removing the last workspace of a repo offers to delete the mirror and passes the flag', async () => {
     vi.mocked(api.workspaces.remove).mockResolvedValue(undefined)
     const refresh = vi.fn().mockResolvedValue(undefined)
-    const select = vi.fn()
-    renderWith(
-      { state: 'connected', warnings: [] },
-      { refresh, select, selected: { kind: 'workspace', id: 'w1' } }
-    )
+    renderWith({ state: 'connected', warnings: [] }, { refresh, activeWorkspaceId: 'w1' })
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
-    expect(select).not.toHaveBeenCalled()
     const dialog = screen.getByRole('dialog', { name: 'Remove workspace' })
     expect(within(dialog).getByText(/ไม่มีการลบไฟล์ใน sandbox/)).toBeInTheDocument()
     fireEvent.click(within(dialog).getByLabelText('ลบ mirror ด้วยไหม?'))
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(refresh).toHaveBeenCalled())
     expect(api.workspaces.remove).toHaveBeenCalledWith('w1', true)
-    expect(select).toHaveBeenCalledWith({ kind: 'settings' })
   })
 
   it('removing a workspace that is not the last one does not offer mirror deletion', async () => {
     vi.mocked(api.workspaces.remove).mockResolvedValue(undefined)
     const refresh = vi.fn().mockResolvedValue(undefined)
-    const select = vi.fn()
     renderWith(
       { state: 'connected', warnings: [] },
       {
         refresh,
-        select,
         workspaces: [
           { id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' },
           { id: 'w2', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api2' }
@@ -132,6 +125,5 @@ describe('Sidebar', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(refresh).toHaveBeenCalled())
     expect(api.workspaces.remove).toHaveBeenCalledWith('w1', false)
-    expect(select).not.toHaveBeenCalled()
   })
 })
