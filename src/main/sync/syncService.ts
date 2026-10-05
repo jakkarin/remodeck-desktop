@@ -311,7 +311,10 @@ export class SyncService {
     expected: { owner: string; name: string }
   ): Promise<Workspace> {
     const path = this.checkExistingPath(hostId, sandboxPath)
-    const want = parseRepoInput(`${expected?.owner}/${expected?.name}`)
+    const want =
+      typeof expected?.owner === 'string' && typeof expected?.name === 'string'
+        ? parseRepoInput(`${expected.owner}/${expected.name}`)
+        : null
     if (!want || want.owner !== expected.owner || want.name !== expected.name)
       throw new Error('repo ที่ยืนยันไม่ถูกต้อง')
     // The sandbox is untrusted and may have changed origin since the user confirmed: re-probe before any write or fetch.
