@@ -136,7 +136,10 @@ export class DockerClient {
     })
   }
 
-  stream(path: string): { lines: AsyncIterable<unknown>; close: () => void } {
+  stream(
+    path: string,
+    opts: { onOpen?: () => void } = {}
+  ): { lines: AsyncIterable<unknown>; close: () => void } {
     const agent = new DialAgent(this.opts.connect, { keepAlive: false })
     this.streamAgents.add(agent)
     let closed = false
@@ -170,6 +173,7 @@ export class DockerClient {
       }
       let buf = ''
       try {
+        opts.onOpen?.()
         res.setEncoding('utf8')
         for await (const chunk of res as AsyncIterable<string>) {
           buf += chunk

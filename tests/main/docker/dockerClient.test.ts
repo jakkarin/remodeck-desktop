@@ -143,6 +143,35 @@ describe('DockerClient', () => {
     await expect(run()).rejects.toMatchObject({ status: 500, message: 'bad' })
   })
 
+  it('calls onOpen once on a 2xx stream, not on non-2xx or dial failure', async () => {
+    const c = await start((_req, res) => res.end('{"x":1}\n'))
+    let opened = 0
+    for await (const _ of c.stream('/events', { onOpen: () => opened++ }).lines) void _
+    expect(opened).toBe(1)
+
+    const bad = await start((_req, res) => {
+      res.statusCode = 500
+      res.end('{"message":"bad"}')
+    })
+    let badOpened = 0
+    await expect(
+      (async () => {
+        for await (const _ of bad.stream('/events', { onOpen: () => badOpened++ }).lines) void _
+      })()
+    ).rejects.toMatchObject({ status: 500 })
+    expect(badOpened).toBe(0)
+
+    const dead = new DockerClient({ connect: () => net.connect(1, '127.0.0.1') })
+    let deadOpened = 0
+    await expect(
+      (async () => {
+        for await (const _ of dead.stream('/events', { onOpen: () => deadOpened++ }).lines) void _
+      })()
+    ).rejects.toThrow()
+    dead.destroy()
+    expect(deadOpened).toBe(0)
+  })
+
   it('finishes iteration when the socket ends', async () => {
     const c = await start((_req, res) => res.end('{"x":1}\n'))
     const seen: unknown[] = []

@@ -21,12 +21,13 @@ const raw = (id: string, state = 'running'): Record<string, unknown> => ({
   Labels: {}
 })
 
-function makeQueue(): {
+function makeQueue(noOpen = false): {
   lines: AsyncIterable<unknown>
   push(v: unknown): void
   end(): void
   fail(e: Error): void
   close: ReturnType<typeof vi.fn>
+  noOpen: boolean
 } {
   const items: Array<{ v?: unknown; done?: boolean; err?: Error }> = []
   let wake: (() => void) | undefined
@@ -50,6 +51,7 @@ function makeQueue(): {
   return {
     lines,
     close,
+    noOpen,
     push: (v) => (items.push({ v }), signal()),
     end: () => (items.push({ done: true }), signal()),
     fail: (e) => (items.push({ err: e }), signal())
@@ -58,12 +60,15 @@ function makeQueue(): {
 
 type Queue = ReturnType<typeof makeQueue>
 
-function setup(opts: { streams?: Queue[]; sleep?: (ms: number) => Promise<void> } = {}) {
+function setup(
+  opts: { streams?: Queue[]; sleep?: (ms: number) => Promise<void>; now?: () => number } = {}
+) {
   const json = vi.fn(async (_m: string, _p: string, _b?: unknown): Promise<unknown> => [])
   const queues = opts.streams ?? []
   let n = 0
-  const stream = vi.fn((_p: string) => {
+  const stream = vi.fn((_p: string, o?: { onOpen?: () => void }) => {
     const q = queues[n++] ?? makeQueue()
+    if (!q.noOpen) queueMicrotask(() => o?.onOpen?.())
     return { lines: q.lines, close: q.close }
   })
   const destroy = vi.fn()
@@ -71,7 +76,8 @@ function setup(opts: { streams?: Queue[]; sleep?: (ms: number) => Promise<void> 
   const sleep = vi.fn(opts.sleep ?? (async () => {}))
   const svc = new ContainerService({
     clientFor: () => client as never,
-    sleep
+    sleep,
+    now: opts.now
   })
   live.push(() => svc.dispose('h'))
   return { svc, json, stream, destroy, sleep }
@@ -90,7 +96,7 @@ describe('ContainerService', () => {
     expect(t.json).toHaveBeenCalledWith('GET', LIST_PATH)
     expect(list.map((c) => c.id)).toEqual([ID1, ID2])
     expect(list[1].state).toBe('exited')
-    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledWith(EVENTS_PATH))
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledWith(EVENTS_PATH, expect.anything()))
   })
 
   it('returns the current list on a repeated open', async () => {
@@ -183,6 +189,7 @@ describe('ContainerService', () => {
     await vi.waitFor(() => expect(liveEvents).toEqual([true, false, true, false, true]))
     expect(t.json.mock.calls.filter((c) => c[1] === LIST_PATH).length).toBe(3)
     expect(changed).toHaveBeenCalled()
+    for (let i = 1; i < liveEvents.length; i++) expect(liveEvents[i]).not.toBe(liveEvents[i - 1])
   })
 
   it('backoff stays at 10000', async () => {
@@ -226,6 +233,9 @@ describe('ContainerService', () => {
     t.svc.dispose('h')
     expect(q.close).toHaveBeenCalled()
     expect(t.destroy).toHaveBeenCalledTimes(1)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(t.stream).toHaveBeenCalledTimes(1)
+    expect(t.sleep).not.toHaveBeenCalled()
   })
 
   it('dispose while open is pending does not resurrect state', async () => {
@@ -279,14 +289,6 @@ describe('ContainerService', () => {
     expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).length).toBe(0)
   })
 
-  it('treats 304 as success', async () => {
-    const t = setup()
-    t.json.mockResolvedValueOnce([raw(ID1)])
-    await t.svc.open('h')
-    t.json.mockResolvedValueOnce(undefined).mockResolvedValueOnce([raw(ID1)])
-    await expect(t.svc.action('h', ID1, 'start')).resolves.toBeUndefined()
-  })
-
   it('maps 404 and 409-on-remove to Thai messages', async () => {
     const t = setup()
     t.json.mockResolvedValueOnce([raw(ID1)])
@@ -301,5 +303,148 @@ describe('ContainerService', () => {
     )
     t.json.mockRejectedValueOnce(new DockerError(500, 'daemon exploded'))
     await expect(t.svc.action('h', ID1, 'restart')).rejects.toThrow('daemon exploded')
+  })
+
+  it('relists after open and refetches ids that changed during the relist', async () => {
+    const q1 = makeQueue()
+    const q2 = makeQueue()
+    const t = setup({ streams: [q1, q2] })
+    t.json.mockResolvedValueOnce([raw(ID1)])
+    await t.svc.open('h')
+    let resolveRelist: (v: unknown) => void = () => {}
+    t.json.mockImplementation((_m, path) => {
+      if (path === LIST_PATH) return new Promise((r) => (resolveRelist = r))
+      return Promise.resolve([raw(ID1, 'exited')])
+    })
+    q1.end()
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() =>
+      expect(t.json.mock.calls.filter((c) => c[1] === LIST_PATH).length).toBe(2)
+    )
+    q2.push({ Actor: { ID: ID1 } })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(t.json.mock.calls.some((c) => c[1] === refetchPath(ID1))).toBe(false)
+    const changed = vi.fn()
+    t.svc.on('changed', changed)
+    resolveRelist([raw(ID1, 'running')])
+    await vi.waitFor(() => expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1)))
+    await vi.waitFor(() => {
+      const last = changed.mock.calls.at(-1)?.[1] as ContainerInfo[]
+      expect(last?.[0].state).toBe('exited')
+    })
+  })
+
+  it('does not emit live until the stream opens, and never repeats a value', async () => {
+    const qs = [1, 2, 3, 4].map((i) => {
+      const q = makeQueue(true)
+      if (i < 4) q.fail(new Error('refused'))
+      return q
+    })
+    const t = setup({ streams: qs })
+    const liveEvents: boolean[] = []
+    t.svc.on('live', (_h: string, v: boolean) => liveEvents.push(v))
+    t.json.mockResolvedValue([])
+    await t.svc.open('h')
+    await vi.waitFor(() => expect(t.sleep).toHaveBeenCalledTimes(3))
+    expect(liveEvents).toEqual([])
+  })
+
+  it('relists when an event refetch fails', async () => {
+    const q = makeQueue()
+    const t = setup({ streams: [q] })
+    t.json.mockResolvedValueOnce([raw(ID1)])
+    await t.svc.open('h')
+    const changed = vi.fn()
+    t.svc.on('changed', changed)
+    t.json.mockImplementation((_m, path) =>
+      path === LIST_PATH ? Promise.resolve([raw(ID1, 'exited')]) : Promise.reject(new Error('x'))
+    )
+    q.push({ Actor: { ID: ID1 } })
+    await vi.waitFor(() => expect(changed).toHaveBeenCalled())
+    expect((changed.mock.calls.at(-1)![1] as ContainerInfo[])[0].state).toBe('exited')
+    expect(t.stream).toHaveBeenCalledTimes(1)
+  })
+
+  it('relists when the post-action refetch fails, and action still resolves', async () => {
+    const t = setup()
+    t.json.mockResolvedValueOnce([raw(ID1)])
+    await t.svc.open('h')
+    t.json.mockImplementation((m, path) => {
+      if (m === 'POST') return Promise.resolve(undefined)
+      if (path === LIST_PATH) return Promise.resolve([raw(ID1, 'exited')])
+      return Promise.reject(new Error('x'))
+    })
+    const changed = vi.fn()
+    t.svc.on('changed', changed)
+    await expect(t.svc.action('h', ID1, 'stop')).resolves.toBeUndefined()
+    expect(t.json.mock.calls.filter((c) => c[1] === LIST_PATH).length).toBe(2)
+    expect((changed.mock.calls.at(-1)![1] as ContainerInfo[])[0].state).toBe('exited')
+  })
+
+  it('goes not-live and reconnects when refetch and relist both fail', async () => {
+    const q1 = makeQueue()
+    const q2 = makeQueue()
+    let slept = 0
+    const t = setup({
+      streams: [q1, q2],
+      sleep: () => (slept++ === 0 ? Promise.resolve() : new Promise<void>(() => {}))
+    })
+    const liveEvents: boolean[] = []
+    t.svc.on('live', (_h: string, v: boolean) => liveEvents.push(v))
+    t.json.mockResolvedValueOnce([raw(ID1)])
+    await t.svc.open('h')
+    await vi.waitFor(() => expect(liveEvents).toEqual([true]))
+    t.json.mockRejectedValue(new Error('down'))
+    q1.push({ Actor: { ID: ID1 } })
+    await vi.waitFor(() => expect(q1.close).toHaveBeenCalled())
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledTimes(2))
+    expect(liveEvents.slice(0, 2)).toEqual([true, false])
+    expect(t.sleep).toHaveBeenCalledWith(1000)
+  })
+
+  it('resets backoff after a stream that delivered an event', async () => {
+    const q1 = makeQueue()
+    const q2 = makeQueue()
+    const q3 = makeQueue()
+    const q4 = makeQueue()
+    const t = setup({ streams: [q1, q2, q3, q4] })
+    t.json.mockResolvedValue([])
+    await t.svc.open('h')
+    q1.end()
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledTimes(2))
+    q2.end()
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledTimes(3))
+    q3.push({ Actor: { ID: ID1 } })
+    q3.end()
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledTimes(4))
+    q4.end()
+    await vi.waitFor(() => expect(t.sleep).toHaveBeenCalledTimes(4))
+    expect(t.sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000, 1000, 2000])
+  })
+
+  it('resets backoff after a stream that stayed open 30s', async () => {
+    let clock = 0
+    const q1 = makeQueue()
+    const q2 = makeQueue()
+    const t = setup({ streams: [q1, q2], now: () => clock })
+    t.json.mockResolvedValue([])
+    await t.svc.open('h')
+    q1.end()
+    await vi.waitFor(() => expect(t.stream).toHaveBeenCalledTimes(2))
+    clock = 30000
+    q2.end()
+    await vi.waitFor(() => expect(t.sleep).toHaveBeenCalledTimes(2))
+    expect(t.sleep.mock.calls.map((c) => c[0])).toEqual([1000, 1000])
+  })
+
+  it('shares one list call and one loop between concurrent opens', async () => {
+    const t = setup()
+    t.json.mockResolvedValue([raw(ID1)])
+    const [a, b] = await Promise.all([t.svc.open('h'), t.svc.open('h')])
+    expect(a.map((c) => c.id)).toEqual([ID1])
+    expect(b.map((c) => c.id)).toEqual([ID1])
+    await new Promise((r) => setTimeout(r, 20))
+    expect(t.json).toHaveBeenCalledTimes(1)
+    expect(t.stream).toHaveBeenCalledTimes(1)
   })
 })
