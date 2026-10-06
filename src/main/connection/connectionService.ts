@@ -54,8 +54,10 @@ export class ConnectionService extends EventEmitter {
       const existing = this.probing.get(hostId)
       if (existing) return existing
     }
-    const gen = this.generations.get(hostId) ?? 0
-    const p = this.doProbe(hostId, gen)
+    const p: Promise<GitCapability | null> = this.doProbe(
+      hostId,
+      () => this.probing.get(hostId) === p
+    )
     this.probing.set(hostId, p)
     const clear = (): void => {
       if (this.probing.get(hostId) === p) this.probing.delete(hostId)
@@ -69,8 +71,9 @@ export class ConnectionService extends EventEmitter {
     this.probing.delete(hostId)
   }
 
-  private async doProbe(hostId: string, gen: number): Promise<GitCapability | null> {
+  private async doProbe(hostId: string, current: () => boolean): Promise<GitCapability | null> {
     const r = await this.deps.targetFor(hostId).exec(PREFLIGHT_SCRIPT)
+    if (r.code !== 0) throw new Error(r.stderr.trim() || `ssh exit ${r.code}`)
     const { gitVersion, remoteHttp } = parsePreflight(r.stdout)
     let cap: GitCapability | null = null
     if (gitVersion) {
@@ -82,7 +85,7 @@ export class ConnectionService extends EventEmitter {
       }
       cap = { version: gitVersion, remoteHttp, forward }
     }
-    if ((this.generations.get(hostId) ?? 0) === gen) this.caps.set(hostId, cap)
+    if (current()) this.caps.set(hostId, cap)
     return cap
   }
 

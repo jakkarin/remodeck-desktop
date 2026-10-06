@@ -211,6 +211,39 @@ describe('ConnectionService', () => {
       expect(calls.preflight).toBe(2)
     })
 
+    it('does not cache a failed preflight as no-git', async () => {
+      let bad = true
+      const { svc } = make({
+        connect: ok(''),
+        preflight: () =>
+          Promise.resolve(bad ? { code: 255, stdout: '', stderr: 'broken pipe' } : ok(GIT))
+      })
+      await svc.connect('h')
+      await expect(svc.probeGit('h')).rejects.toThrow('broken pipe')
+      bad = false
+      expect(await svc.probeGit('h')).toEqual({
+        version: 'git version 2.43.0',
+        remoteHttp: true,
+        forward: true
+      })
+    })
+
+    it('a forced probe wins over an older in-flight probe', async () => {
+      const releases: ((r: ProcResult) => void)[] = []
+      const { svc } = make({
+        connect: ok(''),
+        preflight: () => new Promise<ProcResult>((res) => releases.push(res))
+      })
+      await svc.connect('h')
+      const a = svc.probeGit('h')
+      const b = svc.probeGit('h', true)
+      releases[1](ok(GIT))
+      await b
+      releases[0](ok('git=\nremotehttp=0\n'))
+      await a
+      expect((await svc.probeGit('h'))?.version).toBe('git version 2.43.0')
+    })
+
     it('clears the cache on disconnect', async () => {
       const { svc, calls } = make({ connect: ok(''), preflight: ok(GIT) })
       await svc.connect('h')
