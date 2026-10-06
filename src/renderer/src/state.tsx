@@ -126,10 +126,11 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     setWorkspaces(w)
     workspacesRef.current = w
     const hostId = pickHost(h, activeHostRef.current ?? readActiveHost())
-    if (hostId !== activeHostRef.current) applyHost(hostId)
+    const hostChanged = hostId !== activeHostRef.current
+    if (hostChanged) applyHost(hostId)
     const current = activeRef.current
     const currentOk = current !== null && w.some((x) => x.id === current && x.hostId === hostId)
-    if (!loadedRef.current || (current !== null && !currentOk)) {
+    if (!loadedRef.current || (current !== null && !currentOk) || (hostChanged && !currentOk)) {
       loadedRef.current = true
       selectWorkspace(pickWorkspace(hostId, w, readLastWorkspaces()))
     }

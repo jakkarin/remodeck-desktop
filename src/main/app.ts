@@ -38,6 +38,16 @@ const EV = IPC_CHANNELS.events
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
+export function parseHostPatch(patch: unknown): { label?: string; protected?: boolean } {
+  if (
+    !isPlainObject(patch) ||
+    (patch.label === undefined && patch.protected === undefined) ||
+    (patch.label !== undefined && typeof patch.label !== 'string') ||
+    (patch.protected !== undefined && typeof patch.protected !== 'boolean')
+  )
+    throw new Error('Invalid host patch')
+  return { label: patch.label, protected: patch.protected }
+}
 // ApprovalService gives up after 60 s; drop our side of an unanswered prompt shortly after.
 const PROMPT_CLEANUP_MS = 65_000
 
@@ -173,14 +183,7 @@ export async function createApp(opts: {
         if (connection.status(id).state !== 'disconnected') connection.disconnect(id)
       },
       update: async (id, patch) => {
-        if (
-          !isPlainObject(patch) ||
-          (patch.label === undefined && patch.protected === undefined) ||
-          (patch.label !== undefined && typeof patch.label !== 'string') ||
-          (patch.protected !== undefined && typeof patch.protected !== 'boolean')
-        )
-          throw new Error('Invalid host patch')
-        return store.updateHost(id, { label: patch.label, protected: patch.protected })
+        return store.updateHost(id, parseHostPatch(patch))
       },
       status: async (id) => connection.status(id),
       connect: async (id) => {

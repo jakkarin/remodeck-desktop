@@ -29,7 +29,13 @@ describe('HostSettingsDialog', () => {
         />
       </AppStateContext.Provider>
     )
-    expect(screen.getByText('ต้องพิมพ์ชื่อ host ก่อนสั่งคำสั่งอันตราย')).toBeInTheDocument()
+    const hint = screen.getByText(
+      'แสดงแถบสีแดงและป้าย protected — การยืนยันด้วยการพิมพ์ชื่อ host ก่อนคำสั่งอันตรายจะมาพร้อมโมดูล Containers'
+    )
+    expect(hint).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Protected host' })).toHaveAccessibleDescription(
+      hint.textContent as string
+    )
     fireEvent.click(screen.getByRole('checkbox', { name: /Protected host/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>

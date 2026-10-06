@@ -102,8 +102,8 @@ describe('HostSelector', () => {
   it('lists hosts with status dots and marks the active one', () => {
     renderWith({ h1: up, h2: { state: 'error', error: 'boom' } })
     open()
-    const alpha = screen.getByText('Alpha', { selector: '.host-label' }).closest('section')
-    const beta = screen.getByText('Beta').closest('section') as HTMLElement
+    const alpha = screen.getByRole('button', { name: 'Alpha' }).closest('section')
+    const beta = screen.getByRole('button', { name: 'Beta' }).closest('section') as HTMLElement
     expect(alpha).toHaveClass('active')
     expect(beta).not.toHaveClass('active')
     expect(alpha?.querySelector('.dot')).toHaveClass('connected')
@@ -114,7 +114,7 @@ describe('HostSelector', () => {
   it('clicking another host selects it and closes the panel', () => {
     const v = renderWith({ h1: up, h2: up })
     open()
-    fireEvent.click(screen.getByText('Beta'))
+    fireEvent.click(screen.getByRole('button', { name: 'Beta' }))
     expect(v.selectHost).toHaveBeenCalledWith('h2')
     expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
   })

@@ -45,12 +45,16 @@ export function HostSettingsDialog({
         <label className="checkbox">
           <input
             type="checkbox"
+            aria-describedby="host-protected-hint"
             checked={isProtected}
             onChange={(e) => setIsProtected(e.target.checked)}
           />
           Protected host
         </label>
-        <div className="muted">ต้องพิมพ์ชื่อ host ก่อนสั่งคำสั่งอันตราย</div>
+        <div id="host-protected-hint" className="muted">
+          แสดงแถบสีแดงและป้าย protected — การยืนยันด้วยการพิมพ์ชื่อ host
+          ก่อนคำสั่งอันตรายจะมาพร้อมโมดูล Containers
+        </div>
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
           <Button onClick={onClose} disabled={busy}>

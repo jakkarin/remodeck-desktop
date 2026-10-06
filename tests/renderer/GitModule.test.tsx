@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DEFAULT_PREFS, type GitCapability, type HostStatus } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
@@ -74,6 +74,29 @@ describe('GitModule', () => {
     expect(v.probeGit).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
     expect(v.probeGit).toHaveBeenLastCalledWith('h1', true)
+  })
+
+  it('shows the error on the no-git screen when a forced re-probe fails', async () => {
+    const v = makeState({
+      gitCaps: { h1: null },
+      probeGit: vi.fn().mockRejectedValue(new Error('ssh dropped'))
+    })
+    render(ui(v))
+    fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
+    expect(await screen.findByText('ssh dropped')).toBeInTheDocument()
+    expect(screen.getByText(/ไม่พบ git บนเครื่องนี้/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeEnabled()
+  })
+
+  it('disables the re-probe button while a probe is in flight', async () => {
+    let resolve: () => void = () => undefined
+    const pending = new Promise<void>((r) => (resolve = r))
+    const v = makeState({ gitCaps: { h1: null }, probeGit: vi.fn().mockReturnValue(pending) })
+    render(ui(v))
+    fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
+    expect(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeDisabled()
+    resolve()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeEnabled())
   })
 
   it('shows forward and http warnings', () => {

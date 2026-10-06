@@ -36,12 +36,16 @@ export function GitModule({
   // Probe-once guard: keyed by host id, released when the capability entry exists or is cleared.
   const probed = useRef<string | null>(null)
   const [probeError, setProbeError] = useState<{ hostId: string; message: string } | null>(null)
+  const [probing, setProbing] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
 
   const probe = (id: string, force?: boolean): void => {
     setProbeError(null)
+    setProbing(true)
     const p = force ? probeGit(id, true) : probeGit(id)
-    p.catch((e) => setProbeError({ hostId: id, message: errorMessage(e) }))
+    p.catch((e) => setProbeError({ hostId: id, message: errorMessage(e) })).finally(() =>
+      setProbing(false)
+    )
   }
 
   useEffect(() => {
@@ -82,7 +86,9 @@ export function GitModule({
     return err ? (
       <div className="empty-state">
         <div className="error">{err}</div>
-        <Button onClick={() => probe(hostId, true)}>ตรวจอีกครั้ง</Button>
+        <Button disabled={probing} onClick={() => probe(hostId, true)}>
+          ตรวจอีกครั้ง
+        </Button>
       </div>
     ) : (
       <div className="empty-state muted">กำลังตรวจ git…</div>
@@ -93,7 +99,12 @@ export function GitModule({
     return (
       <div className="empty-state">
         <div>{NO_GIT}</div>
-        <Button onClick={() => probe(hostId, true)}>ตรวจอีกครั้ง</Button>
+        {probeError && probeError.hostId === hostId && (
+          <div className="error">{probeError.message}</div>
+        )}
+        <Button disabled={probing} onClick={() => probe(hostId, true)}>
+          ตรวจอีกครั้ง
+        </Button>
       </div>
     )
   }

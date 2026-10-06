@@ -97,7 +97,8 @@ export function HostSelector(): React.JSX.Element {
               <section key={host.id} className={host.id === activeHostId ? 'host active' : 'host'}>
                 <div className="host-row">
                   <span className={`dot ${status.state}`} title={status.state} />
-                  <span
+                  <Button
+                    variant="ghost"
                     className="host-label"
                     onClick={() => {
                       selectHost(host.id)
@@ -105,7 +106,7 @@ export function HostSelector(): React.JSX.Element {
                     }}
                   >
                     {host.label}
-                  </span>
+                  </Button>
                   {host.protected && <ProtectedBadge />}
                   {status.state === 'disconnected' && (
                     <Button onClick={() => void connect(host.id)}>Connect</Button>

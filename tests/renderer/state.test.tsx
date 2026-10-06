@@ -157,6 +157,21 @@ describe('AppStateProvider', () => {
     expect(screen.getByTestId('active')).toHaveTextContent('w1')
   })
 
+  it('selects a workspace on the fallback host when none was selected', async () => {
+    vi.mocked(api.hosts.list).mockResolvedValue(hs('h1', 'h2'))
+    vi.mocked(api.workspaces.list).mockResolvedValue([])
+    mount()
+    await waitFor(() => expect(api.workspaces.list).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'pick h2' }))
+    expect(screen.getByTestId('host')).toHaveTextContent('h2')
+    expect(screen.getByTestId('active')).toHaveTextContent('null')
+    vi.mocked(api.hosts.list).mockResolvedValue(hs('h1'))
+    vi.mocked(api.workspaces.list).mockResolvedValue([w('w1')])
+    fireEvent.click(screen.getByRole('button', { name: 'refresh' }))
+    await waitFor(() => expect(screen.getByTestId('host')).toHaveTextContent('h1'))
+    await waitFor(() => expect(screen.getByTestId('active')).toHaveTextContent('w1'))
+  })
+
   it('probeGit stores the result under the host id', async () => {
     vi.mocked(api.hosts.list).mockResolvedValue(hs('h1'))
     vi.mocked(api.workspaces.list).mockResolvedValue([w('w1')])

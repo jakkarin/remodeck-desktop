@@ -144,6 +144,9 @@ textarea::placeholder {
 }
 .host-label {
   cursor: pointer;
+  justify-content: flex-start;
+  text-align: left;
+  font-weight: inherit;
 }
 .host-row {
   display: flex;
