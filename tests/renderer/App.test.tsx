@@ -23,6 +23,7 @@ vi.mock('../../src/renderer/src/api', () => ({
 }))
 
 const terminals = vi.hoisted(() => [] as { options: Record<string, unknown> }[])
+const disposed = vi.hoisted(() => [] as { mock: { calls: unknown[] } }[])
 
 vi.mock('@xterm/xterm', () => ({
   Terminal: class {
@@ -30,6 +31,7 @@ vi.mock('@xterm/xterm', () => ({
     constructor(opts: Record<string, unknown>) {
       this.options = { ...opts }
       terminals.push(this)
+      disposed.push(this.dispose)
     }
     loadAddon = vi.fn()
     open = vi.fn()
@@ -81,6 +83,7 @@ beforeEach(() => {
   )
   vi.clearAllMocks()
   terminals.length = 0
+  disposed.length = 0
   document.documentElement.removeAttribute('data-theme')
   localStorage.clear()
 })
@@ -162,14 +165,39 @@ describe('App layout', () => {
       announceTerminal({ tabId: 't2', label: 'two', hostId: 'h2' })
     })
     expect(screen.getByRole('button', { name: 'one' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'two' })).toBeNull()
+    expect(screen.queryByText('two')).toBeNull()
     expect(terminals).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Switch host' }))
     fireEvent.click(await screen.findByText('Box2'))
     await waitFor(() => expect(screen.getByRole('button', { name: 'two' })).toBeVisible())
-    expect(screen.queryByRole('button', { name: 'one' })).toBeNull()
+    expect(screen.queryByText('one')).toBeNull()
     expect(terminals).toHaveLength(2)
     expect(api.terminal.close).not.toHaveBeenCalled()
+  })
+})
+
+describe('App terminals survive host gating', () => {
+  it('keeps xterm instances alive while the host is disconnected and back', async () => {
+    setup([host], [ws], { state: 'connected' })
+    const handlers: Record<string, (...a: unknown[]) => void> = {}
+    vi.mocked(api.on).mockImplementation(((ch: string, cb: (...a: unknown[]) => void) => {
+      handlers[ch] = cb
+      return () => undefined
+    }) as never)
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => {
+      announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' })
+      announceTerminal({ tabId: 't2', label: 'two', hostId: 'h1' })
+    })
+    expect(terminals).toHaveLength(2)
+    act(() => handlers['host-status']('h1', { state: 'disconnected' }))
+    expect(await screen.findByRole('button', { name: 'Connect' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New terminal' })).toBeNull()
+    act(() => handlers['host-status']('h1', { state: 'connected' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    expect(terminals).toHaveLength(2)
+    expect(disposed.every((d) => d.mock.calls.length === 0)).toBe(true)
   })
 })
 

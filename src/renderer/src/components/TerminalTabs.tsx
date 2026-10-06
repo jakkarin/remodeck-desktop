@@ -232,24 +232,22 @@ export function TerminalTabs({
     <div className="terminal-panel" id="terminal-panel">
       <div className="terminal-tabbar">
         <span className="terminal-title">Terminal</span>
-        {tabs.map((t) => (
-          <div
-            key={t.tabId}
-            className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}
-            hidden={t.hostId !== activeHostId}
-          >
-            <Button
-              className="terminal-tab-label"
-              onClick={() => setActiveByHost((prev) => ({ ...prev, [t.hostId]: t.tabId }))}
-            >
-              {t.label}
-              {t.exited ? ` ${CLOSED}` : ''}
-            </Button>
-            <IconButton aria-label={`Close ${t.label}`} onClick={() => close(t.tabId)}>
-              ×
-            </IconButton>
-          </div>
-        ))}
+        {tabs
+          .filter((t) => t.hostId === activeHostId)
+          .map((t) => (
+            <div key={t.tabId} className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}>
+              <Button
+                className="terminal-tab-label"
+                onClick={() => setActiveByHost((prev) => ({ ...prev, [t.hostId]: t.tabId }))}
+              >
+                {t.label}
+                {t.exited ? ` ${CLOSED}` : ''}
+              </Button>
+              <IconButton aria-label={`Close ${t.label}`} onClick={() => close(t.tabId)}>
+                ×
+              </IconButton>
+            </div>
+          ))}
         <IconButton
           aria-label="New terminal"
           disabled={!hostUp}
