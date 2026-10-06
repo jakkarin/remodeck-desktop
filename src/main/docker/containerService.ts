@@ -140,6 +140,7 @@ export class ContainerService extends EventEmitter {
   /** One coalesced full relist. On failure: live=false and the stream is closed so the loop reconnects. */
   private fullRelist(hostId: string, st: HostState): Promise<boolean> {
     if (st.relisting) return st.relisting
+    const owner = st.stream
     const p = (async () => {
       try {
         const raw = await st.client.json<unknown[]>('GET', LIST_PATH)
@@ -148,10 +149,10 @@ export class ContainerService extends EventEmitter {
         this.emit('changed', hostId, this.snapshot(st))
         return true
       } catch {
-        if (!st.disposed) {
+        if (!st.disposed && st.stream === owner) {
           this.setLive(hostId, st, false)
           try {
-            st.stream?.close()
+            owner?.close()
           } catch {
             // already closed
           }
@@ -194,12 +195,8 @@ export class ContainerService extends EventEmitter {
     }
   }
 
-  private async onOpen(hostId: string, st: HostState, relist: boolean): Promise<void> {
+  private async onOpen(hostId: string, st: HostState): Promise<void> {
     if (st.disposed) return
-    if (!relist) {
-      this.setLive(hostId, st, true)
-      return
-    }
     st.syncing = new Set()
     const ok = await this.fullRelist(hostId, st)
     const dirty = st.syncing
@@ -211,16 +208,13 @@ export class ContainerService extends EventEmitter {
 
   private async run(hostId: string, st: HostState): Promise<void> {
     let attempt = 0
-    let first = true
     while (!st.disposed) {
       const startedAt = this.now()
       let events = 0
       try {
         const stream = st.client.stream(EVENTS_PATH, {
           onOpen: () => {
-            const relist = !first
-            first = false
-            void this.onOpen(hostId, st, relist)
+            void this.onOpen(hostId, st)
           }
         })
         st.stream = stream
