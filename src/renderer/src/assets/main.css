@@ -1082,3 +1082,67 @@ textarea::placeholder {
     animation: none;
   }
 }
+
+.containers-view {
+  padding: 8px 12px;
+}
+.containers-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.container-group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+div.container-group-header {
+  cursor: default;
+}
+.container-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.container-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 0;
+}
+.container-name {
+  min-width: 140px;
+}
+.container-ports,
+.container-image {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.container-actions {
+  display: flex;
+  gap: 2px;
+}
+.state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted, #888);
+  flex-shrink: 0;
+}
+.state-running {
+  background: #3fb950;
+}
+.state-restarting,
+.state-paused {
+  background: #d29922;
+}

@@ -3,7 +3,11 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { DEFAULT_PREFS, type HostStatus } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
-  api: { hosts: { connect: vi.fn() } },
+  api: {
+    hosts: { connect: vi.fn() },
+    containers: { open: vi.fn().mockResolvedValue([]), action: vi.fn() },
+    on: vi.fn(() => () => {})
+  },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
@@ -89,12 +93,12 @@ describe('ContainersModule', () => {
     expect(v.probeDocker).toHaveBeenCalledWith('h1', true)
   })
 
-  it('renders the view stub and the bottom slot when ok', () => {
+  it('renders the containers view and the bottom slot when ok', async () => {
     const v = makeState({
       dockerCaps: { h1: { state: 'ok', version: '27', apiVersion: '1.47' } }
     })
     render(ui(v))
-    expect(screen.getByTestId('containers-view')).toBeInTheDocument()
+    expect(await screen.findByText('ยังไม่มี container บน Box')).toBeInTheDocument()
     expect(screen.getByText('term-slot')).toBeInTheDocument()
     expect(v.probeDocker).not.toHaveBeenCalled()
   })

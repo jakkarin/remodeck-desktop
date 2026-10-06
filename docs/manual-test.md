@@ -179,3 +179,13 @@ Still manual:
 - ลากแถบแบ่งช่อง (divider) ปรับขนาด แล้วปิดและเปิดแอปใหม่ ขนาดที่ปรับไว้ยังคงเดิม
 - เมื่อ AI commit ใน terminal โดยไม่กดปุ่ม Sync จุด ● ปรากฏที่ branch ภายในไม่กี่วินาที (light sync หลัง terminal นิ่ง 3 วินาที)
 - ปุ่ม Sync เปลี่ยนเป็นสีเหลืองเมื่อ host หลุดการเชื่อมต่อ
+
+
+### Containers (manual)
+
+| ลำดับ | ขั้นตอน | ผล |
+|---|---|---|
+| C.1 | host ที่ไม่มี docker → แท็บ Containers แสดงข้อความว่าไม่พบ docker | ☐ |
+| C.2 | user ที่ไม่อยู่ใน group docker → แสดงข้อความอธิบายสิทธิ์ที่ขาด | ☐ |
+| C.3 | start container จาก shell บน sandbox → รายการอัปเดตเองภายในไม่กี่วินาที | ☐ |
+| C.4 | Remove บน host ที่เป็น protected → ต้องพิมพ์ชื่อ host ให้ตรงก่อนปุ่ม Remove จะกดได้ | ☐ |

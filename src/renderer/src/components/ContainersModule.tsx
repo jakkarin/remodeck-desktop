@@ -5,9 +5,12 @@ import { useAppState } from '../state'
 import { useProbeOnce } from '../useProbeOnce'
 import { Button } from './ui'
 import { EmptyState } from './EmptyState'
+import { ContainersView } from './ContainersView'
+import { readLayout } from '../layout'
 
 export function ContainersModule({
-  bottom
+  bottom,
+  bottomCollapsed
 }: {
   bottom: React.ReactNode
   bottomCollapsed: boolean
@@ -73,11 +76,14 @@ export function ContainersModule({
     )
   }
 
-  // Task 9 replaces the stub with ContainersView.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div data-testid="containers-view" />
-      {bottom}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <ContainersView host={host} />
+      </div>
+      <div style={bottomCollapsed ? undefined : { height: readLayout().bottom, flexShrink: 0 }}>
+        {bottom}
+      </div>
     </div>
   )
 }
