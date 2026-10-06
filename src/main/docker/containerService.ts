@@ -145,7 +145,8 @@ export class ContainerService extends EventEmitter {
     // Only coalesce with a relist started for the same stream; otherwise start a fresh one.
     if (st.relisting && st.relisting.owner === owner) return st.relisting.promise
     const seq = ++st.relistSeq
-    const p = (async () => {
+    const rec: NonNullable<HostState['relisting']> = { owner, promise: undefined as never }
+    rec.promise = (async () => {
       try {
         const raw = await st.client.json<unknown[]>('GET', LIST_PATH)
         if (st.disposed) return false
@@ -164,11 +165,11 @@ export class ContainerService extends EventEmitter {
         }
         return false
       } finally {
-        if (st.relisting?.promise === p) st.relisting = undefined
+        if (st.relisting === rec) st.relisting = undefined
       }
     })()
-    st.relisting = { owner, promise: p }
-    return p
+    st.relisting = rec
+    return rec.promise
   }
 
   private async refetch(hostId: string, st: HostState, id: string): Promise<void> {
