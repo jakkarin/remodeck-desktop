@@ -1,4 +1,5 @@
 // Typed IPC contract between main and renderer: types and channel names only, no node imports.
+import type { ContainerAction, ContainerInfo } from './containers'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -67,7 +68,10 @@ export interface RemodeckApi {
     rebuildMirror(repoId: string, workspaceId?: string): Promise<void>
   }
   terminal: {
-    open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string; hostId: string }>
+    open(
+      workspaceId: string,
+      path?: string
+    ): Promise<{ tabId: string; label: string; hostId: string }>
     write(tabId: string, d: string): void
     resize(tabId: string, c: number, r: number): void
     close(tabId: string): void
@@ -75,6 +79,11 @@ export interface RemodeckApi {
     pasteImage(tabId: string): Promise<string | null>
     /** Uploads image bytes (png/jpg/jpeg/gif/webp, max 10MB) to the tab's sandbox; resolves the remote path. */
     uploadImage(tabId: string, bytes: Uint8Array, ext: string): Promise<string>
+  }
+  containers: {
+    /** Lists the host's containers and starts live updates; rejects with the probe detail when docker is unusable. */
+    open(hostId: string): Promise<ContainerInfo[]>
+    action(hostId: string, id: string, action: ContainerAction): Promise<void>
   }
   approval: { respond(requestId: string, decision: ApprovalDecision): void }
   prefs: {
@@ -87,13 +96,21 @@ export interface RemodeckApi {
   on(event: 'terminal-exit', cb: (tabId: string, code: number) => void): () => void
   on(event: 'approval-request', cb: (req: ApprovalRequest) => void): () => void
   on(event: 'workspace-synced', cb: (id: string, info: SyncInfo) => void): () => void
+  on(event: 'containers-changed', cb: (hostId: string, list: ContainerInfo[]) => void): () => void
+  on(event: 'containers-live', cb: (hostId: string, live: boolean) => void): () => void
 }
 
 /** Main-side implementation of the API; events are pushed with webContents.send instead of `on`. */
 export type MainApi = Omit<RemodeckApi, 'on'>
 
 export type RemodeckEvent =
-  'host-status' | 'terminal-data' | 'terminal-exit' | 'approval-request' | 'workspace-synced'
+  | 'host-status'
+  | 'terminal-data'
+  | 'terminal-exit'
+  | 'approval-request'
+  | 'workspace-synced'
+  | 'containers-changed'
+  | 'containers-live'
 
 export const IPC_CHANNELS = {
   hosts: {
@@ -137,6 +154,7 @@ export const IPC_CHANNELS = {
     pasteImage: 'terminal:pasteImage',
     uploadImage: 'terminal:uploadImage'
   },
+  containers: { open: 'containers:open', action: 'containers:action' },
   approval: { respond: 'approval:respond' },
   prefs: { get: 'prefs:get', update: 'prefs:update' },
   pushLog: { read: 'pushLog:read' },
@@ -145,7 +163,9 @@ export const IPC_CHANNELS = {
     'terminal-data': 'event:terminal-data',
     'terminal-exit': 'event:terminal-exit',
     'approval-request': 'event:approval-request',
-    'workspace-synced': 'event:workspace-synced'
+    'workspace-synced': 'event:workspace-synced',
+    'containers-changed': 'event:containers-changed',
+    'containers-live': 'event:containers-live'
   }
 } as const satisfies { [G in keyof MainApi]: { [M in keyof MainApi[G]]: string } } & {
   events: Record<RemodeckEvent, string>

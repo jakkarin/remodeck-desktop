@@ -8,10 +8,14 @@ import type {
   Repo,
   Workspace
 } from '../shared/types'
+import type { ContainerAction } from '../shared/containers'
 import { IPC_CHANNELS, type MainApi } from '../shared/ipc'
 import { ApprovalService } from './approval/approvalService'
 import { GitBridge } from './bridge/gitBridge'
 import { ConnectionService } from './connection/connectionService'
+import { ContainerService } from './docker/containerService'
+import { DockerClient } from './docker/dockerClient'
+import { sshDialStdio } from './docker/dialStdio'
 import { HostGit } from './git/hostGit'
 import { getGitHubCredential } from './github/credentials'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
@@ -48,6 +52,30 @@ export function parseHostPatch(patch: unknown): { label?: string; protected?: bo
     throw new Error('Invalid host patch')
   return { label: patch.label, protected: patch.protected }
 }
+const CONTAINER_ACTIONS: readonly string[] = ['start', 'stop', 'restart', 'remove']
+
+export function containersApi(deps: {
+  hostOf(id: string): Host
+  connection: Pick<ConnectionService, 'requireConnected' | 'probeDocker'>
+  service: Pick<ContainerService, 'open' | 'action'>
+}): MainApi['containers'] {
+  return {
+    open: async (hostId) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      const cap = await deps.connection.probeDocker(hostId)
+      if (cap.state !== 'ok') throw new Error(cap.detail)
+      return deps.service.open(hostId)
+    },
+    action: async (hostId, id, action) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      if (!CONTAINER_ACTIONS.includes(action as string)) throw new Error('Invalid container action')
+      return deps.service.action(hostId, id, action as ContainerAction)
+    }
+  }
+}
+
 // ApprovalService gives up after 60 s; drop our side of an unanswered prompt shortly after.
 const PROMPT_CLEANUP_MS = 65_000
 
@@ -123,12 +151,20 @@ export async function createApp(opts: {
   const bridge = new GitBridge({ upstreamBase: githubBase, credential, approval, store })
   const bridgePort = await bridge.start()
 
+  // One DockerClient per host, created lazily by the service; service.dispose destroys it.
+  const containerService = new ContainerService({
+    clientFor: (hostId) =>
+      new DockerClient({ connect: () => sshDialStdio(sshPath, sshHostFor(hostId)) })
+  })
   let terminal: TerminalService | null = null
   const connection = new ConnectionService({
     targetFor,
     sshHostFor,
     checkForward: (hostId) => checkRemoteForward(sshPath, sshHostFor(hostId)),
-    onDisconnect: (hostId) => terminal?.closeAllForHost(hostId)
+    onDisconnect: (hostId) => {
+      terminal?.closeAllForHost(hostId)
+      containerService.dispose(hostId)
+    }
   })
   terminal = new TerminalService({
     sshPath,
@@ -143,6 +179,8 @@ export async function createApp(opts: {
   const term = terminal
 
   connection.on('status', (hostId, status) => send(EV['host-status'], hostId, status))
+  containerService.on('changed', (hostId, list) => send(EV['containers-changed'], hostId, list))
+  containerService.on('live', (hostId, live) => send(EV['containers-live'], hostId, live))
   term.on('data', (tabId, d) => send(EV['terminal-data'], tabId, d))
   term.on('exit', (tabId, code) => send(EV['terminal-exit'], tabId, code))
 
@@ -180,6 +218,7 @@ export async function createApp(opts: {
       add: async (sshHost, label) => store.addHost(sshHost.trim(), label.trim() || sshHost.trim()),
       remove: async (id) => {
         store.removeHost(id)
+        containerService.dispose(id)
         if (connection.status(id).state !== 'disconnected') connection.disconnect(id)
       },
       update: async (id, patch) => {
@@ -338,6 +377,7 @@ export async function createApp(opts: {
         return term.uploadImage(tabId, bytes, e as ImageExt)
       }
     },
+    containers: containersApi({ hostOf, connection, service: containerService }),
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)
     },
@@ -361,7 +401,10 @@ export async function createApp(opts: {
   const dispose = async (): Promise<void> => {
     autoSync.stop()
     for (const settle of [...pending.values()]) settle('deny')
-    for (const h of store.config.hosts) term.closeAllForHost(h.id)
+    for (const h of store.config.hosts) {
+      term.closeAllForHost(h.id)
+      containerService.dispose(h.id)
+    }
     await bridge.stop()
   }
 
