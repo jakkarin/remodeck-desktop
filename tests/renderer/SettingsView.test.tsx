@@ -73,6 +73,8 @@ function Harness({
     probeGit: vi.fn(),
     dockerCaps: {},
     probeDocker: vi.fn(),
+    activeModule: 'git',
+    selectModule: vi.fn(),
     activeWorkspaceId: null,
     selectWorkspace: vi.fn(),
     syncInfo: {},

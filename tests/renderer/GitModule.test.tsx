@@ -32,6 +32,8 @@ function makeState(over: Partial<AppState> = {}): AppState {
     probeGit: vi.fn().mockResolvedValue(undefined),
     dockerCaps: {},
     probeDocker: vi.fn().mockResolvedValue(undefined),
+    activeModule: 'git',
+    selectModule: vi.fn(),
     activeWorkspaceId: 'w1',
     selectWorkspace: vi.fn(),
     syncInfo: {},

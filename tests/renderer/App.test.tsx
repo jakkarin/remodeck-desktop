@@ -5,7 +5,14 @@ import { DEFAULT_PREFS, type Host, type HostStatus, type Workspace } from '../..
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
     on: vi.fn(() => () => undefined),
-    hosts: { list: vi.fn(), status: vi.fn(), connect: vi.fn(), add: vi.fn(), probeGit: vi.fn() },
+    hosts: {
+      list: vi.fn(),
+      status: vi.fn(),
+      connect: vi.fn(),
+      add: vi.fn(),
+      probeGit: vi.fn(),
+      probeDocker: vi.fn()
+    },
     repos: { list: vi.fn(), listGitHub: vi.fn().mockResolvedValue([]) },
     workspaces: {
       list: vi.fn(),
@@ -66,6 +73,10 @@ function setup(hosts: Host[], workspaces: Workspace[], status: HostStatus): void
   vi.mocked(api.workspaces.list).mockResolvedValue(workspaces)
   vi.mocked(api.prefs.get).mockResolvedValue(DEFAULT_PREFS)
   vi.mocked(api.hosts.probeGit).mockResolvedValue({ version: '2', remoteHttp: true, forward: true })
+  vi.mocked(api.hosts.probeDocker).mockResolvedValue({
+    state: 'no-permission',
+    detail: 'permission denied on docker.sock'
+  })
 }
 
 beforeEach(() => {
@@ -282,5 +293,42 @@ describe('App prefs', () => {
     })
     await waitFor(() => expect(terminals[0].options.fontSize).toBe(18))
     expect(terminals).toHaveLength(1)
+  })
+})
+
+describe('App module switch', () => {
+  it('Containers shows the docker gate, persists, and restores on reload', async () => {
+    setup([host], [ws], { state: 'connected' })
+    const first = render(<App />)
+    const git = await screen.findByRole('button', { name: 'Git' })
+    fireEvent.click(screen.getByRole('button', { name: 'Containers' }))
+    expect(await screen.findByText('permission denied on docker.sock')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Containers' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(git).toHaveAttribute('aria-pressed', 'false')
+    expect(localStorage.getItem('remodeck.activeModule')).toBe('"containers"')
+    first.unmount()
+    render(<App />)
+    expect(await screen.findByText('permission denied on docker.sock')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Switch workspace' })).toBeNull()
+  })
+
+  it('keeps terminals alive across a module switch', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => {
+      announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' })
+    })
+    expect(terminals).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Containers' }))
+    await screen.findByText('permission denied on docker.sock')
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(terminals).toHaveLength(1)
+    expect(disposed.every((d) => d.mock.calls.length === 0)).toBe(true)
+    expect(api.terminal.close).not.toHaveBeenCalled()
   })
 })

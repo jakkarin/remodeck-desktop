@@ -39,6 +39,8 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
     probeGit: vi.fn(),
     dockerCaps: {},
     probeDocker: vi.fn(),
+    activeModule: 'git',
+    selectModule: vi.fn(),
     activeWorkspaceId: 'w1',
     selectWorkspace: vi.fn(),
     syncInfo: {},

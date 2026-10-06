@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ApprovalModal } from './components/ApprovalModal'
 import { ActivityBar } from './components/ActivityBar'
+import { ContainersModule } from './components/ContainersModule'
 import { GitModule } from './components/GitModule'
 import { SettingsDialog } from './components/SettingsDialog'
 import { readLayout, saveCollapsed } from './layout'
@@ -28,7 +29,7 @@ function TerminalSlot({ node }: { node: HTMLElement }): React.JSX.Element {
 }
 
 function Layout(): React.JSX.Element {
-  const { hosts, activeHostId } = useAppState()
+  const { hosts, activeHostId, activeModule } = useAppState()
   const active = hosts.find((h) => h.id === activeHostId)
   const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string } | null>(
     null
@@ -52,7 +53,17 @@ function Layout(): React.JSX.Element {
         <div className="app-body">
           <ActivityBar onOpenSettings={() => setSettings({ section: 'general' })} />
           <main className="main">
-            <GitModule bottom={<TerminalSlot node={terminalNode} />} bottomCollapsed={collapsed} />
+            {activeModule === 'git' ? (
+              <GitModule
+                bottom={<TerminalSlot node={terminalNode} />}
+                bottomCollapsed={collapsed}
+              />
+            ) : (
+              <ContainersModule
+                bottom={<TerminalSlot node={terminalNode} />}
+                bottomCollapsed={collapsed}
+              />
+            )}
           </main>
         </div>
         {createPortal(<TerminalTabs collapsed={collapsed} onToggle={toggle} />, terminalNode)}

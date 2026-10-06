@@ -14,6 +14,9 @@ import {
 import { api } from './api'
 import {
   pickHost,
+  readActiveModule,
+  saveActiveModule,
+  type Module,
   pickWorkspace,
   readActiveHost,
   readLastWorkspaces,
@@ -34,6 +37,8 @@ export type AppState = {
   probeGit(hostId: string, force?: boolean): Promise<void>
   dockerCaps: Record<string, DockerCapability>
   probeDocker(hostId: string, force?: boolean): Promise<void>
+  activeModule: Module
+  selectModule(m: Module): void
   activeWorkspaceId: string | null
   selectWorkspace(id: string | null): void
   syncInfo: Record<string, SyncInfo>
@@ -63,6 +68,7 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
   const [activeHostId, setActiveHostId] = useState<string | null>(null)
   const [gitCaps, setGitCaps] = useState<Record<string, GitCapability | null>>({})
   const [dockerCaps, setDockerCaps] = useState<Record<string, DockerCapability>>({})
+  const [activeModule, setActiveModule] = useState<Module>(readActiveModule)
   const activeRef = useRef<string | null>(null)
   const activeHostRef = useRef<string | null>(null)
   const workspacesRef = useRef<Workspace[]>([])
@@ -96,6 +102,11 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     },
     [applyHost, selectWorkspace]
   )
+
+  const selectModule = useCallback((m: Module) => {
+    setActiveModule(m)
+    saveActiveModule(m)
+  }, [])
 
   const dropCaps = useCallback((hostId: string) => {
     gitEpochRef.current[hostId] = (gitEpochRef.current[hostId] ?? 0) + 1
@@ -207,6 +218,8 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       probeGit,
       dockerCaps,
       probeDocker,
+      activeModule,
+      selectModule,
       activeWorkspaceId,
       selectWorkspace,
       syncInfo,
@@ -226,6 +239,8 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       probeGit,
       dockerCaps,
       probeDocker,
+      activeModule,
+      selectModule,
       activeWorkspaceId,
       selectWorkspace,
       syncInfo,

@@ -6,7 +6,9 @@ import {
   readActiveHost,
   saveActiveHost,
   readLastWorkspaces,
-  saveLastWorkspace
+  saveLastWorkspace,
+  readActiveModule,
+  saveActiveModule
 } from '../../src/renderer/src/hostContext'
 
 const h = (id: string): Host => ({ id, sshHost: id, label: id, protected: false })
@@ -59,5 +61,20 @@ describe('storage helpers', () => {
     saveLastWorkspace('a', 'w1')
     saveLastWorkspace('b', 'w2')
     expect(readLastWorkspaces()).toEqual({ a: 'w1', b: 'w2' })
+  })
+})
+
+describe('active module', () => {
+  it('defaults to git and round-trips', () => {
+    expect(readActiveModule()).toBe('git')
+    saveActiveModule('containers')
+    expect(readActiveModule()).toBe('containers')
+    expect(localStorage.getItem('remodeck.activeModule')).toBe('"containers"')
+  })
+  it('falls back to git on an invalid stored value', () => {
+    localStorage.setItem('remodeck.activeModule', '"nope"')
+    expect(readActiveModule()).toBe('git')
+    localStorage.setItem('remodeck.activeModule', '{bad')
+    expect(readActiveModule()).toBe('git')
   })
 })

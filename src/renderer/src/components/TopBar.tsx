@@ -15,7 +15,7 @@ function syncLabel(elapsedMs: number): string {
 }
 
 export function TopBar({ now = Date.now }: { now?: () => number }): React.JSX.Element {
-  const { workspaces, statuses, activeWorkspaceId, syncInfo } = useAppState()
+  const { workspaces, statuses, activeWorkspaceId, syncInfo, activeModule } = useAppState()
   const [, setTick] = useState(0)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,17 +48,21 @@ export function TopBar({ now = Date.now }: { now?: () => number }): React.JSX.El
   return (
     <header className="topbar">
       <HostSelector />
-      <WorkspaceSwitcher />
-      <Button
-        variant="ghost"
-        className={`sync-btn${info?.error ? ' warn' : ''}`}
-        disabled={!active || hostDown || pending}
-        title={title}
-        onClick={() => void sync()}
-      >
-        <RefreshCw size={14} className={pending ? 'spinning' : undefined} />
-        {label}
-      </Button>
+      {activeModule === 'git' && (
+        <>
+          <WorkspaceSwitcher />
+          <Button
+            variant="ghost"
+            className={`sync-btn${info?.error ? ' warn' : ''}`}
+            disabled={!active || hostDown || pending}
+            title={title}
+            onClick={() => void sync()}
+          >
+            <RefreshCw size={14} className={pending ? 'spinning' : undefined} />
+            {label}
+          </Button>
+        </>
+      )}
       <span className="topbar-spacer" />
       {error && <div className="error topbar-error">{error}</div>}
     </header>

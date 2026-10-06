@@ -23,7 +23,11 @@ import { AppStateContext, type AppState } from '../../src/renderer/src/state'
 
 const NOW = 1_000_000_000
 
-function renderBar(status: HostStatus, syncInfo: Record<string, SyncInfo> = {}): void {
+function renderBar(
+  status: HostStatus,
+  syncInfo: Record<string, SyncInfo> = {},
+  activeModule: 'git' | 'containers' = 'git'
+): void {
   const value: AppState = {
     hosts: [{ id: 'h1', sshHost: 'a', label: 'Alpha', protected: false }],
     statuses: { h1: status },
@@ -35,6 +39,8 @@ function renderBar(status: HostStatus, syncInfo: Record<string, SyncInfo> = {}):
     probeGit: vi.fn(),
     dockerCaps: {},
     probeDocker: vi.fn(),
+    activeModule,
+    selectModule: vi.fn(),
     activeWorkspaceId: 'w1',
     selectWorkspace: vi.fn(),
     syncInfo,
@@ -113,5 +119,12 @@ describe('TopBar', () => {
     expect(screen.getByRole('button', { name: 'Switch host' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull()
+  })
+
+  it('hides the workspace switcher and Sync in the containers module', () => {
+    renderBar(up, {}, 'containers')
+    expect(screen.getByRole('button', { name: 'Switch host' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Switch workspace' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Sync/ })).toBeNull()
   })
 })

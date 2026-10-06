@@ -3,6 +3,18 @@ import { readJson, writeJson } from './storage'
 
 const ACTIVE_HOST_KEY = 'remodeck.activeHost'
 const LAST_WORKSPACE_KEY = 'remodeck.lastWorkspace'
+const ACTIVE_MODULE_KEY = 'remodeck.activeModule'
+
+export type Module = 'git' | 'containers'
+
+export function readActiveModule(): Module {
+  const v = readJson<unknown>(ACTIVE_MODULE_KEY, 'git')
+  return v === 'containers' ? 'containers' : 'git'
+}
+
+export function saveActiveModule(m: Module): void {
+  writeJson(ACTIVE_MODULE_KEY, m)
+}
 
 export function readActiveHost(): string | null {
   return readJson<string | null>(ACTIVE_HOST_KEY, null)

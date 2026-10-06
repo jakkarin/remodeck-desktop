@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { useProbeOnce } from '../useProbeOnce'
 import { Button } from './ui'
 import { EmptyState } from './EmptyState'
 import { WorkspaceScreen } from './WorkspaceScreen'
@@ -33,31 +34,8 @@ export function GitModule({
   const caps = hostId !== null ? gitCaps[hostId] : undefined
   const needsProbe = connected && caps === undefined
 
-  // Probe-once guard: keyed by host id, released when the capability entry exists or is cleared.
-  const probed = useRef<string | null>(null)
-  const [probeError, setProbeError] = useState<{ hostId: string; message: string } | null>(null)
-  const [probing, setProbing] = useState(false)
+  const { probe, probing, probeError } = useProbeOnce(hostId, needsProbe, probeGit)
   const [connectError, setConnectError] = useState<string | null>(null)
-
-  const probe = (id: string, force?: boolean): void => {
-    setProbeError(null)
-    setProbing(true)
-    const p = force ? probeGit(id, true) : probeGit(id)
-    p.catch((e) => setProbeError({ hostId: id, message: errorMessage(e) })).finally(() =>
-      setProbing(false)
-    )
-  }
-
-  useEffect(() => {
-    if (!needsProbe) {
-      probed.current = null
-      return
-    }
-    if (probed.current === hostId) return
-    probed.current = hostId
-    probe(hostId as string)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsProbe, hostId])
 
   if (!host || hostId === null) return <EmptyState />
 
