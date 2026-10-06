@@ -79,7 +79,7 @@ export function ContainersModule({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <ContainersView host={host} />
+        <ContainersView key={host.id} host={host} />
       </div>
       <div style={bottomCollapsed ? undefined : { height: readLayout().bottom, flexShrink: 0 }}>
         {bottom}

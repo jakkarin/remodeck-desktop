@@ -92,4 +92,36 @@ describe('useContainers', () => {
     await waitFor(() => expect(result.current.list).toEqual([mk('a')]))
     expect(result.current.error).toBeNull()
   })
+
+  it('keeps a newer containers-changed list over a late open result', async () => {
+    let resolveOpen: (l: ContainerInfo[]) => void = () => {}
+    vi.mocked(api.containers.open).mockImplementationOnce(
+      () => new Promise((r) => (resolveOpen = r))
+    )
+    const { result } = renderHook(() => useContainers('h1'))
+    emit('containers-changed', 'h1', [mk('new')])
+    await act(async () => resolveOpen([mk('old')]))
+    expect(result.current.list).toEqual([mk('new')])
+    expect(result.current.live).toBe(true)
+  })
+
+  it('does not expose host A data under host B, and re-opens A on return', async () => {
+    let resolveB: (l: ContainerInfo[]) => void = () => {}
+    vi.mocked(api.containers.open)
+      .mockResolvedValueOnce([mk('a')])
+      .mockImplementationOnce(() => new Promise((r) => (resolveB = r)))
+      .mockResolvedValueOnce([mk('a2')])
+    const { result, rerender } = renderHook(({ id }) => useContainers(id), {
+      initialProps: { id: 'h1' }
+    })
+    await waitFor(() => expect(result.current.list).toEqual([mk('a')]))
+    rerender({ id: 'h2' })
+    expect(result.current.list).toBeNull()
+    rerender({ id: 'h1' })
+    expect(result.current.list).toBeNull()
+    await waitFor(() => expect(result.current.list).toEqual([mk('a2')]))
+    await act(async () => resolveB([mk('b')]))
+    expect(result.current.list).toEqual([mk('a2')])
+    expect(api.containers.open).toHaveBeenCalledTimes(3)
+  })
 })

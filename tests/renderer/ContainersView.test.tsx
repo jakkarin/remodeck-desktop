@@ -169,4 +169,22 @@ describe('ContainersView', () => {
     render(<ContainersView host={host} />)
     expect(await screen.findByText('ยังไม่มี container บน Box')).toBeInTheDocument()
   })
+
+  it('drops an open confirm when the host changes and never acts on the new host', async () => {
+    const hostB: Host = { ...prot, id: 'h2', label: 'Other' }
+    const { rerender } = render(<ContainersView host={prot} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Stop web' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    rerender(<ContainersView host={hostB} />)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(api.containers.action).not.toHaveBeenCalled()
+  })
+
+  it('says when filters hide every row', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.change(screen.getByLabelText('Filter containers'), { target: { value: 'zzz' } })
+    expect(screen.getByText('ไม่มี container ที่ตรงกับตัวกรอง')).toBeInTheDocument()
+  })
 })

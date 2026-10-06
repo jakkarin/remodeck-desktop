@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ContainerInfo } from '../../shared/containers'
 import { api, errorMessage } from './api'
 
-type Loaded = { hostId: string; list: ContainerInfo[] | null; live: boolean; error: string | null }
+type Loaded = {
+  hostId: string | null
+  list: ContainerInfo[] | null
+  live: boolean
+  error: string | null
+}
 
 export function useContainers(hostId: string): {
   list: ContainerInfo[] | null
@@ -15,18 +20,28 @@ export function useContainers(hostId: string): {
 
   useEffect(() => {
     let active = true
+    let changed = false
     // A state left over from another host is discarded on the first write for this one.
     const base = (s: Loaded): Loaded =>
       s.hostId === hostId ? s : { hostId, list: null, live: true, error: null }
     const offChanged = api.on('containers-changed', (id, list) => {
-      if (active && id === hostId) setState((s) => ({ ...base(s), list, error: null }))
+      if (active && id === hostId) {
+        changed = true
+        setState((s) => ({ ...base(s), list, error: null }))
+      }
     })
     const offLive = api.on('containers-live', (id, live) => {
       if (active && id === hostId) setState((s) => ({ ...base(s), live }))
     })
     api.containers.open(hostId).then(
       (list) => {
-        if (active) setState((s) => ({ ...base(s), list, live: true, error: null }))
+        // A pushed list that arrived while open was pending is newer than open's reply.
+        if (active)
+          setState((s) =>
+            changed
+              ? { ...base(s), live: true, error: null }
+              : { ...base(s), list, live: true, error: null }
+          )
       },
       (e) => {
         if (active) setState((s) => ({ ...base(s), error: errorMessage(e) }))
@@ -34,6 +49,8 @@ export function useContainers(hostId: string): {
     )
     return () => {
       active = false
+      // Nothing loaded for this host may be shown once the subscription is gone.
+      setState({ hostId: null, list: null, live: true, error: null })
       offChanged()
       offLive()
     }

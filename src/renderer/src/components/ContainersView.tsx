@@ -17,7 +17,12 @@ const ACTIVE: readonly string[] = ['running', 'restarting', 'paused']
 const isActive = (c: ContainerInfo): boolean => ACTIVE.includes(c.state)
 const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
 
-type Pending = { container: ContainerInfo; action: ContainerAction; mode: 'click' | 'type' }
+type Pending = {
+  hostId: string
+  container: ContainerInfo
+  action: ContainerAction
+  mode: 'click' | 'type'
+}
 
 export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const { list, live, error, retry } = useContainers(host.id)
@@ -39,6 +44,10 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     writeJson(COLLAPSED_KEY, all)
   }
 
+  // A confirm opened for another host must never act on this one.
+  const stale = pending !== null && pending.hostId !== host.id
+  if (stale) setPending(null)
+
   const run = async (c: ContainerInfo, action: ContainerAction): Promise<void> => {
     await api.containers.action(host.id, c.id, action)
     setActionError(null)
@@ -48,7 +57,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     if (level === 'none') {
       run(c, action).catch((e) => setActionError(errorMessage(e)))
     } else {
-      setPending({ container: c, action, mode: level })
+      setPending({ hostId: host.id, container: c, action, mode: level })
     }
   }
 
@@ -123,6 +132,9 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       </div>
       {actionError && <ErrorBanner message={actionError} />}
       {list.length === 0 && <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>}
+      {list.length > 0 && visible.length === 0 && (
+        <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
+      )}
       {projects.map((p) => {
         const isCollapsed = collapsed.includes(p.name)
         return (
@@ -146,13 +158,16 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
           <ul>{standalone.map(row)}</ul>
         </section>
       )}
-      {pending && (
+      {pending && !stale && (
         <ConfirmDanger
           host={host}
           summary={`${pending.action} · ${pending.container.name}`}
           confirmLabel={capitalise(pending.action)}
           mode={pending.mode}
-          onConfirm={() => run(pending.container, pending.action)}
+          onConfirm={async () => {
+            if (pending.hostId !== host.id) throw new Error('host changed')
+            await run(pending.container, pending.action)
+          }}
           onClose={() => setPending(null)}
         />
       )}

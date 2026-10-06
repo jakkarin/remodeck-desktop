@@ -1136,13 +1136,13 @@ div.container-group-header {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--muted, #888);
+  background: var(--fg-muted);
   flex-shrink: 0;
 }
 .state-running {
-  background: #3fb950;
+  background: var(--success);
 }
 .state-restarting,
 .state-paused {
-  background: #d29922;
+  background: var(--attention);
 }
