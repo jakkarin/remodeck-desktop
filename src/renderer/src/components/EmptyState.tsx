@@ -7,19 +7,20 @@ import { CloneDialog } from './CloneDialog'
 
 /** Spec §4: nothing to show yet — no hosts, or hosts without a workspace. */
 export function EmptyState(): React.JSX.Element {
-  const { hosts, statuses, setStatus, refresh, selectWorkspace } = useAppState()
+  const { hosts, statuses, activeHostId, setStatus, refresh, selectWorkspace } = useAppState()
   const [adding, setAdding] = useState(false)
   const [cloning, setCloning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const connectedIds = hosts.filter((h) => statuses[h.id]?.state === 'connected').map((h) => h.id)
-  const first = hosts[0]
+  const host = hosts.find((h) => h.id === activeHostId)
+  const connected = host !== undefined && statuses[host.id]?.state === 'connected'
+  const connectedIds = host && connected ? [host.id] : []
 
   async function connect(): Promise<void> {
-    if (!first) return
+    if (!host) return
     setError(null)
     try {
-      setStatus(first.id, await api.hosts.connect(first.id))
+      setStatus(host.id, await api.hosts.connect(host.id))
     } catch (e) {
       setError(errorMessage(e))
     }
@@ -27,7 +28,7 @@ export function EmptyState(): React.JSX.Element {
 
   return (
     <div className="empty-state">
-      {hosts.length === 0 ? (
+      {!host ? (
         <>
           <h2>เพิ่ม sandbox แรก</h2>
           <Button variant="primary" onClick={() => setAdding(true)}>
@@ -37,7 +38,7 @@ export function EmptyState(): React.JSX.Element {
       ) : (
         <>
           <h2>ยังไม่มี workspace</h2>
-          {connectedIds.length > 0 ? (
+          {connected ? (
             <Button variant="primary" onClick={() => setCloning(true)}>
               Clone repo
             </Button>

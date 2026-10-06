@@ -53,7 +53,7 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
       }
     ],
     workspaces: [{ id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }],
-    activeHostId: null,
+    activeHostId: 'h1',
     selectHost: vi.fn(),
     gitCaps: {},
     probeGit: vi.fn(),
@@ -80,26 +80,20 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
 beforeEach(() => vi.clearAllMocks())
 
 describe('WorkspaceSwitcher', () => {
-  it('lists every host with a status dot class', () => {
-    renderWith({ h1: up, h2: { state: 'error', error: 'boom' } })
-    const alpha = screen.getByText('Alpha').closest('section') as HTMLElement
-    const beta = screen.getByText('Beta').closest('section') as HTMLElement
-    expect(alpha.querySelector('.dot')).toHaveClass('connected')
-    expect(beta.querySelector('.dot')).toHaveClass('error')
-    expect(screen.getByText('boom')).toBeInTheDocument()
-  })
-
-  it('shows Connect only when disconnected and Retry only on error', () => {
-    renderWith({ h1: down, h2: { state: 'error', error: 'x' } })
-    expect(screen.getAllByRole('button', { name: 'Connect' })).toHaveLength(1)
-    expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(1)
-  })
-
-  it('Connect calls api.hosts.connect', () => {
-    vi.mocked(api.hosts.connect).mockResolvedValue(up)
-    renderWith({ h1: down, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
-    expect(api.hosts.connect).toHaveBeenCalledWith('h1')
+  it('lists only workspaces of the active host', () => {
+    renderWith(
+      { h1: up, h2: up },
+      {
+        workspaces: [
+          { id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' },
+          { id: 'w2', repoId: 'r1', hostId: 'h2', sandboxPath: '~/other/api' }
+        ]
+      }
+    )
+    expect(screen.getByText('acme/api · ~/repos/api')).toBeInTheDocument()
+    expect(screen.queryByText('acme/api · ~/other/api')).toBeNull()
+    expect(screen.queryByText('Alpha')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
   })
 
   it('dims workspaces of a disconnected host but still selects them', () => {
@@ -108,25 +102,6 @@ describe('WorkspaceSwitcher', () => {
     expect(item).toHaveClass('dim')
     fireEvent.click(screen.getByText('acme/api · ~/repos/api'))
     expect(v.selectWorkspace).toHaveBeenCalledWith('w1')
-  })
-
-  it('Remove host is disabled with a tooltip while it has workspaces', () => {
-    renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
-    const btn = screen.getByRole('button', { name: 'Remove host' })
-    expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title')
-  })
-
-  it('Remove host works for an empty host', async () => {
-    vi.mocked(api.hosts.remove).mockResolvedValue(undefined)
-    const v = renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Beta' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove host' }))
-    const dialog = screen.getByRole('dialog', { name: 'Remove host' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
-    await waitFor(() => expect(v.refresh).toHaveBeenCalled())
-    expect(api.hosts.remove).toHaveBeenCalledWith('h2')
   })
 
   it('workspace menu rebuilds the mirror', async () => {
@@ -144,36 +119,6 @@ describe('WorkspaceSwitcher', () => {
     expect(openSettings).toHaveBeenCalledWith('repositories', 'r1')
   })
 
-  it('host menu Host settings saves the new label', async () => {
-    vi.mocked(api.hosts.update).mockResolvedValue({
-      id: 'h1',
-      sshHost: 'a',
-      label: 'Work',
-      protected: false
-    })
-    const v = renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))
-    const dialog = screen.getByRole('dialog', { name: 'Host settings' })
-    expect(within(dialog).getByLabelText('SSH host')).toHaveAttribute('readonly')
-    expect(within(dialog).getByLabelText('SSH host')).toHaveValue('a')
-    fireEvent.change(within(dialog).getByLabelText('Label'), { target: { value: ' Work ' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(api.hosts.update).toHaveBeenCalledWith('h1', { label: 'Work' }))
-    await waitFor(() => expect(v.refresh).toHaveBeenCalled())
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Host settings' })).toBeNull())
-  })
-
-  it('Host settings shows the error and keeps the dialog open', async () => {
-    vi.mocked(api.hosts.update).mockRejectedValue(new Error('nope'))
-    renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))
-    const dialog = screen.getByRole('dialog', { name: 'Host settings' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    expect(await within(dialog).findByText('nope')).toBeInTheDocument()
-  })
-
   it('workspace menu removes the workspace', async () => {
     vi.mocked(api.workspaces.remove).mockResolvedValue(undefined)
     const v = renderWith({ h1: up, h2: up })
@@ -185,34 +130,16 @@ describe('WorkspaceSwitcher', () => {
     expect(api.workspaces.remove).toHaveBeenCalledWith('w1', false)
   })
 
-  it('Clone repo is disabled when no host is connected', () => {
-    renderWith({ h1: down, h2: down })
+  it('Clone and Add existing are disabled when the active host is disconnected, even if another is connected', () => {
+    renderWith({ h1: down, h2: up })
     expect(screen.getByRole('button', { name: /Clone repo/ })).toBeDisabled()
-  })
-
-  it('Clone repo opens the dialog with connected hosts only', () => {
-    renderWith({ h1: up, h2: down })
-    fireEvent.click(screen.getByRole('button', { name: /Clone repo/ }))
-    const dialog = screen.getByRole('dialog', { name: 'Clone' })
-    expect(within(dialog).queryByLabelText('Host')).toBeNull()
-  })
-
-  it('Clone repo offers a host choice when several are connected', () => {
-    renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: /Clone repo/ }))
-    const dialog = screen.getByRole('dialog', { name: 'Clone' })
-    expect(within(dialog).getByLabelText('Host')).toBeInTheDocument()
-  })
-
-  it('Add existing repo is disabled when no host is connected', () => {
-    renderWith({ h1: down, h2: down })
     expect(screen.getByRole('button', { name: /Add existing repo/ })).toBeDisabled()
   })
 
-  it('Add existing repo opens the dialog with connected hosts only', () => {
-    renderWith({ h1: up, h2: down })
-    fireEvent.click(screen.getByRole('button', { name: /Add existing repo/ }))
-    const dialog = screen.getByRole('dialog', { name: 'Add existing repo' })
+  it('Clone repo targets the active host only', () => {
+    renderWith({ h1: up, h2: up })
+    fireEvent.click(screen.getByRole('button', { name: /Clone repo/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Clone' })
     expect(within(dialog).queryByLabelText('Host')).toBeNull()
   })
 
@@ -229,9 +156,10 @@ describe('WorkspaceSwitcher', () => {
       known: true,
       alwaysAllowPush: false
     })
-    const v = renderWith({ h1: up, h2: down })
+    const v = renderWith({ h1: up, h2: up })
     fireEvent.click(screen.getByRole('button', { name: /Add existing repo/ }))
     const dialog = screen.getByRole('dialog', { name: 'Add existing repo' })
+    expect(within(dialog).queryByLabelText('Host')).toBeNull()
     fireEvent.change(within(dialog).getByLabelText('Path'), { target: { value: '~/work/app' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Check' }))
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Confirm & Add' }))
@@ -246,21 +174,15 @@ describe('WorkspaceSwitcher', () => {
     expect(screen.queryByRole('dialog', { name: 'Add existing repo' })).toBeNull()
   })
 
-  it('Add host opens the add dialog', () => {
-    renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: /Add host/ }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-  })
-
   it('closes on Escape, on an outside pointerdown, and after choosing a workspace', () => {
     renderWith({ h1: up, h2: up })
-    const panelOpen = (): boolean => screen.queryByText('Alpha') !== null
+    const panelOpen = (): boolean => screen.queryByText('acme/api · ~/repos/api') !== null
     expect(panelOpen()).toBe(true)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(panelOpen()).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
     expect(panelOpen()).toBe(true)
-    fireEvent.pointerDown(screen.getByText('Alpha'))
+    fireEvent.pointerDown(screen.getByText('acme/api · ~/repos/api'))
     expect(panelOpen()).toBe(true)
     fireEvent.pointerDown(document.body)
     expect(panelOpen()).toBe(false)

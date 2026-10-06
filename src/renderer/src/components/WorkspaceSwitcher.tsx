@@ -1,47 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, FolderGit2, MoreHorizontal, Plus } from 'lucide-react'
-import type { Host, HostStatus, Workspace } from '../../../shared/types'
+import { ChevronDown, FolderGit2, MoreHorizontal } from 'lucide-react'
+import type { Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { useOpenSettings } from '../settingsOpener'
 import { Button, IconButton } from './ui'
-import { AddHostDialog } from './AddHostDialog'
-import { HostSettingsDialog } from './HostSettingsDialog'
 import { AddExistingDialog } from './AddExistingDialog'
 import { CloneDialog } from './CloneDialog'
-import { RemoveHostDialog, RemoveWorkspaceDialog } from './RemoveDialogs'
-
-const DISCONNECTED: HostStatus = { state: 'disconnected' }
+import { RemoveWorkspaceDialog } from './RemoveDialogs'
 
 export function WorkspaceSwitcher(): React.JSX.Element {
-  const {
-    hosts,
-    statuses,
-    repos,
-    workspaces,
-    activeWorkspaceId,
-    selectWorkspace,
-    setStatus,
-    refresh
-  } = useAppState()
+  const { statuses, repos, workspaces, activeHostId, activeWorkspaceId, selectWorkspace, refresh } =
+    useAppState()
   const openSettings = useOpenSettings()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<string | null>(null)
   const [cloning, setCloning] = useState(false)
   const [addingExisting, setAddingExisting] = useState(false)
-  const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [removingHost, setRemovingHost] = useState<Host | null>(null)
-  const [editingHost, setEditingHost] = useState<Host | null>(null)
   const [removingWs, setRemovingWs] = useState<{ ws: Workspace; label: string } | null>(null)
 
   const labelOf = (w: Workspace): string => {
     const repo = repos.find((r) => r.id === w.repoId)
     return repo ? `${repo.owner}/${repo.name}` : w.repoId
   }
-  const active = workspaces.find((w) => w.id === activeWorkspaceId)
-  const connectedIds = hosts.filter((h) => statuses[h.id]?.state === 'connected').map((h) => h.id)
+  const hostWorkspaces = workspaces.filter((w) => w.hostId === activeHostId)
+  const active = hostWorkspaces.find((w) => w.id === activeWorkspaceId)
+  const connected = activeHostId !== null && statuses[activeHostId]?.state === 'connected'
+  const hostIds = activeHostId !== null ? [activeHostId] : []
 
   useEffect(() => {
     if (!open) return
@@ -67,13 +54,6 @@ export function WorkspaceSwitcher(): React.JSX.Element {
       setActionError(errorMessage(e))
     }
   }
-  const connect = (hostId: string): Promise<void> =>
-    run(async () => setStatus(hostId, await api.hosts.connect(hostId)))
-  const disconnect = (hostId: string): Promise<void> =>
-    run(async () => {
-      await api.hosts.disconnect(hostId)
-      setStatus(hostId, await api.hosts.status(hostId))
-    })
 
   return (
     <div className="switcher" ref={rootRef}>
@@ -93,147 +73,73 @@ export function WorkspaceSwitcher(): React.JSX.Element {
       </Button>
       {open && (
         <div className="switcher-panel">
-          {hosts.length === 0 && <div className="muted pad">No hosts yet</div>}
-          {hosts.map((host) => {
-            const status = statuses[host.id] ?? DISCONNECTED
-            const connected = status.state === 'connected'
-            const hostWorkspaces = workspaces.filter((w) => w.hostId === host.id)
-            const hostMenu = `host:${host.id}`
-            return (
-              <section key={host.id} className="host">
-                <div className="host-row">
-                  <span className={`dot ${status.state}`} title={status.state} />
-                  <span className="host-label">{host.label}</span>
-                  {status.state === 'disconnected' && (
-                    <Button onClick={() => void connect(host.id)}>Connect</Button>
-                  )}
-                  {status.state === 'error' && (
-                    <Button onClick={() => void connect(host.id)}>Retry</Button>
-                  )}
+          <ul className="workspaces">
+            {hostWorkspaces.map((w) => {
+              const label = labelOf(w)
+              const wsMenu = `ws:${w.id}`
+              return (
+                <li
+                  key={w.id}
+                  className={`${w.id === activeWorkspaceId ? 'active' : ''} ${connected ? '' : 'dim'}`.trim()}
+                >
+                  <span
+                    className="ws-label"
+                    onClick={() => {
+                      selectWorkspace(w.id)
+                      setOpen(false)
+                    }}
+                  >
+                    {`${label} · ${w.sandboxPath}`}
+                  </span>
                   <IconButton
-                    aria-label={`Host menu ${host.label}`}
-                    onClick={() => setMenu(menu === hostMenu ? null : hostMenu)}
+                    aria-label={`Workspace menu ${label}`}
+                    onClick={() => setMenu(menu === wsMenu ? null : wsMenu)}
                   >
                     <MoreHorizontal size={14} />
                   </IconButton>
-                </div>
-                {menu === hostMenu && (
-                  <div className="menu">
-                    <Button
-                      onClick={() => {
-                        setMenu(null)
-                        setEditingHost(host)
-                      }}
-                    >
-                      Host settings…
-                    </Button>
-                    {connected && (
+                  {menu === wsMenu && (
+                    <div className="menu">
                       <Button
                         onClick={() => {
                           setMenu(null)
-                          void disconnect(host.id)
+                          setOpen(false)
+                          openSettings('repositories', w.repoId)
                         }}
                       >
-                        Disconnect
+                        Repo settings…
                       </Button>
-                    )}
-                    <Button
-                      disabled={hostWorkspaces.length > 0}
-                      title={
-                        hostWorkspaces.length > 0 ? 'ลบ workspace ของ host นี้ก่อน' : undefined
-                      }
-                      onClick={() => {
-                        setMenu(null)
-                        setRemovingHost(host)
-                      }}
-                    >
-                      Remove host
-                    </Button>
-                  </div>
-                )}
-                {status.state === 'error' && status.error && (
-                  <div className="error">{status.error}</div>
-                )}
-                <ul className="workspaces">
-                  {hostWorkspaces.map((w) => {
-                    const label = labelOf(w)
-                    const wsMenu = `ws:${w.id}`
-                    return (
-                      <li
-                        key={w.id}
-                        className={`${w.id === activeWorkspaceId ? 'active' : ''} ${connected ? '' : 'dim'}`.trim()}
+                      <Button
+                        onClick={() => {
+                          setMenu(null)
+                          void run(() => api.workspaces.rebuildMirror(w.repoId, w.id))
+                        }}
                       >
-                        <span
-                          className="ws-label"
-                          onClick={() => {
-                            selectWorkspace(w.id)
-                            setOpen(false)
-                          }}
-                        >
-                          {`${label} · ${w.sandboxPath}`}
-                        </span>
-                        <IconButton
-                          aria-label={`Workspace menu ${label}`}
-                          onClick={() => setMenu(menu === wsMenu ? null : wsMenu)}
-                        >
-                          <MoreHorizontal size={14} />
-                        </IconButton>
-                        {menu === wsMenu && (
-                          <div className="menu">
-                            <Button
-                              onClick={() => {
-                                setMenu(null)
-                                setOpen(false)
-                                openSettings('repositories', w.repoId)
-                              }}
-                            >
-                              Repo settings…
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setMenu(null)
-                                void run(() => api.workspaces.rebuildMirror(w.repoId, w.id))
-                              }}
-                            >
-                              Rebuild mirror
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setMenu(null)
-                                setRemovingWs({ ws: w, label })
-                              }}
-                            >
-                              Remove workspace
-                            </Button>
-                          </div>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </section>
-            )
-          })}
+                        Rebuild mirror
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setMenu(null)
+                          setRemovingWs({ ws: w, label })
+                        }}
+                      >
+                        Remove workspace
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
           {actionError && <div className="error pad">{actionError}</div>}
           <div className="switcher-footer">
-            <Button disabled={connectedIds.length === 0} onClick={() => setCloning(true)}>
+            <Button disabled={!connected} onClick={() => setCloning(true)}>
               ＋ Clone repo…
             </Button>
-            <Button disabled={connectedIds.length === 0} onClick={() => setAddingExisting(true)}>
+            <Button disabled={!connected} onClick={() => setAddingExisting(true)}>
               ＋ Add existing repo…
-            </Button>
-            <Button onClick={() => setAdding(true)}>
-              <Plus size={14} /> Add host
             </Button>
           </div>
         </div>
-      )}
-      {adding && <AddHostDialog onClose={() => setAdding(false)} />}
-      {editingHost && (
-        <HostSettingsDialog host={editingHost} onClose={() => setEditingHost(null)} />
-      )}
-      {removingHost && (
-        <RemoveHostDialog host={removingHost} onClose={() => setRemovingHost(null)} />
       )}
       {removingWs && (
         <RemoveWorkspaceDialog
@@ -244,7 +150,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
       )}
       {addingExisting && (
         <AddExistingDialog
-          hostIds={connectedIds}
+          hostIds={hostIds}
           onClose={() => setAddingExisting(false)}
           onAdded={(w) => {
             setAddingExisting(false)
@@ -256,7 +162,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
       )}
       {cloning && (
         <CloneDialog
-          hostIds={connectedIds}
+          hostIds={hostIds}
           onClose={() => setCloning(false)}
           onCloned={(w) => {
             setCloning(false)

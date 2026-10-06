@@ -3,6 +3,7 @@ import { RefreshCw, Settings } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { Button, IconButton } from './ui'
+import { HostSelector } from './HostSelector'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
 function syncLabel(elapsedMs: number): string {
@@ -52,6 +53,7 @@ export function TopBar({
   const title = hostDown ? 'Host ยังไม่ได้ connect' : info?.error
   return (
     <header className="topbar">
+      <HostSelector />
       <WorkspaceSwitcher />
       <Button
         variant="ghost"
