@@ -53,6 +53,10 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
       }
     ],
     workspaces: [{ id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }],
+    activeHostId: null,
+    selectHost: vi.fn(),
+    gitCaps: {},
+    probeGit: vi.fn(),
     activeWorkspaceId: 'w1',
     selectWorkspace: vi.fn(),
     syncInfo: {},

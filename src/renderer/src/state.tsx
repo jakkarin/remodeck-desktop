@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import {
   DEFAULT_PREFS,
+  type GitCapability,
   type Host,
   type HostStatus,
   type Prefs,
@@ -10,6 +11,14 @@ import {
   type Workspace
 } from '../../shared/types'
 import { api } from './api'
+import {
+  pickHost,
+  pickWorkspace,
+  readActiveHost,
+  readLastWorkspaces,
+  saveActiveHost,
+  saveLastWorkspace
+} from './hostContext'
 import { applyTheme } from './theme'
 
 export type AppState = {
@@ -17,6 +26,11 @@ export type AppState = {
   statuses: Record<string, HostStatus>
   repos: Repo[]
   workspaces: Workspace[]
+  activeHostId: string | null
+  selectHost(id: string): void
+  /** Missing key = not probed yet; null = probed, no git. */
+  gitCaps: Record<string, GitCapability | null>
+  probeGit(hostId: string, force?: boolean): Promise<void>
   activeWorkspaceId: string | null
   selectWorkspace(id: string | null): void
   syncInfo: Record<string, SyncInfo>
@@ -43,17 +57,56 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
   const [syncInfo, setSyncInfo] = useState<Record<string, SyncInfo>>({})
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
+  const [activeHostId, setActiveHostId] = useState<string | null>(null)
+  const [gitCaps, setGitCaps] = useState<Record<string, GitCapability | null>>({})
   const activeRef = useRef<string | null>(null)
+  const activeHostRef = useRef<string | null>(null)
+  const workspacesRef = useRef<Workspace[]>([])
   const loadedRef = useRef(false)
 
-  const selectWorkspace = useCallback((id: string | null) => {
-    activeRef.current = id
-    setActiveWorkspaceId(id)
-    api.workspaces.setActive(id)
+  const applyHost = useCallback((id: string | null) => {
+    activeHostRef.current = id
+    setActiveHostId(id)
+    saveActiveHost(id)
+  }, [])
+
+  const selectWorkspace = useCallback(
+    (id: string | null) => {
+      activeRef.current = id
+      setActiveWorkspaceId(id)
+      api.workspaces.setActive(id)
+      const ws = id === null ? undefined : workspacesRef.current.find((x) => x.id === id)
+      if (ws) {
+        applyHost(ws.hostId)
+        saveLastWorkspace(ws.hostId, ws.id)
+      }
+    },
+    [applyHost]
+  )
+
+  const selectHost = useCallback(
+    (id: string) => {
+      applyHost(id)
+      selectWorkspace(pickWorkspace(id, workspacesRef.current, readLastWorkspaces()))
+    },
+    [applyHost, selectWorkspace]
+  )
+
+  const probeGit = useCallback(async (hostId: string, force?: boolean) => {
+    const caps = await api.hosts.probeGit(hostId, force)
+    setGitCaps((prev) => ({ ...prev, [hostId]: caps }))
   }, [])
 
   const setStatus = useCallback((hostId: string, s: HostStatus) => {
     setStatuses((prev) => ({ ...prev, [hostId]: s }))
+    if (s.state !== 'connected') {
+      setGitCaps((prev) => {
+        if (!(hostId in prev)) return prev
+        const rest = { ...prev }
+        delete rest[hostId]
+        return rest
+      })
+    }
   }, [])
 
   const refresh = useCallback(async () => {
@@ -61,16 +114,20 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     setHosts(h)
     setRepos(r)
     setWorkspaces(w)
+    workspacesRef.current = w
+    const hostId = pickHost(h, activeHostRef.current ?? readActiveHost())
+    if (hostId !== activeHostRef.current) applyHost(hostId)
     const current = activeRef.current
-    if (!loadedRef.current || (current !== null && !w.some((x) => x.id === current))) {
+    const currentOk = current !== null && w.some((x) => x.id === current && x.hostId === hostId)
+    if (!loadedRef.current || (current !== null && !currentOk)) {
       loadedRef.current = true
-      selectWorkspace(w[0]?.id ?? null)
+      selectWorkspace(pickWorkspace(hostId, w, readLastWorkspaces()))
     }
     const entries = await Promise.all(
       h.map(async (host) => [host.id, await api.hosts.status(host.id)] as const)
     )
     setStatuses(Object.fromEntries(entries))
-  }, [selectWorkspace])
+  }, [applyHost, selectWorkspace])
 
   const updatePrefs = useCallback(async (patch: Partial<Prefs>) => {
     setPrefs(await api.prefs.update(patch))
@@ -115,6 +172,10 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       statuses,
       repos,
       workspaces,
+      activeHostId,
+      selectHost,
+      gitCaps,
+      probeGit,
       activeWorkspaceId,
       selectWorkspace,
       syncInfo,
@@ -128,6 +189,10 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       statuses,
       repos,
       workspaces,
+      activeHostId,
+      selectHost,
+      gitCaps,
+      probeGit,
       activeWorkspaceId,
       selectWorkspace,
       syncInfo,
