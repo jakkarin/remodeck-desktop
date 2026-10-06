@@ -63,6 +63,7 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
   const activeHostRef = useRef<string | null>(null)
   const workspacesRef = useRef<Workspace[]>([])
   const loadedRef = useRef(false)
+  const gitEpochRef = useRef<Record<string, number>>({})
 
   const applyHost = useCallback((id: string | null) => {
     activeHostRef.current = id
@@ -92,22 +93,31 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     [applyHost, selectWorkspace]
   )
 
+  const dropCaps = useCallback((hostId: string) => {
+    gitEpochRef.current[hostId] = (gitEpochRef.current[hostId] ?? 0) + 1
+    setGitCaps((prev) => {
+      if (!(hostId in prev)) return prev
+      const rest = { ...prev }
+      delete rest[hostId]
+      return rest
+    })
+  }, [])
+
   const probeGit = useCallback(async (hostId: string, force?: boolean) => {
+    const epoch = gitEpochRef.current[hostId] ?? 0
     const caps = await api.hosts.probeGit(hostId, force)
+    // the host left `connected` while probing: this result belongs to a dead session
+    if ((gitEpochRef.current[hostId] ?? 0) !== epoch) return
     setGitCaps((prev) => ({ ...prev, [hostId]: caps }))
   }, [])
 
-  const setStatus = useCallback((hostId: string, s: HostStatus) => {
-    setStatuses((prev) => ({ ...prev, [hostId]: s }))
-    if (s.state !== 'connected') {
-      setGitCaps((prev) => {
-        if (!(hostId in prev)) return prev
-        const rest = { ...prev }
-        delete rest[hostId]
-        return rest
-      })
-    }
-  }, [])
+  const setStatus = useCallback(
+    (hostId: string, s: HostStatus) => {
+      setStatuses((prev) => ({ ...prev, [hostId]: s }))
+      if (s.state !== 'connected') dropCaps(hostId)
+    },
+    [dropCaps]
+  )
 
   const refresh = useCallback(async () => {
     const [h, r, w] = await Promise.all([api.hosts.list(), api.repos.list(), api.workspaces.list()])
@@ -127,7 +137,8 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       h.map(async (host) => [host.id, await api.hosts.status(host.id)] as const)
     )
     setStatuses(Object.fromEntries(entries))
-  }, [applyHost, selectWorkspace])
+    for (const [id, st] of entries) if (st.state !== 'connected') dropCaps(id)
+  }, [applyHost, selectWorkspace, dropCaps])
 
   const updatePrefs = useCallback(async (patch: Partial<Prefs>) => {
     setPrefs(await api.prefs.update(patch))

@@ -198,4 +198,35 @@ describe('AppStateProvider', () => {
     act(() => onStatus?.('h1', { state: 'disconnected' }))
     expect(screen.getByTestId('caps')).toHaveTextContent('{}')
   })
+
+  it('ignores a probe result that resolves after the host disconnected', async () => {
+    vi.mocked(api.hosts.list).mockResolvedValue(hs('h1'))
+    vi.mocked(api.workspaces.list).mockResolvedValue([w('w1')])
+    let resolve: (v: null) => void = () => undefined
+    vi.mocked(api.hosts.probeGit).mockReturnValue(new Promise((r) => (resolve = r)))
+    let onStatus: ((id: string, s: { state: string }) => void) | undefined
+    vi.mocked(api.on).mockImplementation(((ev: string, cb: never) => {
+      if (ev === 'host-status') onStatus = cb
+      return () => undefined
+    }) as never)
+    mount()
+    await waitFor(() => expect(screen.getByTestId('host')).toHaveTextContent('h1'))
+    fireEvent.click(screen.getByRole('button', { name: 'probe h1' }))
+    act(() => onStatus?.('h1', { state: 'disconnected' }))
+    await act(async () => resolve(null))
+    expect(screen.getByTestId('caps')).toHaveTextContent('{}')
+  })
+
+  it('drops git caps of a host that refresh finds not connected', async () => {
+    vi.mocked(api.hosts.list).mockResolvedValue(hs('h1'))
+    vi.mocked(api.workspaces.list).mockResolvedValue([w('w1')])
+    vi.mocked(api.hosts.probeGit).mockResolvedValue(null)
+    mount()
+    await waitFor(() => expect(screen.getByTestId('host')).toHaveTextContent('h1'))
+    fireEvent.click(screen.getByRole('button', { name: 'probe h1' }))
+    await waitFor(() => expect(screen.getByTestId('caps')).toHaveTextContent('"h1":null'))
+    vi.mocked(api.hosts.status).mockResolvedValue({ state: 'disconnected' })
+    fireEvent.click(screen.getByRole('button', { name: 'refresh' }))
+    await waitFor(() => expect(screen.getByTestId('caps')).toHaveTextContent('{}'))
+  })
 })
