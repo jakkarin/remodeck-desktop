@@ -85,6 +85,10 @@ export type HostState = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 export type GitCapability = { version: string; remoteHttp: boolean; forward: boolean }
 
+export type DockerCapability =
+  | { state: 'ok'; version: string; apiVersion: string }
+  | { state: 'missing' | 'no-permission' | 'no-daemon' | 'too-old'; detail: string }
+
 export type HostStatus = {
   state: HostState
   error?: string
