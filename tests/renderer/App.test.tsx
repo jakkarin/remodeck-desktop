@@ -114,6 +114,20 @@ describe('App empty states', () => {
   })
 })
 
+describe('App protected stripe', () => {
+  it('marks .app protected only while the active host is protected', async () => {
+    setup([{ ...host, protected: true }], [ws], { state: 'connected' })
+    const { container, unmount } = render(<App />)
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(container.querySelector('.app')).toHaveClass('protected')
+    unmount()
+    setup([host], [ws], { state: 'connected' })
+    const second = render(<App />)
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(second.container.querySelector('.app')).not.toHaveClass('protected')
+  })
+})
+
 describe('App with a workspace', () => {
   it('shows the branches pane and the terminal bar with a collapse toggle', async () => {
     setup([host], [ws], { state: 'connected' })

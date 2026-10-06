@@ -67,6 +67,33 @@ describe('HostSelector', () => {
     expect(screen.getByRole('button', { name: 'Switch host' })).toHaveTextContent('Alpha')
   })
 
+  it('trigger marks a protected active host', () => {
+    renderWith(
+      { h1: up, h2: up },
+      { hosts: [{ id: 'h1', sshHost: 'a', label: 'Alpha', protected: true }] }
+    )
+    expect(screen.getByRole('button', { name: 'Switch host' })).toHaveTextContent('protected')
+  })
+
+  it('trigger shows no protected badge for a normal host', () => {
+    renderWith({ h1: up, h2: up })
+    expect(screen.getByRole('button', { name: 'Switch host' })).not.toHaveTextContent('protected')
+  })
+
+  it('rows mark protected hosts', () => {
+    renderWith(
+      { h1: up, h2: up },
+      {
+        hosts: [
+          { id: 'h1', sshHost: 'a', label: 'Alpha', protected: false },
+          { id: 'h2', sshHost: 'b', label: 'Beta', protected: true }
+        ]
+      }
+    )
+    open()
+    expect(screen.getAllByText('protected')).toHaveLength(1)
+  })
+
   it('trigger prompts when no host is active', () => {
     renderWith({ h1: up, h2: up }, { activeHostId: null })
     expect(screen.getByRole('button', { name: 'Switch host' })).toHaveTextContent('Select host')
@@ -153,7 +180,9 @@ describe('HostSelector', () => {
     const dialog = screen.getByRole('dialog', { name: 'Host settings' })
     fireEvent.change(within(dialog).getByLabelText('Label'), { target: { value: ' Work ' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(api.hosts.update).toHaveBeenCalledWith('h1', { label: 'Work' }))
+    await waitFor(() =>
+      expect(api.hosts.update).toHaveBeenCalledWith('h1', { label: 'Work', protected: false })
+    )
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())
   })
 

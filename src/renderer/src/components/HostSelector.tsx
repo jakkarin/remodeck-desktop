@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, MoreHorizontal, Plus, Server } from 'lucide-react'
+import { ChevronDown, Lock, MoreHorizontal, Plus, Server } from 'lucide-react'
 import type { Host, HostStatus } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
@@ -9,6 +9,15 @@ import { HostSettingsDialog } from './HostSettingsDialog'
 import { RemoveHostDialog } from './RemoveDialogs'
 
 const DISCONNECTED: HostStatus = { state: 'disconnected' }
+
+function ProtectedBadge(): React.JSX.Element {
+  return (
+    <span className="protected-badge">
+      <Lock size={12} aria-hidden="true" />
+      protected
+    </span>
+  )
+}
 
 export function HostSelector(): React.JSX.Element {
   const { hosts, statuses, workspaces, activeHostId, selectHost, setStatus } = useAppState()
@@ -73,6 +82,7 @@ export function HostSelector(): React.JSX.Element {
           <Server size={14} />
         )}
         <span>{active ? active.label : 'Select host'}</span>
+        {active?.protected && <ProtectedBadge />}
         <ChevronDown size={14} />
       </Button>
       {open && (
@@ -96,6 +106,7 @@ export function HostSelector(): React.JSX.Element {
                   >
                     {host.label}
                   </span>
+                  {host.protected && <ProtectedBadge />}
                   {status.state === 'disconnected' && (
                     <Button onClick={() => void connect(host.id)}>Connect</Button>
                   )}

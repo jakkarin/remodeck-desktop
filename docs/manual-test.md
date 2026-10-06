@@ -115,6 +115,15 @@
 | 8.6 | path ที่ไม่มี / ไม่ใช่ git repo / bare repo / subdirectory ของ repo / repo ที่ไม่มี origin / origin ที่ไม่ใช่ GitHub → แสดงข้อความ error ภาษาไทยที่ตรงกรณี และไม่มี workspace เพิ่ม | ☐ |
 | 8.7 | origin แบบ `git@github.com:o/r.git` หรือ `ssh://git@github.com/o/r.git` ก็เพิ่มได้ และ `git fetch`/`git push` ใน Open Terminal ของแอปผ่าน bridge (popup อนุมัติ push ปรากฏ) | ☐ |
 
+### 9. Host Context
+
+| ลำดับ | ขั้นตอน | ผล |
+|---|---|---|
+| 9.1 | เพิ่ม host ที่ไม่มี git แล้ว Connect → โมดูล Git แสดงข้อความว่าไม่พบ git บน host นั้น (ไม่ error ค้าง) | ☐ |
+| 9.2 | เปิด terminal หลายแท็บบน host A แล้วสลับไป host B และกลับมา → terminal ของ host A ยังอยู่และไม่ถูกปิด | ☐ |
+| 9.3 | Host settings → ติ๊ก Protected host → Save → เห็นแถบสีแดงบางๆ ด้านบนหน้าต่าง และ badge protected (ไอคอนกุญแจ) ข้างชื่อ host ใน HostSelector (ปุ่มและรายการ); สลับไป host ปกติแล้วแถบหาย | ☐ |
+| 9.4 | ปิดแล้วเปิดแอปใหม่ → host และ workspace ที่เลือกไว้ถูกคืนค่า (รวมสถานะ protected) | ☐ |
+
 ## Automated Results
 
 ### npx vitest run

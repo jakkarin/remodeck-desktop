@@ -13,6 +13,7 @@ export function HostSettingsDialog({
 }): React.JSX.Element {
   const { refresh } = useAppState()
   const [label, setLabel] = useState(host.label)
+  const [isProtected, setIsProtected] = useState(host.protected)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,7 +21,7 @@ export function HostSettingsDialog({
     setBusy(true)
     setError(null)
     try {
-      await api.hosts.update(host.id, { label: label.trim() })
+      await api.hosts.update(host.id, { label: label.trim(), protected: isProtected })
       await refresh()
       onClose()
     } catch (e) {
@@ -41,6 +42,15 @@ export function HostSettingsDialog({
           Label
           <TextInput value={label} onChange={(e) => setLabel(e.target.value)} autoFocus />
         </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={isProtected}
+            onChange={(e) => setIsProtected(e.target.checked)}
+          />
+          Protected host
+        </label>
+        <div className="muted">ต้องพิมพ์ชื่อ host ก่อนสั่งคำสั่งอันตราย</div>
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
           <Button onClick={onClose} disabled={busy}>

@@ -7,7 +7,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { readLayout, saveCollapsed } from './layout'
 import { TerminalTabs } from './components/TerminalTabs'
 import { TopBar } from './components/TopBar'
-import { AppStateProvider } from './state'
+import { AppStateProvider, useAppState } from './state'
 import { SettingsOpenerContext, type SettingsSection } from './settingsOpener'
 
 /**
@@ -28,6 +28,8 @@ function TerminalSlot({ node }: { node: HTMLElement }): React.JSX.Element {
 }
 
 function Layout(): React.JSX.Element {
+  const { hosts, activeHostId } = useAppState()
+  const active = hosts.find((h) => h.id === activeHostId)
   const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string } | null>(
     null
   )
@@ -45,7 +47,7 @@ function Layout(): React.JSX.Element {
 
   return (
     <SettingsOpenerContext.Provider value={(section, repoId) => setSettings({ section, repoId })}>
-      <div className="app">
+      <div className={active?.protected ? 'app protected' : 'app'}>
         <TopBar />
         <div className="app-body">
           <ActivityBar onOpenSettings={() => setSettings({ section: 'general' })} />
