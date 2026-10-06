@@ -11,7 +11,7 @@ import { attachClipboard, attachImageDrop } from '../terminalClipboard'
 import { onTerminalOpened, openTerminal } from '../terminalEvents'
 import { Button, IconButton } from './ui'
 
-type Tab = { tabId: string; label: string; exited: boolean }
+type Tab = { tabId: string; label: string; hostId: string; exited: boolean }
 
 const CLOSED = '[ปิดแล้ว]'
 
@@ -140,7 +140,7 @@ export function TerminalTabs({
   collapsed: boolean
   onToggle(): void
 }): React.JSX.Element {
-  const { activeWorkspaceId, workspaces, statuses } = useAppState()
+  const { activeWorkspaceId, activeHostId, workspaces, statuses } = useAppState()
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId)
   const hostUp = !!activeWs && statuses[activeWs.hostId]?.state === 'connected'
   const [openError, setOpenError] = useState<string | null>(null)
@@ -157,7 +157,9 @@ export function TerminalTabs({
     []
   )
   const [tabs, setTabs] = useState<Tab[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  // Remembered active tab per host, so switching hosts back restores it.
+  const [activeByHost, setActiveByHost] = useState<Record<string, string | null>>({})
+  const activeId = activeHostId !== null ? (activeByHost[activeHostId] ?? null) : null
   const panes = useRef(new Map<string, PaneHandle>())
   // Output that arrives before a tab's xterm is mounted (e.g. the ssh banner) is kept here and flushed on mount.
   const pending = useRef(new Map<string, string[]>())
@@ -184,11 +186,13 @@ export function TerminalTabs({
       deliver(tabId, `\r\n${CLOSED}\r\n`)
       setTabs((prev) => prev.map((t) => (t.tabId === tabId ? { ...t, exited: true } : t)))
     })
-    const offOpen = onTerminalOpened(({ tabId, label }) => {
+    const offOpen = onTerminalOpened(({ tabId, label, hostId }) => {
       setTabs((prev) =>
-        prev.some((t) => t.tabId === tabId) ? prev : [...prev, { tabId, label, exited: false }]
+        prev.some((t) => t.tabId === tabId)
+          ? prev
+          : [...prev, { tabId, label, hostId, exited: false }]
       )
-      setActiveId(tabId)
+      setActiveByHost((prev) => ({ ...prev, [hostId]: tabId }))
     })
     return () => {
       offData()
@@ -200,9 +204,13 @@ export function TerminalTabs({
   function close(tabId: string): void {
     api.terminal.close(tabId)
     pending.current.delete(tabId)
+    const closing = tabs.find((t) => t.tabId === tabId)
     const next = tabs.filter((t) => t.tabId !== tabId)
     setTabs(next)
-    if (activeId === tabId) setActiveId(next[next.length - 1]?.tabId ?? null)
+    if (closing && activeByHost[closing.hostId] === tabId) {
+      const last = next.filter((t) => t.hostId === closing.hostId).pop()
+      setActiveByHost((prev) => ({ ...prev, [closing.hostId]: last?.tabId ?? null }))
+    }
   }
 
   async function openNew(): Promise<void> {
@@ -225,8 +233,15 @@ export function TerminalTabs({
       <div className="terminal-tabbar">
         <span className="terminal-title">Terminal</span>
         {tabs.map((t) => (
-          <div key={t.tabId} className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}>
-            <Button className="terminal-tab-label" onClick={() => setActiveId(t.tabId)}>
+          <div
+            key={t.tabId}
+            className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}
+            hidden={t.hostId !== activeHostId}
+          >
+            <Button
+              className="terminal-tab-label"
+              onClick={() => setActiveByHost((prev) => ({ ...prev, [t.hostId]: t.tabId }))}
+            >
               {t.label}
               {t.exited ? ` ${CLOSED}` : ''}
             </Button>
@@ -257,7 +272,7 @@ export function TerminalTabs({
           <TerminalPane
             key={t.tabId}
             tabId={t.tabId}
-            active={t.tabId === activeId}
+            active={t.hostId === activeHostId && t.tabId === activeId}
             register={register}
             onError={showError}
           />

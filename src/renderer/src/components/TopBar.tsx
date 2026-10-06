@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Settings } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
-import { Button, IconButton } from './ui'
+import { Button } from './ui'
 import { HostSelector } from './HostSelector'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
@@ -14,13 +14,7 @@ function syncLabel(elapsedMs: number): string {
   return `Sync · ${Math.floor(m / 60)}h`
 }
 
-export function TopBar({
-  onOpenSettings,
-  now = Date.now
-}: {
-  onOpenSettings(): void
-  now?: () => number
-}): React.JSX.Element {
+export function TopBar({ now = Date.now }: { now?: () => number }): React.JSX.Element {
   const { workspaces, statuses, activeWorkspaceId, syncInfo } = useAppState()
   const [, setTick] = useState(0)
   const [pending, setPending] = useState(false)
@@ -66,9 +60,6 @@ export function TopBar({
         {label}
       </Button>
       <span className="topbar-spacer" />
-      <IconButton aria-label="Settings" onClick={onOpenSettings}>
-        <Settings size={16} />
-      </IconButton>
       {error && <div className="error topbar-error">{error}</div>}
     </header>
   )

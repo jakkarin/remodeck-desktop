@@ -23,11 +23,7 @@ import { AppStateContext, type AppState } from '../../src/renderer/src/state'
 
 const NOW = 1_000_000_000
 
-function renderBar(
-  status: HostStatus,
-  syncInfo: Record<string, SyncInfo> = {},
-  onOpenSettings = vi.fn()
-): void {
+function renderBar(status: HostStatus, syncInfo: Record<string, SyncInfo> = {}): void {
   const value: AppState = {
     hosts: [{ id: 'h1', sshHost: 'a', label: 'Alpha', protected: false }],
     statuses: { h1: status },
@@ -45,7 +41,7 @@ function renderBar(
   }
   render(
     <AppStateContext.Provider value={value}>
-      <TopBar onOpenSettings={onOpenSettings} now={() => NOW} />
+      <TopBar now={() => NOW} />
     </AppStateContext.Provider>
   )
 }
@@ -110,10 +106,10 @@ describe('TopBar', () => {
     expect(btn).toHaveAttribute('title', 'Host ยังไม่ได้ connect')
   })
 
-  it('settings button calls onOpenSettings', () => {
-    const open = vi.fn()
-    renderBar(up, {}, open)
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    expect(open).toHaveBeenCalled()
+  it('renders the host and workspace switchers but no Settings button', () => {
+    renderBar(up)
+    expect(screen.getByRole('button', { name: 'Switch host' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull()
   })
 })

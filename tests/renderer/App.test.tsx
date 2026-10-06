@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { DEFAULT_PREFS, type Host, type HostStatus, type Workspace } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
     on: vi.fn(() => () => undefined),
-    hosts: { list: vi.fn(), status: vi.fn(), connect: vi.fn(), add: vi.fn() },
+    hosts: { list: vi.fn(), status: vi.fn(), connect: vi.fn(), add: vi.fn(), probeGit: vi.fn() },
     repos: { list: vi.fn(), listGitHub: vi.fn().mockResolvedValue([]) },
     workspaces: {
       list: vi.fn(),
@@ -16,7 +16,7 @@ vi.mock('../../src/renderer/src/api', () => ({
       files: vi.fn().mockResolvedValue([]),
       diff: vi.fn().mockResolvedValue('')
     },
-    terminal: { open: vi.fn() },
+    terminal: { open: vi.fn(), close: vi.fn() },
     prefs: { get: vi.fn(), update: vi.fn() }
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -52,6 +52,7 @@ vi.mock('@xterm/addon-fit', () => ({
 
 import { api } from '../../src/renderer/src/api'
 import App from '../../src/renderer/src/App'
+import { announceTerminal } from '../../src/renderer/src/terminalEvents'
 
 const host: Host = { id: 'h1', sshHost: 'box', label: 'Box', protected: false }
 const ws: Workspace = { id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }
@@ -62,6 +63,7 @@ function setup(hosts: Host[], workspaces: Workspace[], status: HostStatus): void
   vi.mocked(api.repos.list).mockResolvedValue([])
   vi.mocked(api.workspaces.list).mockResolvedValue(workspaces)
   vi.mocked(api.prefs.get).mockResolvedValue(DEFAULT_PREFS)
+  vi.mocked(api.hosts.probeGit).mockResolvedValue({ version: '2', remoteHttp: true, forward: true })
 }
 
 beforeEach(() => {
@@ -131,12 +133,43 @@ describe('App with a workspace', () => {
     await waitFor(() => expect(api.terminal.open).toHaveBeenCalledWith('w1', undefined))
   })
 
-  it('the + button is disabled with a tooltip when the host is disconnected', async () => {
+  it('a disconnected host offers Connect instead of the terminal bar', async () => {
     setup([host], [ws], { state: 'disconnected' })
     render(<App />)
-    const plus = await screen.findByRole('button', { name: 'New terminal' })
-    expect(plus).toBeDisabled()
-    expect(plus).toHaveAttribute('title')
+    expect(await screen.findByRole('button', { name: 'Connect' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New terminal' })).toBeNull()
+  })
+})
+
+describe('App layout', () => {
+  it('opens settings from the activity bar', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    const git = await screen.findByRole('button', { name: 'Git' })
+    expect(git).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
+  })
+
+  it('switching host hides but keeps the other host terminals', async () => {
+    const host2: Host = { id: 'h2', sshHost: 'box2', label: 'Box2', protected: false }
+    const ws2: Workspace = { id: 'w2', repoId: 'r1', hostId: 'h2', sandboxPath: '~/repos/api' }
+    setup([host, host2], [ws, ws2], { state: 'connected' })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => {
+      announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' })
+      announceTerminal({ tabId: 't2', label: 'two', hostId: 'h2' })
+    })
+    expect(screen.getByRole('button', { name: 'one' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'two' })).toBeNull()
+    expect(terminals).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Switch host' }))
+    fireEvent.click(await screen.findByText('Box2'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'two' })).toBeVisible())
+    expect(screen.queryByRole('button', { name: 'one' })).toBeNull()
+    expect(terminals).toHaveLength(2)
+    expect(api.terminal.close).not.toHaveBeenCalled()
   })
 })
 
@@ -158,7 +191,7 @@ describe('App prefs', () => {
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'))
   })
 
-  it('the top bar opens settings; changing the theme updates prefs and data-theme', async () => {
+  it('the activity bar opens settings; changing the theme updates prefs and data-theme', async () => {
     setup([host], [ws], { state: 'connected' })
     vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'light' })
     render(<App />)
