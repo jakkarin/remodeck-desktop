@@ -1,6 +1,6 @@
 import { api } from './api'
 
-export type OpenedTab = { tabId: string; label: string }
+export type OpenedTab = { tabId: string; label: string; hostId: string }
 
 const listeners = new Set<(tab: OpenedTab) => void>()
 

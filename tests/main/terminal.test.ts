@@ -129,8 +129,9 @@ describe('TerminalService', () => {
     const { svc, ptys, bridge } = setup()
     const onData = vi.fn()
     svc.on('data', onData)
-    const { tabId, label } = await svc.open('w1')
+    const { tabId, label, hostId } = await svc.open('w1')
     expect(label).toBe('Box One:api')
+    expect(hostId).toBe('h1')
     expect(bridge.registerSession).toHaveBeenCalledOnce()
     const s = bridge.registerSession.mock.calls[0][0]
     expect(s).toMatchObject({ workspaceId: 'w1', tabLabel: label })

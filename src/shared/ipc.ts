@@ -65,7 +65,7 @@ export interface RemodeckApi {
     rebuildMirror(repoId: string, workspaceId?: string): Promise<void>
   }
   terminal: {
-    open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string }>
+    open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string; hostId: string }>
     write(tabId: string, d: string): void
     resize(tabId: string, c: number, r: number): void
     close(tabId: string): void

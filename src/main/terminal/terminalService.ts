@@ -82,7 +82,7 @@ export class TerminalService extends EventEmitter {
     super()
   }
 
-  async open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string }> {
+  async open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string; hostId: string }> {
     const { store, connection, bridge } = this.deps
     const ws = store.config.workspaces.find((w) => w.id === workspaceId)
     if (!ws) throw new Error('ไม่พบ workspace')
@@ -109,7 +109,7 @@ export class TerminalService extends EventEmitter {
     bridge.registerSession({ token, sessionId, workspaceId, repo, tabLabel: label })
 
     this.attempt(tabId, tab, host.sshHost, cwd, 1, new Set())
-    return { tabId, label }
+    return { tabId, label, hostId: ws.hostId }
   }
 
   write(tabId: string, data: string): void {
