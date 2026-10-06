@@ -5,22 +5,28 @@ import type { SandboxTarget } from '../../src/main/sandbox/target'
 import type { ProcResult } from '../../src/main/proc/run'
 import type { HostStatus } from '../../src/shared/types'
 import { LocalTarget } from '../../src/main/sandbox/target'
+import { DOCKER_PROBE_SCRIPT } from '../../src/main/docker/dockerProbe'
 
 const ok = (stdout: string): ProcResult => ({ code: 0, stdout, stderr: '' })
 
 type Answers = {
   connect?: ProcResult | Error
   preflight?: ProcResult | (() => Promise<ProcResult>)
+  docker?: ProcResult
 }
 
 function make(answers: Answers, forward = true) {
-  const calls = { connect: 0, preflight: 0 }
+  const calls = { connect: 0, preflight: 0, docker: 0 }
   const target: SandboxTarget = {
     exec: async (script: string) => {
       if (script === PREFLIGHT_SCRIPT) {
         calls.preflight++
         const p = answers.preflight ?? ok('')
         return typeof p === 'function' ? p() : p
+      }
+      if (script === DOCKER_PROBE_SCRIPT) {
+        calls.docker++
+        return answers.docker ?? ok('probe=missing\n')
       }
       calls.connect++
       const r = answers.connect ?? ok('')
@@ -256,6 +262,63 @@ describe('ConnectionService', () => {
 
     it('throws on a disconnected host', async () => {
       await expect(make({}).svc.probeGit('h')).rejects.toThrow('Host ยังไม่ได้ connect')
+    })
+  })
+
+  describe('probeDocker', () => {
+    const DOCKER = ok(
+      'probe-exit=0\n{"Server":{"Version":"26.1.0","ApiVersion":"1.45"}}\ndialstdio=1\n'
+    )
+
+    it('parses the probe output and caches until force', async () => {
+      const { svc, calls } = make({ connect: ok(''), docker: DOCKER })
+      await svc.connect('h')
+      expect(await svc.probeDocker('h')).toEqual({
+        state: 'ok',
+        version: '26.1.0',
+        apiVersion: '1.45'
+      })
+      await svc.probeDocker('h')
+      expect(calls.docker).toBe(1)
+      await svc.probeDocker('h', true)
+      expect(calls.docker).toBe(2)
+    })
+
+    it('reports a missing docker', async () => {
+      const { svc } = make({ connect: ok('') })
+      await svc.connect('h')
+      expect((await svc.probeDocker('h')).state).toBe('missing')
+    })
+
+    it('rejects on a non-zero exit without caching', async () => {
+      const { svc, calls } = make({
+        connect: ok(''),
+        docker: { code: 255, stdout: '', stderr: ' broken pipe \n' }
+      })
+      await svc.connect('h')
+      await expect(svc.probeDocker('h')).rejects.toThrow('broken pipe')
+      await expect(svc.probeDocker('h')).rejects.toThrow('broken pipe')
+      expect(calls.docker).toBe(2)
+    })
+
+    it('falls back to ssh exit N', async () => {
+      const { svc } = make({ connect: ok(''), docker: { code: 3, stdout: '', stderr: '' } })
+      await svc.connect('h')
+      await expect(svc.probeDocker('h')).rejects.toThrow('ssh exit 3')
+    })
+
+    it('clears the cache on disconnect', async () => {
+      const { svc, calls } = make({ connect: ok(''), docker: DOCKER })
+      await svc.connect('h')
+      await svc.probeDocker('h')
+      svc.disconnect('h')
+      await svc.connect('h')
+      await svc.probeDocker('h')
+      expect(calls.docker).toBe(2)
+    })
+
+    it('throws on a disconnected host', async () => {
+      await expect(make({}).svc.probeDocker('h')).rejects.toThrow('Host ยังไม่ได้ connect')
     })
   })
 })

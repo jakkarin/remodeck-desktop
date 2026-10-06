@@ -7,6 +7,7 @@ import type {
   ExistingRepoInfo,
   FileChange,
   Host,
+  DockerCapability,
   GitCapability,
   HostStatus,
   Prefs,
@@ -34,6 +35,7 @@ export interface RemodeckApi {
     connect(id: string): Promise<HostStatus>
     /** null = git not installed on the host. Cached per connection; force re-probes. */
     probeGit(id: string, force?: boolean): Promise<GitCapability | null>
+    probeDocker(id: string, force?: boolean): Promise<DockerCapability>
     disconnect(id: string): Promise<void>
   }
   repos: {
@@ -102,6 +104,7 @@ export const IPC_CHANNELS = {
     status: 'hosts:status',
     connect: 'hosts:connect',
     probeGit: 'hosts:probeGit',
+    probeDocker: 'hosts:probeDocker',
     disconnect: 'hosts:disconnect'
   },
   repos: {

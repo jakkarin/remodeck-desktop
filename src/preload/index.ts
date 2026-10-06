@@ -20,6 +20,7 @@ const remodeck: RemodeckApi = {
     status: invoke(C.hosts.status),
     connect: invoke(C.hosts.connect),
     probeGit: invoke(C.hosts.probeGit),
+    probeDocker: invoke(C.hosts.probeDocker),
     disconnect: invoke(C.hosts.disconnect)
   },
   repos: {

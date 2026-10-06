@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import {
   DEFAULT_PREFS,
+  type DockerCapability,
   type GitCapability,
   type Host,
   type HostStatus,
@@ -31,6 +32,8 @@ export type AppState = {
   /** Missing key = not probed yet; null = probed, no git. */
   gitCaps: Record<string, GitCapability | null>
   probeGit(hostId: string, force?: boolean): Promise<void>
+  dockerCaps: Record<string, DockerCapability>
+  probeDocker(hostId: string, force?: boolean): Promise<void>
   activeWorkspaceId: string | null
   selectWorkspace(id: string | null): void
   syncInfo: Record<string, SyncInfo>
@@ -59,6 +62,7 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const [activeHostId, setActiveHostId] = useState<string | null>(null)
   const [gitCaps, setGitCaps] = useState<Record<string, GitCapability | null>>({})
+  const [dockerCaps, setDockerCaps] = useState<Record<string, DockerCapability>>({})
   const activeRef = useRef<string | null>(null)
   const activeHostRef = useRef<string | null>(null)
   const workspacesRef = useRef<Workspace[]>([])
@@ -101,6 +105,12 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       delete rest[hostId]
       return rest
     })
+    setDockerCaps((prev) => {
+      if (!(hostId in prev)) return prev
+      const rest = { ...prev }
+      delete rest[hostId]
+      return rest
+    })
   }, [])
 
   const probeGit = useCallback(async (hostId: string, force?: boolean) => {
@@ -109,6 +119,13 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     // the host left `connected` while probing: this result belongs to a dead session
     if ((gitEpochRef.current[hostId] ?? 0) !== epoch) return
     setGitCaps((prev) => ({ ...prev, [hostId]: caps }))
+  }, [])
+
+  const probeDocker = useCallback(async (hostId: string, force?: boolean) => {
+    const epoch = gitEpochRef.current[hostId] ?? 0
+    const caps = await api.hosts.probeDocker(hostId, force)
+    if ((gitEpochRef.current[hostId] ?? 0) !== epoch) return
+    setDockerCaps((prev) => ({ ...prev, [hostId]: caps }))
   }, [])
 
   const setStatus = useCallback(
@@ -188,6 +205,8 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       selectHost,
       gitCaps,
       probeGit,
+      dockerCaps,
+      probeDocker,
       activeWorkspaceId,
       selectWorkspace,
       syncInfo,
@@ -205,6 +224,8 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
       selectHost,
       gitCaps,
       probeGit,
+      dockerCaps,
+      probeDocker,
       activeWorkspaceId,
       selectWorkspace,
       syncInfo,

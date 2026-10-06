@@ -32,6 +32,7 @@ function fakeApi(): MainApi {
       status: fn(),
       connect: fn(),
       probeGit: fn(),
+      probeDocker: fn(),
       disconnect: fn()
     },
     repos: { listGitHub: fn(), list: fn(), updatePolicy: fn() },

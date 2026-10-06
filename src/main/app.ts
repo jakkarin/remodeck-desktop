@@ -194,6 +194,10 @@ export async function createApp(opts: {
         hostOf(id)
         return connection.probeGit(id, force === true)
       },
+      probeDocker: async (id, force) => {
+        hostOf(id)
+        return connection.probeDocker(id, force === true)
+      },
       disconnect: async (id) => connection.disconnect(id)
     },
     repos: {

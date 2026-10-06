@@ -4,7 +4,7 @@ import type { Host, Workspace } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
-    hosts: { list: vi.fn(), status: vi.fn(), probeGit: vi.fn() },
+    hosts: { list: vi.fn(), status: vi.fn(), probeGit: vi.fn(), probeDocker: vi.fn() },
     repos: { list: vi.fn() },
     workspaces: { list: vi.fn(), remove: vi.fn(), setActive: vi.fn() },
     on: vi.fn()
@@ -35,6 +35,8 @@ function Probe(): React.JSX.Element {
     selectHost,
     gitCaps,
     probeGit,
+    dockerCaps,
+    probeDocker,
     refresh
   } = useAppState()
   const first = workspaces[0]
@@ -43,6 +45,8 @@ function Probe(): React.JSX.Element {
       <span data-testid="active">{String(activeWorkspaceId)}</span>
       <span data-testid="host">{String(activeHostId)}</span>
       <span data-testid="caps">{JSON.stringify(gitCaps)}</span>
+      <span data-testid="dcaps">{JSON.stringify(dockerCaps)}</span>
+      <button onClick={() => void probeDocker('h1').catch(() => undefined)}>probe docker h1</button>
       <button onClick={() => selectWorkspace('w2')}>pick w2</button>
       <button onClick={() => selectHost('h2')}>pick h2</button>
       <button onClick={() => void refresh()}>refresh</button>
@@ -243,5 +247,48 @@ describe('AppStateProvider', () => {
     vi.mocked(api.hosts.status).mockResolvedValue({ state: 'disconnected' })
     fireEvent.click(screen.getByRole('button', { name: 'refresh' }))
     await waitFor(() => expect(screen.getByTestId('caps')).toHaveTextContent('{}'))
+  })
+
+  describe('probeDocker', () => {
+    const OK = { state: 'ok', version: '26', apiVersion: '1.45' } as const
+    let onStatus: ((id: string, s: { state: string }) => void) | undefined
+    beforeEach(() => {
+      vi.mocked(api.hosts.list).mockResolvedValue(hs('h1'))
+      vi.mocked(api.workspaces.list).mockResolvedValue([w('w1')])
+      vi.mocked(api.on).mockImplementation(((ev: string, cb: never) => {
+        if (ev === 'host-status') onStatus = cb
+        return () => undefined
+      }) as never)
+    })
+
+    it('stores the result under dockerCaps', async () => {
+      vi.mocked(api.hosts.probeDocker).mockResolvedValueOnce(OK)
+      mount()
+      await waitFor(() => expect(screen.getByTestId('host')).toHaveTextContent('h1'))
+      fireEvent.click(screen.getByRole('button', { name: 'probe docker h1' }))
+      await waitFor(() => expect(screen.getByTestId('dcaps')).toHaveTextContent('"version":"26"'))
+      expect(api.hosts.probeDocker).toHaveBeenCalledWith('h1', undefined)
+    })
+
+    it('drops a result that resolves after disconnect', async () => {
+      let resolve: (v: typeof OK) => void = () => undefined
+      vi.mocked(api.hosts.probeDocker).mockReturnValue(new Promise((r) => (resolve = r)))
+      mount()
+      await waitFor(() => expect(screen.getByTestId('host')).toHaveTextContent('h1'))
+      fireEvent.click(screen.getByRole('button', { name: 'probe docker h1' }))
+      act(() => onStatus?.('h1', { state: 'disconnected' }))
+      await act(async () => resolve(OK))
+      expect(screen.getByTestId('dcaps')).toHaveTextContent('{}')
+    })
+
+    it('clears dockerCaps on disconnect', async () => {
+      vi.mocked(api.hosts.probeDocker).mockResolvedValue(OK)
+      mount()
+      await waitFor(() => expect(screen.getByTestId('host')).toHaveTextContent('h1'))
+      fireEvent.click(screen.getByRole('button', { name: 'probe docker h1' }))
+      await waitFor(() => expect(screen.getByTestId('dcaps')).toHaveTextContent('"h1"'))
+      act(() => onStatus?.('h1', { state: 'disconnected' }))
+      expect(screen.getByTestId('dcaps')).toHaveTextContent('{}')
+    })
   })
 })

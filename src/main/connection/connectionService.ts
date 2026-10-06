@@ -1,8 +1,10 @@
 import { EventEmitter } from 'node:events'
-import type { GitCapability, HostStatus } from '../../shared/types'
+import type { DockerCapability, GitCapability, HostStatus } from '../../shared/types'
 import type { SandboxTarget } from '../sandbox/target'
 import type { ProcResult } from '../proc/run'
 import { PREFLIGHT_SCRIPT, parsePreflight } from '../sandbox/preflight'
+import { DOCKER_PROBE_SCRIPT, parseDockerProbe } from '../docker/dockerProbe'
+import { ProbeCache } from './probeCache'
 
 export type ConnectionDeps = {
   targetFor(hostId: string): SandboxTarget
@@ -15,8 +17,8 @@ export class ConnectionService extends EventEmitter {
   private readonly statuses = new Map<string, HostStatus>()
   private readonly inFlight = new Map<string, Promise<HostStatus>>()
   private readonly generations = new Map<string, number>()
-  private readonly caps = new Map<string, GitCapability | null>()
-  private readonly probing = new Map<string, Promise<GitCapability | null>>()
+  private readonly gitCache = new ProbeCache<GitCapability | null>()
+  private readonly dockerCache = new ProbeCache<DockerCapability>()
 
   constructor(private readonly deps: ConnectionDeps) {
     super()
@@ -48,30 +50,25 @@ export class ConnectionService extends EventEmitter {
   /** null = git is not installed on the host. Cached per connection; `force` re-probes. */
   async probeGit(hostId: string, force = false): Promise<GitCapability | null> {
     this.requireConnected(hostId)
-    if (force) this.clearProbe(hostId)
-    else {
-      if (this.caps.has(hostId)) return Promise.resolve(this.caps.get(hostId) ?? null)
-      const existing = this.probing.get(hostId)
-      if (existing) return existing
-    }
-    const p: Promise<GitCapability | null> = this.doProbe(
-      hostId,
-      () => this.probing.get(hostId) === p
-    )
-    this.probing.set(hostId, p)
-    const clear = (): void => {
-      if (this.probing.get(hostId) === p) this.probing.delete(hostId)
-    }
-    p.then(clear, clear)
-    return p
+    return this.gitCache.get(hostId, force, () => this.doProbe(hostId))
+  }
+
+  /** Cached per connection; `force` re-probes. Rejects when the ssh run itself fails. */
+  async probeDocker(hostId: string, force = false): Promise<DockerCapability> {
+    this.requireConnected(hostId)
+    return this.dockerCache.get(hostId, force, async () => {
+      const r = await this.deps.targetFor(hostId).exec(DOCKER_PROBE_SCRIPT)
+      if (r.code !== 0) throw new Error(r.stderr.trim() || `ssh exit ${r.code}`)
+      return parseDockerProbe(r.stdout)
+    })
   }
 
   private clearProbe(hostId: string): void {
-    this.caps.delete(hostId)
-    this.probing.delete(hostId)
+    this.gitCache.clear(hostId)
+    this.dockerCache.clear(hostId)
   }
 
-  private async doProbe(hostId: string, current: () => boolean): Promise<GitCapability | null> {
+  private async doProbe(hostId: string): Promise<GitCapability | null> {
     const r = await this.deps.targetFor(hostId).exec(PREFLIGHT_SCRIPT)
     if (r.code !== 0) throw new Error(r.stderr.trim() || `ssh exit ${r.code}`)
     const { gitVersion, remoteHttp } = parsePreflight(r.stdout)
@@ -85,7 +82,6 @@ export class ConnectionService extends EventEmitter {
       }
       cap = { version: gitVersion, remoteHttp, forward }
     }
-    if (current()) this.caps.set(hostId, cap)
     return cap
   }
 
