@@ -26,8 +26,8 @@ export interface RemodeckApi {
   hosts: {
     list(): Promise<Host[]>
     add(sshHost: string, label: string): Promise<Host>
-    /** Only the label is editable; the ssh host alias is fixed. */
-    update(id: string, patch: { label: string }): Promise<Host>
+    /** Only the label and protected flag are editable; the ssh host alias is fixed. */
+    update(id: string, patch: { label?: string; protected?: boolean }): Promise<Host>
     remove(id: string): Promise<void>
     status(id: string): Promise<HostStatus>
     connect(id: string): Promise<HostStatus>

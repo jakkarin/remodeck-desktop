@@ -29,7 +29,7 @@ function renderBar(
   onOpenSettings = vi.fn()
 ): void {
   const value: AppState = {
-    hosts: [{ id: 'h1', sshHost: 'a', label: 'Alpha' }],
+    hosts: [{ id: 'h1', sshHost: 'a', label: 'Alpha', protected: false }],
     statuses: { h1: status },
     repos: [],
     workspaces: [{ id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }],

@@ -62,13 +62,13 @@ export class Store {
 
   addHost(sshHost: string, label: string): Host {
     if (!isValidSshHost(sshHost)) throw new Error(INVALID_SSH_HOST)
-    const host: Host = { id: newId(), sshHost, label }
+    const host: Host = { id: newId(), sshHost, label, protected: false }
     this.cfg.hosts.push(host)
     this.save()
     return host
   }
 
-  updateHost(id: string, patch: { label?: string }): Host {
+  updateHost(id: string, patch: { label?: string; protected?: boolean }): Host {
     const i = this.cfg.hosts.findIndex((h) => h.id === id)
     if (i < 0) throw new Error(`Unknown host ${id}`)
     const next: Host = { ...this.cfg.hosts[i] }
@@ -76,6 +76,10 @@ export class Store {
       const label = typeof patch.label === 'string' ? patch.label.trim() : ''
       if (label === '') throw new Error('Host label must not be empty')
       next.label = label
+    }
+    if (patch.protected !== undefined) {
+      if (typeof patch.protected !== 'boolean') throw new Error('Host protected must be a boolean')
+      next.protected = patch.protected
     }
     this.cfg.hosts[i] = next
     this.save()
@@ -200,7 +204,7 @@ export class Store {
     try {
       const raw = JSON.parse(fs.readFileSync(this.configPath, 'utf8')) as Partial<Config>
       return {
-        hosts: raw.hosts ?? [],
+        hosts: (raw.hosts ?? []).map((h) => ({ ...h, protected: h.protected === true })),
         repos: raw.repos ?? [],
         workspaces: raw.workspaces ?? [],
         prefs: loadPrefs(raw.prefs)

@@ -173,9 +173,14 @@ export async function createApp(opts: {
         if (connection.status(id).state !== 'disconnected') connection.disconnect(id)
       },
       update: async (id, patch) => {
-        if (!isPlainObject(patch) || typeof patch.label !== 'string')
+        if (
+          !isPlainObject(patch) ||
+          (patch.label === undefined && patch.protected === undefined) ||
+          (patch.label !== undefined && typeof patch.label !== 'string') ||
+          (patch.protected !== undefined && typeof patch.protected !== 'boolean')
+        )
           throw new Error('Invalid host patch')
-        return store.updateHost(id, { label: patch.label })
+        return store.updateHost(id, { label: patch.label, protected: patch.protected })
       },
       status: async (id) => connection.status(id),
       connect: async (id) => {

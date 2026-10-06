@@ -37,8 +37,8 @@ const up: HostStatus = { state: 'connected', warnings: [] }
 function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState> = {}): AppState {
   const value: AppState = {
     hosts: [
-      { id: 'h1', sshHost: 'a', label: 'Alpha' },
-      { id: 'h2', sshHost: 'b', label: 'Beta' }
+      { id: 'h1', sshHost: 'a', label: 'Alpha', protected: false },
+      { id: 'h2', sshHost: 'b', label: 'Beta', protected: false }
     ],
     statuses,
     repos: [
@@ -141,7 +141,12 @@ describe('WorkspaceSwitcher', () => {
   })
 
   it('host menu Host settings saves the new label', async () => {
-    vi.mocked(api.hosts.update).mockResolvedValue({ id: 'h1', sshHost: 'a', label: 'Work' })
+    vi.mocked(api.hosts.update).mockResolvedValue({
+      id: 'h1',
+      sshHost: 'a',
+      label: 'Work',
+      protected: false
+    })
     const v = renderWith({ h1: up, h2: up })
     fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
     fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))

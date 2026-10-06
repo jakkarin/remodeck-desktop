@@ -1,6 +1,6 @@
 // Shared between main and renderer: types only, no node imports.
 
-export type Host = { id: string; sshHost: string; label: string }
+export type Host = { id: string; sshHost: string; label: string; protected: boolean }
 
 export type Repo = {
   id: string

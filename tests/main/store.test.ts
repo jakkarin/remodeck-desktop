@@ -183,9 +183,44 @@ describe('Store', () => {
     const s = new Store(dir)
     const h = s.addHost('box', 'Box')
     const u = s.updateHost(h.id, { label: '  Work box ' })
-    expect(u).toEqual({ id: h.id, sshHost: 'box', label: 'Work box' })
+    expect(u).toEqual({ id: h.id, sshHost: 'box', label: 'Work box', protected: false })
     expect(new Store(dir).config.hosts[0].label).toBe('Work box')
     expect(() => s.updateHost(h.id, { label: '   ' })).toThrow()
     expect(() => s.updateHost('nope', { label: 'x' })).toThrow('Unknown host')
+  })
+
+  it('adds hosts unprotected', () => {
+    const store = new Store(dir)
+    expect(store.addHost('box', 'Box').protected).toBe(false)
+  })
+
+  it('loads old hosts without protected as unprotected, and coerces non-booleans', () => {
+    fs.writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({
+        hosts: [
+          { id: 'a', sshHost: 'a', label: 'A' },
+          { id: 'b', sshHost: 'b', label: 'B', protected: 'yes' }
+        ]
+      })
+    )
+    const s = new Store(dir)
+    expect(s.config.hosts.map((h) => h.protected)).toEqual([false, false])
+  })
+
+  it('updates protected without touching the label', () => {
+    const store = new Store(dir)
+    const h = store.addHost('box', 'Box')
+    expect(store.updateHost(h.id, { protected: true })).toMatchObject({
+      label: 'Box',
+      protected: true
+    })
+    expect(new Store(dir).config.hosts[0].protected).toBe(true)
+  })
+
+  it('rejects a non-boolean protected', () => {
+    const store = new Store(dir)
+    const h = store.addHost('box', 'Box')
+    expect(() => store.updateHost(h.id, { protected: 'x' as never })).toThrow()
   })
 })

@@ -53,7 +53,7 @@ vi.mock('@xterm/addon-fit', () => ({
 import { api } from '../../src/renderer/src/api'
 import App from '../../src/renderer/src/App'
 
-const host: Host = { id: 'h1', sshHost: 'box', label: 'Box' }
+const host: Host = { id: 'h1', sshHost: 'box', label: 'Box', protected: false }
 const ws: Workspace = { id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }
 
 function setup(hosts: Host[], workspaces: Workspace[], status: HostStatus): void {

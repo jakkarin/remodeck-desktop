@@ -41,8 +41,8 @@ function setup(connected: (h: string) => boolean = () => true) {
   const store = {
     config: {
       hosts: [
-        { id: 'h1', sshHost: 'box1', label: 'Box One' },
-        { id: 'h2', sshHost: 'box2', label: 'Box Two' }
+        { id: 'h1', sshHost: 'box1', label: 'Box One', protected: false },
+        { id: 'h2', sshHost: 'box2', label: 'Box Two', protected: false }
       ],
       repos: [
         {

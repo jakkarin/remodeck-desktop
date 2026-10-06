@@ -17,8 +17,8 @@ function renderDialog(
 ): void {
   const value = {
     hosts: [
-      { id: 'h1', sshHost: 'a', label: 'Alpha' },
-      { id: 'h2', sshHost: 'b', label: 'Beta' }
+      { id: 'h1', sshHost: 'a', label: 'Alpha', protected: false },
+      { id: 'h2', sshHost: 'b', label: 'Beta', protected: false }
     ]
   } as unknown as AppState
   render(

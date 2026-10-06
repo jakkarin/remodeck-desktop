@@ -57,7 +57,7 @@ const setStatus = vi.fn()
 
 function renderScreen(status: HostStatus = up): void {
   const value: AppState = {
-    hosts: [{ id: 'h1', sshHost: 'box', label: 'Box' }],
+    hosts: [{ id: 'h1', sshHost: 'box', label: 'Box', protected: false }],
     statuses: { h1: status },
     repos: [
       {
