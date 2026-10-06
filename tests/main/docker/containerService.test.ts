@@ -537,6 +537,35 @@ describe('ContainerService', () => {
     expect(t.stream).toHaveBeenCalledTimes(2)
   })
 
+  it('a stale onOpen does not drop the ids collected for a newer stream', async () => {
+    const q1 = makeQueue(true)
+    const q2 = makeQueue()
+    const t = setup({ streams: [q1, q2] })
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    const lists: Array<(v: unknown) => void> = []
+    t.json.mockImplementation((_m, path) => {
+      if (path === LIST_PATH) return new Promise((resolve) => lists.push(resolve))
+      return Promise.resolve([raw(ID1, 'exited')])
+    })
+    q1.onOpen!()
+    await vi.waitFor(() => expect(lists).toHaveLength(1))
+    q1.end()
+    await vi.waitFor(() => expect(lists).toHaveLength(2))
+    q2.push({ Actor: { ID: ID1 } })
+    await new Promise((r) => setTimeout(r, 20))
+    const changed = vi.fn()
+    t.svc.on('changed', changed)
+    lists[0]([raw(ID1, 'running')])
+    await new Promise((r) => setTimeout(r, 20))
+    lists[1]([raw(ID1, 'running')])
+    await vi.waitFor(() => expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1)))
+    await vi.waitFor(() => {
+      const last = changed.mock.calls.at(-1)?.[1] as ContainerInfo[]
+      expect(last?.[0].state).toBe('exited')
+    })
+  })
+
   it('goes not-live, closes the stream and reconnects when the post-open relist fails', async () => {
     const q1 = makeQueue()
     const q2 = makeQueue()

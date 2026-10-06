@@ -204,13 +204,14 @@ export class ContainerService extends EventEmitter {
   private async onOpen(hostId: string, st: HostState): Promise<void> {
     if (st.disposed) return
     const mine = st.stream
-    st.syncing = new Set()
+    const set = new Set<string>()
+    st.syncing = set
     const ok = await this.fullRelist(hostId, st)
-    const dirty = st.syncing
-    st.syncing = undefined
-    if (st.disposed || !ok || st.stream !== mine) return
+    if (st.disposed || st.stream !== mine) return // stale: leave a newer stream's set alone
+    if (st.syncing === set) st.syncing = undefined
+    if (!ok) return
     this.setLive(hostId, st, true)
-    for (const id of dirty ?? []) void this.refetch(hostId, st, id)
+    for (const id of set) void this.refetch(hostId, st, id)
   }
 
   private async run(hostId: string, st: HostState): Promise<void> {
