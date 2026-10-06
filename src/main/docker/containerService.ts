@@ -11,6 +11,17 @@ const EVENTS_PATH = '/events?filters=' + encodeURIComponent('{"type":["container
 const LIST_PATH = '/containers/json?all=1'
 const BACKOFF_MS = [1000, 2000, 5000, 10000]
 const STABLE_MS = 30000
+const ACTION_TIMEOUT_MS = 120000
+const NOISE_ACTIONS = new Set([
+  'attach',
+  'resize',
+  'top',
+  'export',
+  'commit',
+  'copy',
+  'archive-path',
+  'extract-to-dir'
+])
 
 const refetchPath = (id: string): string =>
   '/containers/json?all=1&filters=' + encodeURIComponent(JSON.stringify({ id: [id] }))
@@ -21,6 +32,8 @@ export interface ContainerServiceDeps {
   now?(): number
 }
 
+export type OpenResult = { list: ContainerInfo[]; live: boolean }
+
 type HostState = {
   client: DockerClient
   list: Map<string, ContainerInfo>
@@ -28,7 +41,7 @@ type HostState = {
   disposed: boolean
   live: boolean
   stream?: { close(): void }
-  opening?: Promise<ContainerInfo[]>
+  opening?: Promise<OpenResult>
   inflight: Map<string, { dirty: boolean }>
   relisting?: { owner: { close(): void } | undefined; promise: Promise<boolean> }
   relistSeq: number
@@ -37,7 +50,11 @@ type HostState = {
 
 function eventId(ev: unknown): string | undefined {
   if (ev === null || typeof ev !== 'object') return undefined
-  const e = ev as { Actor?: { ID?: unknown }; id?: unknown }
+  const e = ev as { Actor?: { ID?: unknown }; id?: unknown; Action?: unknown }
+  if (typeof e.Action === 'string') {
+    const a = e.Action.split(':')[0].trim()
+    if (a.startsWith('exec_') || NOISE_ACTIONS.has(a)) return undefined
+  }
   const id = e.Actor?.ID ?? e.id
   return typeof id === 'string' && CONTAINER_ID.test(id) ? id : undefined
 }
@@ -53,9 +70,9 @@ export class ContainerService extends EventEmitter {
     this.now = deps.now ?? Date.now
   }
 
-  open(hostId: string): Promise<ContainerInfo[]> {
+  open(hostId: string): Promise<OpenResult> {
     const existing = this.hosts.get(hostId)
-    if (existing) return existing.opening ?? Promise.resolve(this.snapshot(existing))
+    if (existing) return existing.opening ?? Promise.resolve(this.openResult(existing))
     const st: HostState = {
       client: this.deps.clientFor(hostId),
       list: new Map(),
@@ -69,11 +86,11 @@ export class ContainerService extends EventEmitter {
     st.opening = (async () => {
       try {
         const raw = await st.client.json<unknown[]>('GET', LIST_PATH)
-        if (st.disposed) return []
+        if (st.disposed) return { list: [], live: false }
         this.fill(st, raw)
         st.ready = true
         void this.run(hostId, st)
-        return this.snapshot(st)
+        return this.openResult(st)
       } catch (e) {
         if (!st.disposed) this.dispose(hostId)
         throw e
@@ -89,11 +106,15 @@ export class ContainerService extends EventEmitter {
     const st = this.hosts.get(hostId)
     if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
     try {
-      if (action === 'remove') await st.client.json('DELETE', `/containers/${id}`)
-      else await st.client.json('POST', `/containers/${id}/${action}`)
+      const o = { timeoutMs: ACTION_TIMEOUT_MS }
+      if (action === 'remove') await st.client.json('DELETE', `/containers/${id}`, undefined, o)
+      else await st.client.json('POST', `/containers/${id}/${action}`, undefined, o)
     } catch (e) {
       if (e instanceof DockerError) {
-        if (e.status === 404) throw new Error('container นี้ถูกลบไปแล้ว')
+        if (e.status === 404) {
+          await this.refetch(hostId, st, id).catch(() => {})
+          throw new Error('container นี้ถูกลบไปแล้ว')
+        }
         if (e.status === 409 && action === 'remove' && /running/i.test(e.message)) {
           throw new Error('ต้อง stop container ก่อนจึงจะ remove ได้')
         }
@@ -118,6 +139,10 @@ export class ContainerService extends EventEmitter {
     }
     st.stream = undefined
     st.client.destroy()
+  }
+
+  private openResult(st: HostState): OpenResult {
+    return { list: this.snapshot(st), live: st.live }
   }
 
   private snapshot(st: HostState): ContainerInfo[] {
@@ -192,8 +217,15 @@ export class ContainerService extends EventEmitter {
         }
         if (st.disposed) return
         const first = Array.isArray(raw) ? raw[0] : undefined
-        if (first === undefined) st.list.delete(id)
-        else st.list.set(id, toContainerInfo(first))
+        const prev = st.list.get(id)
+        if (first === undefined) {
+          if (!prev) continue
+          st.list.delete(id)
+        } else {
+          const next = toContainerInfo(first)
+          if (prev && JSON.stringify(prev) === JSON.stringify(next)) continue
+          st.list.set(id, next)
+        }
         this.emit('changed', hostId, this.snapshot(st))
       } while (flag.dirty && !st.disposed)
     } finally {

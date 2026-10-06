@@ -65,6 +65,8 @@ export function containersApi(deps: {
       deps.connection.requireConnected(hostId)
       const cap = await deps.connection.probeDocker(hostId)
       if (cap.state !== 'ok') throw new Error(cap.detail)
+      // The host may have disconnected while the probe was running.
+      deps.connection.requireConnected(hostId)
       return deps.service.open(hostId)
     },
     action: async (hostId, id, action) => {
@@ -74,6 +76,16 @@ export function containersApi(deps: {
       return deps.service.action(hostId, id, action as ContainerAction)
     }
   }
+}
+
+/** Forwards container-service events to the renderer and tears the service down on disconnect. */
+export function wireContainerService(
+  service: Pick<ContainerService, 'on' | 'dispose'>,
+  send: (channel: string, ...args: unknown[]) => void
+): { onDisconnect(hostId: string): void } {
+  service.on('changed', (hostId, list) => send(EV['containers-changed'], hostId, list))
+  service.on('live', (hostId, live) => send(EV['containers-live'], hostId, live))
+  return { onDisconnect: (hostId) => service.dispose(hostId) }
 }
 
 // ApprovalService gives up after 60 s; drop our side of an unanswered prompt shortly after.
@@ -156,6 +168,7 @@ export async function createApp(opts: {
     clientFor: (hostId) =>
       new DockerClient({ connect: () => sshDialStdio(sshPath, sshHostFor(hostId)) })
   })
+  const containerWiring = wireContainerService(containerService, send)
   let terminal: TerminalService | null = null
   const connection = new ConnectionService({
     targetFor,
@@ -163,7 +176,7 @@ export async function createApp(opts: {
     checkForward: (hostId) => checkRemoteForward(sshPath, sshHostFor(hostId)),
     onDisconnect: (hostId) => {
       terminal?.closeAllForHost(hostId)
-      containerService.dispose(hostId)
+      containerWiring.onDisconnect(hostId)
     }
   })
   terminal = new TerminalService({
@@ -179,8 +192,6 @@ export async function createApp(opts: {
   const term = terminal
 
   connection.on('status', (hostId, status) => send(EV['host-status'], hostId, status))
-  containerService.on('changed', (hostId, list) => send(EV['containers-changed'], hostId, list))
-  containerService.on('live', (hostId, live) => send(EV['containers-live'], hostId, live))
   term.on('data', (tabId, d) => send(EV['terminal-data'], tabId, d))
   term.on('exit', (tabId, code) => send(EV['terminal-exit'], tabId, code))
 

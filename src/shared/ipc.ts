@@ -82,7 +82,7 @@ export interface RemodeckApi {
   }
   containers: {
     /** Lists the host's containers and starts live updates; rejects with the probe detail when docker is unusable. */
-    open(hostId: string): Promise<ContainerInfo[]>
+    open(hostId: string): Promise<{ list: ContainerInfo[]; live: boolean }>
     action(hostId: string, id: string, action: ContainerAction): Promise<void>
   }
   approval: { respond(requestId: string, decision: ApprovalDecision): void }

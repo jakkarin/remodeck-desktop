@@ -59,7 +59,9 @@ function parseBody(raw: string): unknown {
 function errorFrom(status: number, statusMessage: string | undefined, raw: string): DockerError {
   const parsed = parseBody(raw)
   const msg =
-    parsed && typeof parsed === 'object' && typeof (parsed as { message?: unknown }).message === 'string'
+    parsed &&
+    typeof parsed === 'object' &&
+    typeof (parsed as { message?: unknown }).message === 'string'
       ? (parsed as { message: string }).message
       : undefined
   return new DockerError(status, msg ?? (statusMessage || `HTTP ${status}`))
@@ -94,7 +96,12 @@ export class DockerClient {
     this.idleTimers.delete(socket)
   }
 
-  json<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  json<T>(
+    method: 'GET' | 'POST' | 'DELETE',
+    path: string,
+    body?: unknown,
+    opts: { timeoutMs?: number } = {}
+  ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const payload = body === undefined ? undefined : JSON.stringify(body)
       const headers: Record<string, string | number> = { Host: 'docker' }
@@ -119,7 +126,8 @@ export class DockerClient {
           const status = res.statusCode ?? 0
           finish(() => {
             if (status === 204 || status === 304) return resolve(undefined as T)
-            if (status < 200 || status >= 300) return reject(errorFrom(status, res.statusMessage, raw))
+            if (status < 200 || status >= 300)
+              return reject(errorFrom(status, res.statusMessage, raw))
             resolve(parseBody(raw) as T)
           })
         })
@@ -128,7 +136,7 @@ export class DockerClient {
         finish(() => reject(new Error('docker request timed out')))
         req.socket?.destroy()
         req.destroy()
-      }, this.timeoutMs)
+      }, opts.timeoutMs ?? this.timeoutMs)
       req.on('socket', (s) => this.clearIdle(s))
       req.on('error', (e) => finish(() => reject(e)))
       req.on('close', () => finish(() => reject(new Error('docker connection closed'))))

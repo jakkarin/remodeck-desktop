@@ -46,7 +46,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   for (const k of Object.keys(handlers)) delete handlers[k]
-  vi.mocked(api.containers.open).mockResolvedValue(LIST)
+  vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: true })
   vi.mocked(api.containers.action).mockResolvedValue(undefined)
 })
 
@@ -155,6 +155,29 @@ describe('ContainersView', () => {
     expect(await screen.findByText('หยุดอัปเดตสด')).toBeInTheDocument()
   })
 
+  it('shows the stale badge when open reports the stream is not live', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: false })
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    expect(screen.getByText('หยุดอัปเดตสด')).toBeInTheDocument()
+  })
+
+  it('disables the buttons of a container while its action runs, so a double click sends once', async () => {
+    let finish: () => void = () => {}
+    vi.mocked(api.containers.action).mockImplementation(
+      () => new Promise<void>((r) => (finish = () => r()))
+    )
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const stop = screen.getByRole('button', { name: 'Stop web' })
+    fireEvent.click(stop)
+    fireEvent.click(stop)
+    expect(api.containers.action).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Remove web' })).toBeDisabled()
+    finish()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove web' })).toBeEnabled())
+  })
+
   it('shows the connection error with Retry', async () => {
     vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('no socket'))
     render(<ContainersView host={host} />)
@@ -165,7 +188,7 @@ describe('ContainersView', () => {
   })
 
   it('shows the empty message', async () => {
-    vi.mocked(api.containers.open).mockResolvedValue([])
+    vi.mocked(api.containers.open).mockResolvedValue({ list: [], live: true })
     render(<ContainersView host={host} />)
     expect(await screen.findByText('ยังไม่มี container บน Box')).toBeInTheDocument()
   })

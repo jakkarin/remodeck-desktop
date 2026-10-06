@@ -106,6 +106,16 @@ describe('DockerClient', () => {
     await expect(c.json('GET', '/slow')).rejects.toThrow('docker request timed out')
   })
 
+  it('a per-call timeoutMs overrides the default', async () => {
+    const c = await start((_req, res) => setTimeout(() => res.end('{"ok":true}'), 150), {
+      timeoutMs: 50
+    })
+    await expect(c.json('POST', '/slow')).rejects.toThrow('timed out')
+    await expect(c.json('POST', '/slow', undefined, { timeoutMs: 2000 })).resolves.toEqual({
+      ok: true
+    })
+  })
+
   it('rejects when the dial stream dies mid-request', async () => {
     const dead = new Duplex({
       read() {},

@@ -15,15 +15,16 @@ export function useContainers(hostId: string): {
   error: string | null
   retry(): void
 } {
-  const [state, setState] = useState<Loaded>({ hostId, list: null, live: true, error: null })
+  const [state, setState] = useState<Loaded>({ hostId, list: null, live: false, error: null })
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
     let changed = false
+    let liveSeen = false
     // A state left over from another host is discarded on the first write for this one.
     const base = (s: Loaded): Loaded =>
-      s.hostId === hostId ? s : { hostId, list: null, live: true, error: null }
+      s.hostId === hostId ? s : { hostId, list: null, live: false, error: null }
     const offChanged = api.on('containers-changed', (id, list) => {
       if (active && id === hostId) {
         changed = true
@@ -31,17 +32,24 @@ export function useContainers(hostId: string): {
       }
     })
     const offLive = api.on('containers-live', (id, live) => {
-      if (active && id === hostId) setState((s) => ({ ...base(s), live }))
+      if (active && id === hostId) {
+        liveSeen = true
+        setState((s) => ({ ...base(s), live }))
+      }
     })
     api.containers.open(hostId).then(
-      (list) => {
-        // A pushed list that arrived while open was pending is newer than open's reply.
+      (res) => {
+        // Pushed lists/live flags that arrived while open was pending are newer than open's reply.
         if (active)
-          setState((s) =>
-            changed
-              ? { ...base(s), live: true, error: null }
-              : { ...base(s), list, live: true, error: null }
-          )
+          setState((s) => {
+            const b = base(s)
+            return {
+              ...b,
+              list: changed ? b.list : res.list,
+              live: liveSeen ? b.live : res.live,
+              error: null
+            }
+          })
       },
       (e) => {
         if (active) setState((s) => ({ ...base(s), error: errorMessage(e) }))
@@ -50,7 +58,7 @@ export function useContainers(hostId: string): {
     return () => {
       active = false
       // Nothing loaded for this host may be shown once the subscription is gone.
-      setState({ hostId: null, list: null, live: true, error: null })
+      setState({ hostId: null, list: null, live: false, error: null })
       offChanged()
       offLive()
     }
@@ -62,6 +70,6 @@ export function useContainers(hostId: string): {
   }, [])
 
   // Until the effect resets state for a new host, never expose the previous host's data.
-  if (state.hostId !== hostId) return { list: null, live: true, error: null, retry }
+  if (state.hostId !== hostId) return { list: null, live: false, error: null, retry }
   return { list: state.list, live: state.live, error: state.error, retry }
 }

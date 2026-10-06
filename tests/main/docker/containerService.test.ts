@@ -107,7 +107,7 @@ describe('ContainerService', () => {
   it('lists all containers on open', async () => {
     const t = setup()
     t.json.mockResolvedValueOnce([raw(ID1), raw(ID2, 'exited')])
-    const list = await t.svc.open('h')
+    const { list } = await t.svc.open('h')
     expect(t.json).toHaveBeenCalledWith('GET', LIST_PATH)
     expect(list.map((c) => c.id)).toEqual([ID1, ID2])
     expect(list[1].state).toBe('exited')
@@ -119,7 +119,7 @@ describe('ContainerService', () => {
     t.list([raw(ID1)])
     await t.svc.open('h')
     await t.ready()
-    const again = await t.svc.open('h')
+    const { list: again } = await t.svc.open('h')
     expect(again.map((c) => c.id)).toEqual([ID1])
     expect(t.json.mock.calls.filter((c) => c[1] === LIST_PATH).length).toBe(2)
   })
@@ -276,7 +276,7 @@ describe('ContainerService', () => {
     await expect(t.svc.open('h')).rejects.toThrow('boom')
     expect(t.stream).not.toHaveBeenCalled()
     t.json.mockResolvedValueOnce([raw(ID1)])
-    expect((await t.svc.open('h')).map((c) => c.id)).toEqual([ID1])
+    expect((await t.svc.open('h')).list.map((c) => c.id)).toEqual([ID1])
   })
 
   it('rejects an invalid id without calling docker', async () => {
@@ -299,13 +299,17 @@ describe('ContainerService', () => {
       t.json.mockClear()
       t.json.mockResolvedValue([raw(ID1)])
       await t.svc.action('h', ID1, a)
-      expect(t.json).toHaveBeenNthCalledWith(1, 'POST', `/containers/${ID1}/${a}`)
+      expect(t.json).toHaveBeenNthCalledWith(1, 'POST', `/containers/${ID1}/${a}`, undefined, {
+        timeoutMs: 120000
+      })
       expect(t.json).toHaveBeenNthCalledWith(2, 'GET', refetchPath(ID1))
     }
     t.json.mockClear()
     t.json.mockResolvedValueOnce(undefined).mockResolvedValueOnce([])
     await t.svc.action('h', ID1, 'remove')
-    expect(t.json).toHaveBeenNthCalledWith(1, 'DELETE', `/containers/${ID1}`)
+    expect(t.json).toHaveBeenNthCalledWith(1, 'DELETE', `/containers/${ID1}`, undefined, {
+      timeoutMs: 120000
+    })
     expect(changed).toHaveBeenCalled()
     expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).length).toBe(0)
   })
@@ -467,8 +471,8 @@ describe('ContainerService', () => {
     const t = setup()
     t.json.mockResolvedValue([raw(ID1)])
     const [a, b] = await Promise.all([t.svc.open('h'), t.svc.open('h')])
-    expect(a.map((c) => c.id)).toEqual([ID1])
-    expect(b.map((c) => c.id)).toEqual([ID1])
+    expect(a.list.map((c) => c.id)).toEqual([ID1])
+    expect(b.list.map((c) => c.id)).toEqual([ID1])
     await new Promise((r) => setTimeout(r, 20))
     expect(t.json.mock.calls.filter((c) => c[1] === LIST_PATH).length).toBe(2)
     expect(t.stream).toHaveBeenCalledTimes(1)
@@ -585,5 +589,79 @@ describe('ContainerService', () => {
     await vi.waitFor(() => expect(t.sleep).toHaveBeenCalledTimes(2))
     expect(liveEvents).toEqual([true, false])
     expect(t.sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000])
+  })
+
+  it('open reports live=false when the stream never opens, and live=true once it has', async () => {
+    const noOpen = setup({ streams: [makeQueue(true)] })
+    noOpen.list([raw(ID1)])
+    const first = await noOpen.svc.open('h')
+    expect(first.live).toBe(false)
+    const t = setup()
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    await t.ready()
+    expect((await t.svc.open('h')).live).toBe(true)
+  })
+
+  it('ignores exec_*, attach and similar noise events but not health_status', async () => {
+    const q = makeQueue()
+    const t = setup({ streams: [q] })
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    await t.ready()
+    t.json.mockClear()
+    for (const Action of [
+      'exec_create: sh',
+      'exec_start: sh',
+      'exec_die',
+      'attach',
+      'resize',
+      'top',
+      'export',
+      'commit',
+      'copy',
+      'archive-path',
+      'extract-to-dir'
+    ]) {
+      q.push({ Type: 'container', Action, Actor: { ID: ID1 } })
+    }
+    await new Promise((r) => setTimeout(r, 20))
+    expect(t.json).not.toHaveBeenCalled()
+    q.push({ Type: 'container', Action: 'health_status: healthy', Actor: { ID: ID1 } })
+    await vi.waitFor(() => expect(t.json).toHaveBeenCalledWith('GET', refetchPath(ID1)))
+  })
+
+  it('does not emit changed when a refetch returns an identical container', async () => {
+    const q = makeQueue()
+    const t = setup({ streams: [q] })
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    await t.ready()
+    const changed = vi.fn()
+    t.svc.on('changed', changed)
+    t.json.mockClear()
+    t.json.mockResolvedValue([raw(ID1)])
+    q.push({ Action: 'health_status: healthy', Actor: { ID: ID1 } })
+    await vi.waitFor(() => expect(t.json).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(changed).not.toHaveBeenCalled()
+    t.json.mockResolvedValue([raw(ID1, 'exited')])
+    q.push({ Action: 'die', Actor: { ID: ID1 } })
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(1))
+  })
+
+  it('refetches the id on a 404 so the stale row disappears', async () => {
+    const t = setup()
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    await t.ready()
+    const changed = vi.fn()
+    t.svc.on('changed', changed)
+    t.json.mockClear()
+    t.json.mockRejectedValueOnce(new DockerError(404, 'No such container'))
+    t.json.mockResolvedValueOnce([])
+    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+    expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
+    expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).length).toBe(0)
   })
 })

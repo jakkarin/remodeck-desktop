@@ -33,6 +33,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   )
   const [actionError, setActionError] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
 
   const collapsed = collapsedAll[host.id] ?? []
   const toggleProject = (name: string): void => {
@@ -55,7 +56,17 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const request = (c: ContainerInfo, action: ContainerAction): void => {
     const level = dangerLevel(action, host.protected)
     if (level === 'none') {
-      run(c, action).catch((e) => setActionError(errorMessage(e)))
+      const mark = (on: boolean): void =>
+        setBusy((s) => {
+          const n = new Set(s)
+          if (on) n.add(c.id)
+          else n.delete(c.id)
+          return n
+        })
+      mark(true)
+      run(c, action)
+        .catch((e) => setActionError(errorMessage(e)))
+        .finally(() => mark(false))
     } else {
       setPending({ hostId: host.id, container: c, action, mode: level })
     }
@@ -92,19 +103,35 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       <span className="container-actions">
         {isActive(c) ? (
           <>
-            <IconButton aria-label={`Stop ${c.name}`} onClick={() => request(c, 'stop')}>
+            <IconButton
+              aria-label={`Stop ${c.name}`}
+              disabled={busy.has(c.id)}
+              onClick={() => request(c, 'stop')}
+            >
               <Square size={14} />
             </IconButton>
-            <IconButton aria-label={`Restart ${c.name}`} onClick={() => request(c, 'restart')}>
+            <IconButton
+              aria-label={`Restart ${c.name}`}
+              disabled={busy.has(c.id)}
+              onClick={() => request(c, 'restart')}
+            >
               <RotateCw size={14} />
             </IconButton>
           </>
         ) : (
-          <IconButton aria-label={`Start ${c.name}`} onClick={() => request(c, 'start')}>
+          <IconButton
+            aria-label={`Start ${c.name}`}
+            disabled={busy.has(c.id)}
+            onClick={() => request(c, 'start')}
+          >
             <Play size={14} />
           </IconButton>
         )}
-        <IconButton aria-label={`Remove ${c.name}`} onClick={() => request(c, 'remove')}>
+        <IconButton
+          aria-label={`Remove ${c.name}`}
+          disabled={busy.has(c.id)}
+          onClick={() => request(c, 'remove')}
+        >
           <Trash2 size={14} />
         </IconButton>
       </span>

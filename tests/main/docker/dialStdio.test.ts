@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Duplex } from 'node:stream'
-import { spawnDuplex } from '../../../src/main/docker/dialStdio'
+import { spawnDuplex, sshDialArgs } from '../../../src/main/docker/dialStdio'
 
 let duplex: Duplex | undefined
 afterEach(() => {
@@ -8,10 +8,31 @@ afterEach(() => {
   duplex = undefined
 })
 
+describe('sshDialArgs', () => {
+  it('pins the keepalive options and the dial-stdio command', () => {
+    expect(sshDialArgs('box')).toEqual([
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      '-o',
+      'ServerAliveInterval=15',
+      '-o',
+      'ServerAliveCountMax=3',
+      'box',
+      'docker',
+      'system',
+      'dial-stdio'
+    ])
+  })
+})
+
 describe('spawnDuplex', () => {
   it('round-trips bytes through the child', async () => {
     duplex = spawnDuplex(process.execPath, ['-e', 'process.stdin.pipe(process.stdout)'])
-    const got = new Promise<string>((resolve) => duplex!.once('data', (d: Buffer) => resolve(d.toString())))
+    const got = new Promise<string>((resolve) =>
+      duplex!.once('data', (d: Buffer) => resolve(d.toString()))
+    )
     duplex.write('hello')
     expect(await got).toBe('hello')
   })

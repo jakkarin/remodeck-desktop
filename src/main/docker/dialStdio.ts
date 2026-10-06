@@ -3,7 +3,10 @@ import { Duplex } from 'node:stream'
 
 /** Duplex over a child process: stdout is readable, stdin is writable. Destroying it kills the child. */
 export function spawnDuplex(cmd: string, args: string[]): Duplex {
-  const child: ChildProcess = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+  const child: ChildProcess = spawn(cmd, args, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true
+  })
   let stderr = ''
   let gotOutput = false
   child.stderr!.on('data', (d: Buffer) => {
@@ -45,15 +48,23 @@ export function spawnDuplex(cmd: string, args: string[]): Duplex {
   return duplex
 }
 
-export function sshDialStdio(sshPath: string, sshHost: string): Duplex {
-  return spawnDuplex(sshPath, [
+export function sshDialArgs(sshHost: string): string[] {
+  return [
     '-o',
     'BatchMode=yes',
     '-o',
     'ConnectTimeout=10',
+    '-o',
+    'ServerAliveInterval=15',
+    '-o',
+    'ServerAliveCountMax=3',
     sshHost,
     'docker',
     'system',
     'dial-stdio'
-  ])
+  ]
+}
+
+export function sshDialStdio(sshPath: string, sshHost: string): Duplex {
+  return spawnDuplex(sshPath, sshDialArgs(sshHost))
 }
