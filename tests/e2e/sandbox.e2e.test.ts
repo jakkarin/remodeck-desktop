@@ -183,21 +183,20 @@ describe('remodeck against real sandboxes', () => {
   let ws1: Workspace
   let ws2: Workspace
 
-  it('connects to a sandbox with git: no warnings', async () => {
+  it('connects to a sandbox and probes git', async () => {
     h1 = await api.hosts.add('sandbox-1', 'Sandbox 1')
     const st = await api.hosts.connect(h1.id)
     expect(st.state).toBe('connected')
-    expect(st.gitVersion).toMatch(/^git version /)
-    expect(st.warnings).toEqual([])
+    expect((await api.hosts.probeGit(h1.id))?.version).toMatch(/^git version /)
   })
 
-  it('a sandbox without git shows the install message; Reload after installing connects', async () => {
+  it('a sandbox without git connects; probeGit is null until git is installed and forced', async () => {
     const h = await api.hosts.add('sandbox-nogit', 'No git')
     const st = await api.hosts.connect(h.id)
-    expect(st.state).toBe('error')
-    expect(st.error).toContain('ไม่พบ git')
+    expect(st.state).toBe('connected')
+    expect(await api.hosts.probeGit(h.id)).toBeNull()
     await sx(cNoGit, 'mv /opt/git-hidden /usr/bin/git', 'root')
-    expect((await api.hosts.connect(h.id)).state).toBe('connected')
+    expect((await api.hosts.probeGit(h.id, true))?.version).toMatch(/^git version /)
   })
 
   it('clone puts the default branch in the sandbox with a GitHub origin', async () => {

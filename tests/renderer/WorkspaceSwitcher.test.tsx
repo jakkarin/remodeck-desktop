@@ -31,8 +31,8 @@ import { SettingsOpenerContext } from '../../src/renderer/src/settingsOpener'
 
 const openSettings = vi.fn()
 
-const down: HostStatus = { state: 'disconnected', warnings: [] }
-const up: HostStatus = { state: 'connected', warnings: [] }
+const down: HostStatus = { state: 'disconnected' }
+const up: HostStatus = { state: 'connected' }
 
 function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState> = {}): AppState {
   const value: AppState = {
@@ -77,7 +77,7 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('WorkspaceSwitcher', () => {
   it('lists every host with a status dot class', () => {
-    renderWith({ h1: up, h2: { state: 'error', warnings: [], error: 'boom' } })
+    renderWith({ h1: up, h2: { state: 'error', error: 'boom' } })
     const alpha = screen.getByText('Alpha').closest('section') as HTMLElement
     const beta = screen.getByText('Beta').closest('section') as HTMLElement
     expect(alpha.querySelector('.dot')).toHaveClass('connected')
@@ -86,7 +86,7 @@ describe('WorkspaceSwitcher', () => {
   })
 
   it('shows Connect only when disconnected and Retry only on error', () => {
-    renderWith({ h1: down, h2: { state: 'error', warnings: [], error: 'x' } })
+    renderWith({ h1: down, h2: { state: 'error', error: 'x' } })
     expect(screen.getAllByRole('button', { name: 'Connect' })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(1)
   })

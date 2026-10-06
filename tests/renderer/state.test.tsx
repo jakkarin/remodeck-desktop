@@ -49,7 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.on).mockReturnValue(() => undefined)
   vi.mocked(api.hosts.list).mockResolvedValue([])
-  vi.mocked(api.hosts.status).mockResolvedValue({ state: 'connected', warnings: [] })
+  vi.mocked(api.hosts.status).mockResolvedValue({ state: 'connected' })
   vi.mocked(api.repos.list).mockResolvedValue([])
 })
 

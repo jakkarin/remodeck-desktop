@@ -52,7 +52,7 @@ const file = (path: string, over: Partial<FileChange> = {}): FileChange => ({
 })
 
 const commit = { sha: 'abcdef1234', subject: 'add thing', author: 'me', date: '2026-01-01' }
-const up: HostStatus = { state: 'connected', warnings: [] }
+const up: HostStatus = { state: 'connected' }
 const setStatus = vi.fn()
 
 function renderScreen(status: HostStatus = up): void {
@@ -230,7 +230,7 @@ describe('WorkspaceScreen branch list', () => {
 
 describe('WorkspaceScreen disconnected', () => {
   it('shows the banner, disables Push and worktree-free branch list stays', async () => {
-    renderScreen({ state: 'disconnected', warnings: [] })
+    renderScreen({ state: 'disconnected' })
     expect(await screen.findByText('feat/a')).toBeInTheDocument()
     expect(screen.getByText(/ไม่ได้เชื่อมต่อ/)).toBeInTheDocument()
     expect(api.workspaces.worktrees).not.toHaveBeenCalled()
@@ -242,7 +242,7 @@ describe('WorkspaceScreen disconnected', () => {
 
   it('banner Connect connects the host', async () => {
     vi.mocked(api.hosts.connect).mockResolvedValue(up)
-    renderScreen({ state: 'disconnected', warnings: [] })
+    renderScreen({ state: 'disconnected' })
     fireEvent.click(await screen.findByRole('button', { name: 'Connect' }))
     await waitFor(() => expect(api.hosts.connect).toHaveBeenCalledWith('h1'))
     await waitFor(() => expect(setStatus).toHaveBeenCalledWith('h1', up))
@@ -361,12 +361,12 @@ describe('ChangesPane push bar isolation', () => {
 
 describe('WorkspaceScreen connection banner states', () => {
   it('disables the button while connecting', async () => {
-    renderScreen({ state: 'connecting', warnings: [] })
+    renderScreen({ state: 'connecting' })
     expect(await screen.findByRole('button', { name: 'Connect' })).toBeDisabled()
   })
 
   it('offers Retry with the error text when the connection failed', async () => {
-    renderScreen({ state: 'error', error: 'ssh: timeout', warnings: [] })
+    renderScreen({ state: 'error', error: 'ssh: timeout' })
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeEnabled()
     expect(screen.getByText('ssh: timeout')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Connect' })).not.toBeInTheDocument()

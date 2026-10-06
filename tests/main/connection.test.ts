@@ -8,27 +8,38 @@ import { LocalTarget } from '../../src/main/sandbox/target'
 
 const ok = (stdout: string): ProcResult => ({ code: 0, stdout, stderr: '' })
 
-function fakeTarget(r: ProcResult | Error): SandboxTarget {
-  return {
-    exec: async () => {
+type Answers = {
+  connect?: ProcResult | Error
+  preflight?: ProcResult | (() => Promise<ProcResult>)
+}
+
+function make(answers: Answers, forward = true) {
+  const calls = { connect: 0, preflight: 0 }
+  const target: SandboxTarget = {
+    exec: async (script: string) => {
+      if (script === PREFLIGHT_SCRIPT) {
+        calls.preflight++
+        const p = answers.preflight ?? ok('')
+        return typeof p === 'function' ? p() : p
+      }
+      calls.connect++
+      const r = answers.connect ?? ok('')
       if (r instanceof Error) throw r
       return r
     },
     gitUrl: (p) => p
   }
-}
-
-function make(r: ProcResult | Error, forward = true) {
   const onDisconnect = vi.fn()
+  const checkForward = vi.fn(async () => forward)
   const svc = new ConnectionService({
-    targetFor: () => fakeTarget(r),
+    targetFor: () => target,
     sshHostFor: () => 'ai-box',
-    checkForward: async () => forward,
+    checkForward,
     onDisconnect
   })
   const events: HostStatus[] = []
   svc.on('status', (_id: string, s: HostStatus) => events.push(s))
-  return { svc, events, onDisconnect }
+  return { svc, events, onDisconnect, calls, checkForward }
 }
 
 describe('parsePreflight', () => {
@@ -53,59 +64,54 @@ describe('PREFLIGHT_SCRIPT on local bash', () => {
   })
 })
 
+const GIT = 'git=git version 2.43.0\nremotehttp=1\n'
+
 describe('ConnectionService', () => {
   it('starts disconnected', () => {
-    expect(make(ok('')).svc.status('h')).toEqual({ state: 'disconnected', warnings: [] })
+    expect(make({}).svc.status('h')).toEqual({ state: 'disconnected' })
   })
 
-  it('connects when git present and emits connecting then connected', async () => {
-    const { svc, events } = make(ok('git=git version 2.43.0\nremotehttp=1\n'))
-    const s = await svc.connect('h')
-    expect(s).toEqual({ state: 'connected', gitVersion: 'git version 2.43.0', warnings: [] })
+  it('connects and emits connecting then connected', async () => {
+    const { svc, events } = make({ connect: ok('') })
+    expect(await svc.connect('h')).toEqual({ state: 'connected' })
     expect(events.map((e) => e.state)).toEqual(['connecting', 'connected'])
     expect(() => svc.requireConnected('h')).not.toThrow()
   })
 
-  it('errors when git is missing', async () => {
-    const { svc } = make(ok('git=\nremotehttp=0\n'))
+  it('connects a host that has no git', async () => {
+    const { svc } = make({ connect: ok(''), preflight: ok('git=\nremotehttp=0\n') })
+    expect(await svc.connect('h')).toEqual({ state: 'connected' })
+  })
+
+  it('reports ssh failure as before', async () => {
+    const { svc } = make({ connect: { code: 255, stdout: '', stderr: 'no route' } })
     const s = await svc.connect('h')
     expect(s.state).toBe('error')
-    expect(s.error).toBe(
-      'ไม่พบ git บนเครื่องนี้ — ติดตั้งก่อน เช่น sudo apt install git หรือ sudo dnf install git แล้วกด Reload'
-    )
+    expect(s.error).toBe('no route\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
   })
 
-  it('warns when git-remote-http is missing', async () => {
-    const { svc } = make(ok('git=git version 2.43.0\nremotehttp=0\n'))
+  it('treats other non-zero exits as ssh failure', async () => {
+    const { svc } = make({ connect: { code: 1, stdout: '', stderr: '' } })
     const s = await svc.connect('h')
-    expect(s.state).toBe('connected')
-    expect(s.warnings).toEqual(['git บนเครื่องนี้ไม่รองรับ HTTP — push/pull จาก terminal ของแอปจะใช้ไม่ได้'])
-  })
-
-  it('warns when forward check fails', async () => {
-    const { svc } = make(ok('git=git version 2.43.0\nremotehttp=1\n'), false)
-    const s = await svc.connect('h')
-    expect(s.state).toBe('connected')
-    expect(s.warnings).toEqual(['sshd ปิด AllowTcpForwarding — push/pull จาก terminal ของแอปจะใช้ไม่ได้'])
-  })
-
-  it('treats exit 255 as ssh failure with stderr', async () => {
-    const { svc } = make({ code: 255, stdout: '', stderr: 'Permission denied' })
-    const s = await svc.connect('h1')
-    expect(s.state).toBe('error')
-    expect(s.error).toBe('Permission denied\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+    expect(s.error).toBe('ssh exit 1\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
   })
 
   it('treats exec rejection as ssh failure', async () => {
-    const { svc } = make(new Error('spawn ssh ENOENT'))
+    const { svc } = make({ connect: new Error('spawn ssh ENOENT') })
     const s = await svc.connect('h')
     expect(s.state).toBe('error')
     expect(s.error).toContain('spawn ssh ENOENT')
     expect(s.error).toContain('ลองรัน ssh ai-box ใน terminal ของระบบก่อน')
   })
 
+  it('255 with empty stderr reports ssh exit 255', async () => {
+    const { svc } = make({ connect: { code: 255, stdout: '', stderr: '' } })
+    const s = await svc.connect('h1')
+    expect(s.error).toBe('ssh exit 255\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+  })
+
   it('returns the in-flight promise while connecting', async () => {
-    const { svc } = make(ok('git=git version 2.43.0\nremotehttp=1\n'))
+    const { svc } = make({})
     const a = svc.connect('h')
     const b = svc.connect('h')
     expect(b).toBe(a)
@@ -113,21 +119,15 @@ describe('ConnectionService', () => {
   })
 
   it('disconnect resets state and calls onDisconnect', async () => {
-    const { svc, onDisconnect } = make(ok('git=git version 2.43.0\nremotehttp=1\n'))
+    const { svc, onDisconnect } = make({})
     await svc.connect('h')
     svc.disconnect('h')
-    expect(svc.status('h')).toEqual({ state: 'disconnected', warnings: [] })
+    expect(svc.status('h')).toEqual({ state: 'disconnected' })
     expect(onDisconnect).toHaveBeenCalledWith('h')
   })
 
   it('requireConnected throws when not connected', () => {
-    expect(() => make(ok('')).svc.requireConnected('h')).toThrow('Host ยังไม่ได้ connect')
-  })
-
-  it('255 with empty stderr reports ssh exit 255', async () => {
-    const { svc } = make({ code: 255, stdout: '', stderr: '' })
-    const s = await svc.connect('h1')
-    expect(s.error).toBe('ssh exit 255\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+    expect(() => make({}).svc.requireConnected('h')).toThrow('Host ยังไม่ได้ connect')
   })
 
   it('disconnect during in-flight connect is not overwritten', async () => {
@@ -136,18 +136,93 @@ describe('ConnectionService', () => {
       exec: () => new Promise<ProcResult>((res) => (release = res)),
       gitUrl: (p) => p
     }
-    const onDisconnect = vi.fn()
     const svc = new ConnectionService({
       targetFor: () => target,
       sshHostFor: () => 'ai-box',
       checkForward: async () => true,
-      onDisconnect
+      onDisconnect: vi.fn()
     })
     const p = svc.connect('h1')
     svc.disconnect('h1')
-    release(ok('git=git version 2.43.0\nremotehttp=1\n'))
+    release(ok(''))
     const s = await p
     expect(s.state).toBe('disconnected')
     expect(svc.status('h1').state).toBe('disconnected')
+  })
+
+  describe('probeGit', () => {
+    it('returns null without git and skips the forward check', async () => {
+      const { svc, checkForward } = make({ connect: ok(''), preflight: ok('git=\nremotehttp=0\n') })
+      await svc.connect('h')
+      expect(await svc.probeGit('h')).toBeNull()
+      expect(checkForward).not.toHaveBeenCalled()
+    })
+
+    it('returns the capability and caches it until force', async () => {
+      const { svc, calls } = make({ connect: ok(''), preflight: ok(GIT) }, false)
+      await svc.connect('h')
+      expect(await svc.probeGit('h')).toEqual({
+        version: 'git version 2.43.0',
+        remoteHttp: true,
+        forward: false
+      })
+      await svc.probeGit('h')
+      expect(calls.preflight).toBe(1)
+      await svc.probeGit('h', true)
+      expect(calls.preflight).toBe(2)
+    })
+
+    it('caches a null result too', async () => {
+      const { svc, calls } = make({ connect: ok(''), preflight: ok('git=\nremotehttp=0\n') })
+      await svc.connect('h')
+      await svc.probeGit('h')
+      await svc.probeGit('h')
+      expect(calls.preflight).toBe(1)
+    })
+
+    it('dedupes concurrent probes', async () => {
+      const { svc, calls } = make({ connect: ok(''), preflight: ok(GIT) })
+      await svc.connect('h')
+      const [a, b] = await Promise.all([svc.probeGit('h'), svc.probeGit('h')])
+      expect(a).toEqual(b)
+      expect(calls.preflight).toBe(1)
+    })
+
+    it('drops a probe result that lands after disconnect', async () => {
+      let release!: (r: ProcResult) => void
+      let first = true
+      const { svc, calls } = make({
+        connect: ok(''),
+        preflight: () => {
+          if (first) {
+            first = false
+            return new Promise<ProcResult>((res) => (release = res))
+          }
+          return Promise.resolve(ok('git=\nremotehttp=0\n'))
+        }
+      })
+      await svc.connect('h')
+      const stale = svc.probeGit('h')
+      svc.disconnect('h')
+      await svc.connect('h')
+      release(ok(GIT))
+      await stale
+      expect(await svc.probeGit('h')).toBeNull()
+      expect(calls.preflight).toBe(2)
+    })
+
+    it('clears the cache on disconnect', async () => {
+      const { svc, calls } = make({ connect: ok(''), preflight: ok(GIT) })
+      await svc.connect('h')
+      await svc.probeGit('h')
+      svc.disconnect('h')
+      await svc.connect('h')
+      await svc.probeGit('h')
+      expect(calls.preflight).toBe(2)
+    })
+
+    it('throws on a disconnected host', async () => {
+      await expect(make({}).svc.probeGit('h')).rejects.toThrow('Host ยังไม่ได้ connect')
+    })
   })
 })

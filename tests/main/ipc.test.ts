@@ -31,6 +31,7 @@ function fakeApi(): MainApi {
       remove: fn(),
       status: fn(),
       connect: fn(),
+      probeGit: fn(),
       disconnect: fn()
     },
     repos: { listGitHub: fn(), list: fn(), updatePolicy: fn() },

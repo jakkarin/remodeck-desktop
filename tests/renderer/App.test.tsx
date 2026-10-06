@@ -85,7 +85,7 @@ beforeEach(() => {
 
 describe('App empty states', () => {
   it('no hosts: invites adding the first sandbox, top bar stays', async () => {
-    setup([], [], { state: 'disconnected', warnings: [] })
+    setup([], [], { state: 'disconnected' })
     render(<App />)
     expect(await screen.findByText('เพิ่ม sandbox แรก')).toBeInTheDocument()
     expect(screen.getByRole('banner')).toBeInTheDocument()
@@ -94,15 +94,15 @@ describe('App empty states', () => {
   })
 
   it('hosts but no workspace, connected: offers Clone repo', async () => {
-    setup([host], [], { state: 'connected', warnings: [] })
+    setup([host], [], { state: 'connected' })
     render(<App />)
     expect(await screen.findByRole('button', { name: 'Clone repo' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Connect' })).toBeNull()
   })
 
   it('hosts but none connected: offers Connect for the first host', async () => {
-    setup([host], [], { state: 'disconnected', warnings: [] })
-    vi.mocked(api.hosts.connect).mockResolvedValue({ state: 'connected', warnings: [] })
+    setup([host], [], { state: 'disconnected' })
+    vi.mocked(api.hosts.connect).mockResolvedValue({ state: 'connected' })
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Connect' }))
     await waitFor(() => expect(api.hosts.connect).toHaveBeenCalledWith('h1'))
@@ -111,7 +111,7 @@ describe('App empty states', () => {
 
 describe('App with a workspace', () => {
   it('shows the branches pane and the terminal bar with a collapse toggle', async () => {
-    setup([host], [ws], { state: 'connected', warnings: [] })
+    setup([host], [ws], { state: 'connected' })
     vi.mocked(api.workspaces.branches).mockResolvedValue([])
     render(<App />)
     expect(await screen.findByRole('listbox', { name: 'Branches' })).toBeInTheDocument()
@@ -122,7 +122,7 @@ describe('App with a workspace', () => {
   })
 
   it('the + button opens a terminal in the active workspace', async () => {
-    setup([host], [ws], { state: 'connected', warnings: [] })
+    setup([host], [ws], { state: 'connected' })
     vi.mocked(api.terminal.open).mockResolvedValue({ tabId: 't1', label: 'x' })
     render(<App />)
     const plus = await screen.findByRole('button', { name: 'New terminal' })
@@ -132,7 +132,7 @@ describe('App with a workspace', () => {
   })
 
   it('the + button is disabled with a tooltip when the host is disconnected', async () => {
-    setup([host], [ws], { state: 'disconnected', warnings: [] })
+    setup([host], [ws], { state: 'disconnected' })
     render(<App />)
     const plus = await screen.findByRole('button', { name: 'New terminal' })
     expect(plus).toBeDisabled()
@@ -152,14 +152,14 @@ describe('App prefs', () => {
   }
 
   it('applies the stored theme at startup', async () => {
-    setup([host], [ws], { state: 'connected', warnings: [] })
+    setup([host], [ws], { state: 'connected' })
     vi.mocked(api.prefs.get).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'dark' })
     render(<App />)
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'))
   })
 
   it('the top bar opens settings; changing the theme updates prefs and data-theme', async () => {
-    setup([host], [ws], { state: 'connected', warnings: [] })
+    setup([host], [ws], { state: 'connected' })
     vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'light' })
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
@@ -171,7 +171,7 @@ describe('App prefs', () => {
   })
 
   it('Repo settings in the workspace menu opens settings at that repo', async () => {
-    setup([host], [ws], { state: 'connected', warnings: [] })
+    setup([host], [ws], { state: 'connected' })
     vi.mocked(api.repos.list).mockResolvedValue([{ ...repo, id: 'r0', name: 'other' }, repo])
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Switch workspace' }))
@@ -186,7 +186,7 @@ describe('App prefs', () => {
   })
 
   it('font size change updates open terminals without recreating them', async () => {
-    setup([host], [ws], { state: 'connected', warnings: [] })
+    setup([host], [ws], { state: 'connected' })
     vi.mocked(api.prefs.get).mockResolvedValue({ ...DEFAULT_PREFS, terminalFontSize: 15 })
     vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, terminalFontSize: 18 })
     vi.mocked(api.terminal.open).mockResolvedValue({ tabId: 't1', label: 'x' })

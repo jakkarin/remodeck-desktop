@@ -83,10 +83,10 @@ export type SyncInfo = { kind: 'light' | 'full'; at: number; error?: string }
 
 export type HostState = 'disconnected' | 'connecting' | 'connected' | 'error'
 
+export type GitCapability = { version: string; remoteHttp: boolean; forward: boolean }
+
 export type HostStatus = {
   state: HostState
-  gitVersion?: string
-  warnings: string[]
   error?: string
 }
 

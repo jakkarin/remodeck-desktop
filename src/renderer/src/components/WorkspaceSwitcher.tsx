@@ -11,7 +11,7 @@ import { AddExistingDialog } from './AddExistingDialog'
 import { CloneDialog } from './CloneDialog'
 import { RemoveHostDialog, RemoveWorkspaceDialog } from './RemoveDialogs'
 
-const DISCONNECTED: HostStatus = { state: 'disconnected', warnings: [] }
+const DISCONNECTED: HostStatus = { state: 'disconnected' }
 
 export function WorkspaceSwitcher(): React.JSX.Element {
   const {
@@ -153,13 +153,6 @@ export function WorkspaceSwitcher(): React.JSX.Element {
                 )}
                 {status.state === 'error' && status.error && (
                   <div className="error">{status.error}</div>
-                )}
-                {status.warnings.length > 0 && (
-                  <ul className="warnings">
-                    {status.warnings.map((w, i) => (
-                      <li key={i}>{w}</li>
-                    ))}
-                  </ul>
                 )}
                 <ul className="workspaces">
                   {hostWorkspaces.map((w) => {

@@ -46,7 +46,7 @@ function renderBar(
   )
 }
 
-const up: HostStatus = { state: 'connected', warnings: [] }
+const up: HostStatus = { state: 'connected' }
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -100,7 +100,7 @@ describe('TopBar', () => {
   })
 
   it.each(['disconnected', 'error'] as const)('disables Sync when the host is %s', (state) => {
-    renderBar({ state, warnings: [] })
+    renderBar({ state })
     const btn = screen.getByRole('button', { name: 'Sync' })
     expect(btn).toBeDisabled()
     expect(btn).toHaveAttribute('title', 'Host ยังไม่ได้ connect')
