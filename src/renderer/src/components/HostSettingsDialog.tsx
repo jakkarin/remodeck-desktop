@@ -52,8 +52,7 @@ export function HostSettingsDialog({
           Protected host
         </label>
         <div id="host-protected-hint" className="muted">
-          แสดงแถบสีแดงและป้าย protected — การยืนยันด้วยการพิมพ์ชื่อ host
-          ก่อนคำสั่งอันตรายจะมาพร้อมโมดูล Containers
+          ต้องพิมพ์ชื่อ host ก่อนสั่งคำสั่งอันตราย
         </div>
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">

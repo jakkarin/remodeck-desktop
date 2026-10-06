@@ -29,9 +29,7 @@ describe('HostSettingsDialog', () => {
         />
       </AppStateContext.Provider>
     )
-    const hint = screen.getByText(
-      'แสดงแถบสีแดงและป้าย protected — การยืนยันด้วยการพิมพ์ชื่อ host ก่อนคำสั่งอันตรายจะมาพร้อมโมดูล Containers'
-    )
+    const hint = screen.getByText('ต้องพิมพ์ชื่อ host ก่อนสั่งคำสั่งอันตราย')
     expect(hint).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Protected host' })).toHaveAccessibleDescription(
       hint.textContent as string
