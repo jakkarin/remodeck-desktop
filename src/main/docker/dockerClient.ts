@@ -70,6 +70,7 @@ export class DockerClient {
   private readonly timeoutMs: number
   private readonly idleMs: number
   private readonly idleTimers = new Map<object, NodeJS.Timeout>()
+  private readonly hooked = new WeakSet<object>()
   private readonly streamAgents = new Set<DialAgent>()
 
   constructor(private readonly opts: DockerClientOptions) {
@@ -80,7 +81,10 @@ export class DockerClient {
       const t = setTimeout(() => socket.destroy(), this.idleMs)
       t.unref()
       this.idleTimers.set(socket, t)
-      socket.once('close', () => this.clearIdle(socket))
+      if (!this.hooked.has(socket)) {
+        this.hooked.add(socket)
+        socket.once('close', () => this.clearIdle(socket))
+      }
     })
   }
 

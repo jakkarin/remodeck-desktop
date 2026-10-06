@@ -226,4 +226,30 @@ describe('DockerClient', () => {
       expect(dials).toBe(2)
     })
   })
+
+  it('does not accumulate close listeners across reuses', async () => {
+    const c = await start((_req, res) => res.end('{}'))
+    client.destroy()
+    const port = (server!.address() as AddressInfo).port
+    let sock: net.Socket | undefined
+    client = new DockerClient({
+      connect: () => (sock = net.connect(port, '127.0.0.1'))
+    })
+    const warnings: unknown[] = []
+    const onWarn = (w: unknown): number => warnings.push(w)
+    process.on('warning', onWarn)
+    try {
+      await client.json('GET', '/0')
+      await sleep(0)
+      const baseline = sock!.listenerCount('close')
+      for (let i = 1; i < 15; i++) await client.json('GET', `/${i}`)
+      await sleep(10)
+      expect(connections).toBe(1)
+      expect(sock!.listenerCount('close')).toBe(baseline)
+      expect(warnings).toEqual([])
+    } finally {
+      process.off('warning', onWarn)
+    }
+    void c
+  })
 })
