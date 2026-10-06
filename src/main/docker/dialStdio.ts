@@ -11,6 +11,7 @@ export function spawnDuplex(cmd: string, args: string[]): Duplex {
   })
 
   const duplex = new Duplex({
+    allowHalfOpen: false,
     read() {
       child.stdout!.resume()
     },
@@ -32,13 +33,12 @@ export function spawnDuplex(cmd: string, args: string[]): Duplex {
     gotOutput = true
     if (!duplex.push(d)) child.stdout!.pause()
   })
-  child.stdout!.on('end', () => duplex.push(null))
   child.stdin!.on('error', () => {})
   child.on('error', (e) => duplex.destroy(e))
   child.on('close', (code) => {
-    if (!gotOutput && !duplex.destroyed) {
-      duplex.destroy(new Error(stderr.trim() || `exit ${code}`))
-    }
+    if (duplex.destroyed) return
+    if (!gotOutput) duplex.destroy(new Error(stderr.trim() || `exit ${code}`))
+    else duplex.push(null)
   })
 
   Object.defineProperty(duplex, 'child', { value: child })

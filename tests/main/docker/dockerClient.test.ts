@@ -3,6 +3,7 @@ import http from 'node:http'
 import net from 'node:net'
 import type { AddressInfo } from 'node:net'
 import { Duplex } from 'node:stream'
+import { spawnDuplex } from '../../../src/main/docker/dialStdio'
 import { DockerClient } from '../../../src/main/docker/dockerClient'
 
 let server: http.Server | undefined
@@ -148,5 +149,81 @@ describe('DockerClient', () => {
     for await (const l of c.stream('/events').lines) seen.push(l)
     expect(seen).toEqual([{ x: 1 }])
   })
-})
 
+  it('follow-up request succeeds after a timeout', async () => {
+    let n = 0
+    const c = await start((_req, res) => {
+      if (n++ === 0) return
+      res.end('{"ok":true}')
+    }, { timeoutMs: 100 })
+    await expect(c.json('GET', '/slow')).rejects.toThrow('timed out')
+    await expect(c.json('GET', '/fast')).resolves.toEqual({ ok: true })
+  })
+
+  it('stream closed before iteration opens no connection', async () => {
+    const c = await start((_req, res) => res.end('{}'))
+    const s = c.stream('/events')
+    s.close()
+    const seen: unknown[] = []
+    for await (const l of s.lines) seen.push(l)
+    expect(seen).toEqual([])
+    expect(connections).toBe(0)
+  })
+
+  describe('over a plain Duplex', () => {
+    const plain = (port: number, dials?: { n: number }) => () => {
+      if (dials) dials.n++
+      const sock = net.connect(port, '127.0.0.1')
+      return Duplex.from({ readable: sock, writable: sock }) as Duplex
+    }
+    const withClient = async (handler: http.RequestListener) => {
+      const c = await start(handler)
+      client.destroy()
+      const port = (server!.address() as AddressInfo).port
+      const dials = { n: 0 }
+      client = new DockerClient({ connect: plain(port, dials), timeoutMs: 500 })
+      return { c: client, dials }
+    }
+
+    it('reuses one connection for sequential requests', async () => {
+      const { c, dials } = await withClient((_req, res) => res.end('{}'))
+      await c.json('GET', '/a')
+      await c.json('GET', '/b')
+      expect(dials.n).toBe(1)
+      expect(connections).toBe(1)
+    })
+
+    it('rejects when the stream dies mid-response, then redials', async () => {
+      let n = 0
+      const { c, dials } = await withClient((req, res) => {
+        if (n++ === 0) {
+          res.writeHead(200, { 'content-length': '100' })
+          res.write('{"a":')
+          setTimeout(() => req.socket.destroy(), 20)
+          return
+        }
+        res.end('{"ok":1}')
+      })
+      await expect(c.json('GET', '/a')).rejects.toThrow()
+      await expect(c.json('GET', '/b')).resolves.toEqual({ ok: 1 })
+      expect(dials.n).toBe(2)
+    })
+
+    it('spawnDuplex child exit after output evicts the socket', async () => {
+      const script =
+        "process.stdin.once('data',()=>{process.stdout.write('HTTP/1.1 200 OK\\r\\ncontent-length: 2\\r\\n\\r\\n{}');setTimeout(()=>process.exit(0),20)})"
+      let dials = 0
+      client = new DockerClient({
+        connect: () => {
+          dials++
+          return spawnDuplex(process.execPath, ['-e', script])
+        },
+        timeoutMs: 2000
+      })
+      await client.json('GET', '/a')
+      await sleep(150)
+      await client.json('GET', '/b')
+      expect(dials).toBe(2)
+    })
+  })
+})

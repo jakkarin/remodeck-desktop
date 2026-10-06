@@ -69,7 +69,7 @@ export class DockerClient {
   private readonly agent: DialAgent
   private readonly timeoutMs: number
   private readonly idleMs: number
-  private readonly idleTimers = new WeakMap<object, NodeJS.Timeout>()
+  private readonly idleTimers = new Map<object, NodeJS.Timeout>()
   private readonly streamAgents = new Set<DialAgent>()
 
   constructor(private readonly opts: DockerClientOptions) {
@@ -80,6 +80,7 @@ export class DockerClient {
       const t = setTimeout(() => socket.destroy(), this.idleMs)
       t.unref()
       this.idleTimers.set(socket, t)
+      socket.once('close', () => this.clearIdle(socket))
     })
   }
 
@@ -145,6 +146,7 @@ export class DockerClient {
     }
 
     const lines = (async function* (): AsyncGenerator<unknown> {
+      if (closed) return
       const res = await new Promise<http.IncomingMessage>((resolve, reject) => {
         req = http.request({ agent, method: 'GET', path, headers: { Host: 'docker' } }, resolve)
         req.on('error', reject)
@@ -187,6 +189,8 @@ export class DockerClient {
   }
 
   destroy(): void {
+    for (const t of this.idleTimers.values()) clearTimeout(t)
+    this.idleTimers.clear()
     this.agent.destroy()
     for (const a of this.streamAgents) a.destroy()
     this.streamAgents.clear()
