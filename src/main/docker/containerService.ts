@@ -30,7 +30,8 @@ type HostState = {
   stream?: { close(): void }
   opening?: Promise<ContainerInfo[]>
   inflight: Map<string, { dirty: boolean }>
-  relisting?: Promise<boolean>
+  relisting?: { owner: { close(): void } | undefined; promise: Promise<boolean> }
+  relistSeq: number
   syncing?: Set<string>
 }
 
@@ -61,7 +62,8 @@ export class ContainerService extends EventEmitter {
       ready: false,
       disposed: false,
       live: false,
-      inflight: new Map()
+      inflight: new Map(),
+      relistSeq: 0
     }
     this.hosts.set(hostId, st)
     st.opening = (async () => {
@@ -139,12 +141,15 @@ export class ContainerService extends EventEmitter {
 
   /** One coalesced full relist. On failure: live=false and the stream is closed so the loop reconnects. */
   private fullRelist(hostId: string, st: HostState): Promise<boolean> {
-    if (st.relisting) return st.relisting
     const owner = st.stream
+    // Only coalesce with a relist started for the same stream; otherwise start a fresh one.
+    if (st.relisting && st.relisting.owner === owner) return st.relisting.promise
+    const seq = ++st.relistSeq
     const p = (async () => {
       try {
         const raw = await st.client.json<unknown[]>('GET', LIST_PATH)
         if (st.disposed) return false
+        if (seq !== st.relistSeq) return true // a newer relist supersedes this data
         this.fill(st, raw)
         this.emit('changed', hostId, this.snapshot(st))
         return true
@@ -159,10 +164,10 @@ export class ContainerService extends EventEmitter {
         }
         return false
       } finally {
-        st.relisting = undefined
+        if (st.relisting?.promise === p) st.relisting = undefined
       }
     })()
-    st.relisting = p
+    st.relisting = { owner, promise: p }
     return p
   }
 
@@ -197,11 +202,12 @@ export class ContainerService extends EventEmitter {
 
   private async onOpen(hostId: string, st: HostState): Promise<void> {
     if (st.disposed) return
+    const mine = st.stream
     st.syncing = new Set()
     const ok = await this.fullRelist(hostId, st)
     const dirty = st.syncing
     st.syncing = undefined
-    if (st.disposed || !ok) return
+    if (st.disposed || !ok || st.stream !== mine) return
     this.setLive(hostId, st, true)
     for (const id of dirty ?? []) void this.refetch(hostId, st, id)
   }

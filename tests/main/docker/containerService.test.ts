@@ -509,4 +509,52 @@ describe('ContainerService', () => {
     expect(t.sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000])
     expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).map((c) => c.id)).toEqual([ID1, ID2])
   })
+
+  it('a stale relist failing does not close or de-live a newer stream', async () => {
+    const q1 = makeQueue()
+    const q2 = makeQueue()
+    const t = setup({ streams: [q1, q2] })
+    const liveEvents: boolean[] = []
+    t.svc.on('live', (_h: string, v: boolean) => liveEvents.push(v))
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    await t.ready()
+    const lists: Array<{ resolve: (v: unknown) => void; reject: (e: Error) => void }> = []
+    t.json.mockImplementation((_m, path) => {
+      if (path !== LIST_PATH) return Promise.reject(new Error('refetch failed'))
+      return new Promise((resolve, reject) => lists.push({ resolve, reject }))
+    })
+    q1.push({ Actor: { ID: ID1 } })
+    await vi.waitFor(() => expect(lists).toHaveLength(1))
+    q1.end()
+    await vi.waitFor(() => expect(lists).toHaveLength(2))
+    lists[0].reject(new Error('old relist failed'))
+    lists[1].resolve([raw(ID1)])
+    await vi.waitFor(() => expect(liveEvents).toEqual([true, false, true]))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(q2.close).not.toHaveBeenCalled()
+    expect(liveEvents).toEqual([true, false, true])
+    expect(t.stream).toHaveBeenCalledTimes(2)
+  })
+
+  it('goes not-live, closes the stream and reconnects when the post-open relist fails', async () => {
+    const q1 = makeQueue()
+    const q2 = makeQueue()
+    let slept = 0
+    const t = setup({
+      streams: [q1, q2],
+      sleep: () => (slept++ < 1 ? Promise.resolve() : new Promise<void>(() => {}))
+    })
+    const liveEvents: boolean[] = []
+    t.svc.on('live', (_h: string, v: boolean) => liveEvents.push(v))
+    t.list([raw(ID1)])
+    await t.svc.open('h')
+    await t.ready()
+    t.json.mockRejectedValue(new Error('down'))
+    q1.end()
+    await vi.waitFor(() => expect(q2.close).toHaveBeenCalled())
+    await vi.waitFor(() => expect(t.sleep).toHaveBeenCalledTimes(2))
+    expect(liveEvents).toEqual([true, false])
+    expect(t.sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000])
+  })
 })
