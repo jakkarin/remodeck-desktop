@@ -3,7 +3,7 @@ import { readJson, writeJson } from './storage'
 
 export type SeenMap = Record<string, Record<string, string>>
 
-const KEY = 'regit.seen'
+const KEY = 'remodeck.seen'
 
 export function markBaseline(m: SeenMap, wsId: string, branches: BranchInfo[]): SeenMap {
   if (m[wsId]) return m

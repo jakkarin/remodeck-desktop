@@ -7,7 +7,7 @@ import { GitError, HostGit } from '../../../src/main/git/hostGit'
 describe('HostGit', () => {
   let tmp: string
   beforeEach(() => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'regit-'))
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-'))
   })
   afterEach(() => {
     fs.rmSync(tmp, { recursive: true, force: true })

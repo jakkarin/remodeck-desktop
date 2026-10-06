@@ -1,4 +1,6 @@
-# regit
+# remodeck
+
+**Git & Docker on your servers, over SSH.**
 
 Desktop app (Windows, Electron + TypeScript) for managing git in repos that live in an **AI sandbox**
 (Linux, reached over SSH) — while the sandbox **never holds a GitHub credential** and needs no network

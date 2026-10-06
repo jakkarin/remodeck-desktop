@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createApp } from './app'
 import { isAppNavigation } from './navigation'
+import { migrateDataDir } from './migrateDataDir'
 import { registerHandlers } from './ipc/handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -59,7 +60,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('dev.regit.desktop')
+  electronApp.setAppUserModelId('dev.remodeck.desktop')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -68,14 +69,16 @@ app.whenReady().then(async () => {
   })
 
   try {
-    const regit = await createApp({
-      dataDir: join(app.getPath('appData'), 'regit'),
+    const dataDir = join(app.getPath('appData'), 'remodeck')
+    migrateDataDir(join(app.getPath('appData'), 'regit'), dataDir)
+    const remodeck = await createApp({
+      dataDir,
       window: () => mainWindow
     })
-    disposeApp = regit.dispose
-    registerHandlers(ipcMain, regit.api)
+    disposeApp = remodeck.dispose
+    registerHandlers(ipcMain, remodeck.api)
   } catch (err) {
-    dialog.showErrorBox('regit', `เริ่มแอปไม่สำเร็จ\n${(err as Error).message}`)
+    dialog.showErrorBox('remodeck', `เริ่มแอปไม่สำเร็จ\n${(err as Error).message}`)
     app.exit(1)
     return
   }
@@ -94,7 +97,7 @@ app.on('will-quit', (event) => {
   disposeApp = null
   event.preventDefault()
   dispose()
-    .catch((err) => console.error('[regit] dispose failed:', err))
+    .catch((err) => console.error('[remodeck] dispose failed:', err))
     .finally(() => app.quit())
 })
 

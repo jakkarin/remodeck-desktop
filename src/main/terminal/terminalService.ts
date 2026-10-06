@@ -49,7 +49,7 @@ export const IDLE_MS = 3000
 const MAX_ATTEMPTS = 5
 const RETRY_WINDOW_MS = 3000
 const FORWARD_FAILED = 'remote port forwarding failed'
-const RETRY_NOTICE = '\r\n[regit] tunnel port busy, retrying…\r\n'
+const RETRY_NOTICE = '\r\n[remodeck] tunnel port busy, retrying…\r\n'
 const DEFAULT_SIZE = { cols: 80, rows: 24 }
 
 /** Real spawner backed by node-pty; loaded lazily so unit tests never touch the native module. */
@@ -203,7 +203,7 @@ export class TerminalService extends EventEmitter {
       this.release(tabId, tab)
       if (first) throw err
       const msg = err instanceof Error ? err.message : String(err)
-      this.emit('data', tabId, `\r\n[regit] ${msg}\r\n`)
+      this.emit('data', tabId, `\r\n[remodeck] ${msg}\r\n`)
       this.emit('exit', tabId, -1)
       return
     }

@@ -1,4 +1,4 @@
-# Regit design guidelines — Neutral
+# Remodeck design guidelines — Neutral
 
 แนวทางที่เลือก: desktop UI โทน neutral โดยคง layout Branches / Changes / Diff
 และ terminal ด้านล่าง รวมถึงการลากปรับขนาดและค่าที่บันทึกไว้เดิม
@@ -12,7 +12,7 @@
 
 ใช้ semantic tokens แทนการใส่สี hex ใน component ธีมตามระบบด้วย `prefers-color-scheme`
 และ terminal เปลี่ยนสีตามระบบด้วยโดยไม่ต้องเปิดใหม่ ผู้ใช้เลือกบังคับ light/dark ได้ใน Settings > Appearance
-(เก็บใน config ของ regit) โดยตั้ง `data-theme` บน `<html>`; ค่า System จะไม่มี attribute นี้
+(เก็บใน config ของ remodeck) โดยตั้ง `data-theme` บน `<html>`; ค่า System จะไม่มี attribute นี้
 
 ## Surfaces and color
 

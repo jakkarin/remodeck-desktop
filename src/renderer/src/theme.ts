@@ -10,7 +10,7 @@ export function xtermTheme(read: (name: string) => string): ITheme {
   }
 }
 
-const THEME_CACHE_KEY = 'regit.theme'
+const THEME_CACHE_KEY = 'remodeck.theme'
 
 /** Forces light/dark via `data-theme` on <html>; `system` removes it so the OS preference applies. */
 export function applyTheme(theme: Theme): void {

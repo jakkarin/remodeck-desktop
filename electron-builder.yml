@@ -1,5 +1,5 @@
-appId: dev.regit.desktop
-productName: regit
+appId: dev.remodeck.desktop
+productName: remodeck
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: regit
+  executableName: remodeck
   icon: build/icon.ico
 nsis:
   installerIcon: build/icon.ico

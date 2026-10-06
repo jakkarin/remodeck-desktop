@@ -106,9 +106,9 @@ export async function createApp(opts: {
       if (minimized) win.restore()
       win.show()
       win.focus()
-      if (minimized) notify('regit: push approval needed', `${req.repoLabel} — ${req.tabLabel}`)
+      if (minimized) notify('remodeck: push approval needed', `${req.repoLabel} — ${req.tabLabel}`)
     })
-  const approval = new ApprovalService({ store, prompt, notify: (msg) => notify('regit', msg) })
+  const approval = new ApprovalService({ store, prompt, notify: (msg) => notify('remodeck', msg) })
 
   const bridge = new GitBridge({ upstreamBase: githubBase, credential, approval, store })
   const bridgePort = await bridge.start()

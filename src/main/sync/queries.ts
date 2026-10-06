@@ -135,8 +135,8 @@ export async function getDiff(
   return (await git.run(mirrorPath, args)).stdout
 }
 
-const LIST_END = '@@REGIT-LIST-END@@'
-const WT_MARK = '@@REGIT-WT@@ '
+const LIST_END = '@@REMODECK-LIST-END@@'
+const WT_MARK = '@@REMODECK-WT@@ '
 
 /** Worktrees of the sandbox repo with their dirty-entry counts, gathered in one round trip. */
 export async function listWorktrees(

@@ -47,7 +47,7 @@ function ConfirmDialog({
   )
 }
 
-/** Removes a workspace from regit only; nothing in the sandbox is deleted. */
+/** Removes a workspace from remodeck only; nothing in the sandbox is deleted. */
 export function RemoveWorkspaceDialog({
   workspace,
   label,
@@ -70,7 +70,7 @@ export function RemoveWorkspaceDialog({
       }}
     >
       <p>
-        ลบ workspace <b>{label}</b> ออกจาก regit — ไม่มีการลบไฟล์ใน sandbox
+        ลบ workspace <b>{label}</b> ออกจาก remodeck — ไม่มีการลบไฟล์ใน sandbox
       </p>
       {last && (
         <label className="checkbox">
@@ -104,7 +104,7 @@ export function RemoveHostDialog({
       }}
     >
       <p>
-        ลบ host <b>{host.label}</b> ออกจาก regit — ไม่มีการลบไฟล์ใน sandbox
+        ลบ host <b>{host.label}</b> ออกจาก remodeck — ไม่มีการลบไฟล์ใน sandbox
       </p>
     </ConfirmDialog>
   )

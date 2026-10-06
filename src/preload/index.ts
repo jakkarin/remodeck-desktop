@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC_CHANNELS, type RegitApi, type RegitEvent } from '../shared/ipc'
+import { IPC_CHANNELS, type RemodeckApi, type RemodeckEvent } from '../shared/ipc'
 
 const C = IPC_CHANNELS
 const invoke =
@@ -11,7 +11,7 @@ const send =
   (...args: unknown[]): void =>
     ipcRenderer.send(channel, ...args)
 
-const regit: RegitApi = {
+const remodeck: RemodeckApi = {
   hosts: {
     list: invoke(C.hosts.list),
     add: invoke(C.hosts.add),
@@ -54,7 +54,7 @@ const regit: RegitApi = {
   approval: { respond: send(C.approval.respond) },
   prefs: { get: invoke(C.prefs.get), update: invoke(C.prefs.update) },
   pushLog: { read: invoke(C.pushLog.read) },
-  on(event: RegitEvent, cb: (...args: never[]) => void): () => void {
+  on(event: RemodeckEvent, cb: (...args: never[]) => void): () => void {
     const channel = C.events[event]
     if (!channel) throw new Error(`Unknown event ${String(event)}`)
     const listener = (_e: IpcRendererEvent, ...args: unknown[]): void =>
@@ -68,11 +68,11 @@ const regit: RegitApi = {
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('regit', regit)
+    contextBridge.exposeInMainWorld('remodeck', remodeck)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.regit = regit
+  window.remodeck = remodeck
 }

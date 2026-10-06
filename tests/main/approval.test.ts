@@ -12,7 +12,7 @@ let repoId: string
 
 beforeEach(() => {
   vi.useFakeTimers()
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'regit-approval-'))
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-approval-'))
   store = new Store(dir)
   repoId = store.upsertRepo('acme', 'api').id
 })

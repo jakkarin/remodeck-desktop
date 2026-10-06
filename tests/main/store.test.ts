@@ -7,7 +7,7 @@ import { DEFAULT_PREFS, type PushLogEntry } from '../../src/shared/types'
 
 let dir: string
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'regit-store-'))
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-store-'))
 })
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
 

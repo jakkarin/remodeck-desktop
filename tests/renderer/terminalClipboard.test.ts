@@ -173,11 +173,11 @@ describe('image paste', () => {
   const paste = (t: Setup): void => void t.key({ ...CS, code: 'KeyV' })
 
   it('pastes the uploaded path plus a space and never reads text', async () => {
-    const pasteImage = vi.fn(async () => '/home/u/.cache/regit/paste/a.png')
+    const pasteImage = vi.fn(async () => '/home/u/.cache/remodeck/paste/a.png')
     const t = setup({ clipOpts: { pasteImage } })
     paste(t)
     await flush()
-    expect(t.term.paste).toHaveBeenCalledWith('/home/u/.cache/regit/paste/a.png ')
+    expect(t.term.paste).toHaveBeenCalledWith('/home/u/.cache/remodeck/paste/a.png ')
     expect(t.clipboard.readText).not.toHaveBeenCalled()
   })
 

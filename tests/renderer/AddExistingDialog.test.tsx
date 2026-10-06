@@ -72,7 +72,7 @@ describe('AddExistingDialog', () => {
     expect(api.workspaces.addExisting).not.toHaveBeenCalled()
     expect(screen.getByText(/จะผูก workspace นี้กับ github\.com\/o\/r/)).toBeInTheDocument()
     expect(
-      screen.getByText(/regit จะ fetch repo นี้ด้วย GitHub credential ของคุณ/)
+      screen.getByText(/remodeck จะ fetch repo นี้ด้วย GitHub credential ของคุณ/)
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Path')).toBeDisabled()
   })
@@ -99,18 +99,18 @@ describe('AddExistingDialog', () => {
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1' })))
   })
 
-  it('warns when the repo is not yet known to regit', async () => {
+  it('warns when the repo is not yet known to remodeck', async () => {
     renderDialog(['h1'])
     await check('~/x', { known: false })
     expect(
-      screen.getByText('repo นี้ยังไม่เคยใช้ใน regit — ตรวจสอบให้แน่ใจว่าเป็น repo ที่ตั้งใจ')
+      screen.getByText('repo นี้ยังไม่เคยใช้ใน remodeck — ตรวจสอบให้แน่ใจว่าเป็น repo ที่ตั้งใจ')
     ).toBeInTheDocument()
   })
 
   it('shows no warnings for a known repo without Always allow push', async () => {
     renderDialog(['h1'])
     await check('~/x')
-    expect(screen.queryByText(/ยังไม่เคยใช้ใน regit/)).toBeNull()
+    expect(screen.queryByText(/ยังไม่เคยใช้ใน remodeck/)).toBeNull()
     expect(screen.queryByText(/Always allow push/)).toBeNull()
   })
 

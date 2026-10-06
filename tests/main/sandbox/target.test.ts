@@ -19,7 +19,7 @@ describe('SshTarget', () => {
 describe('LocalTarget', () => {
   let home: string
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'regit-x-')).replaceAll('\\', '/')
+    home = mkdtempSync(join(tmpdir(), 'remodeck-x-')).replaceAll('\\', '/')
   })
   afterEach(() => rmSync(home, { recursive: true, force: true }))
 

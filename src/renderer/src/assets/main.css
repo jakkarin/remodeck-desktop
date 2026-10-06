@@ -666,9 +666,9 @@ textarea::placeholder {
   color: var(--attention);
 }
 .spinning {
-  animation: regit-spin 1s linear infinite;
+  animation: remodeck-spin 1s linear infinite;
 }
-@keyframes regit-spin {
+@keyframes remodeck-spin {
   to {
     transform: rotate(360deg);
   }

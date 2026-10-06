@@ -25,14 +25,14 @@ vi.mock('electron', () => ({
 }))
 
 const EV = IPC_CHANNELS.events
-const IMAGE = 'regit-e2e-sandbox:latest'
+const IMAGE = 'remodeck-e2e-sandbox:latest'
 const SECRET = 'e2e-secret-github-token'
 // Git for Windows' ssh honours $HOME, so a throwaway ~/.ssh/config can define the sandbox aliases.
 const GIT_BIN = 'C:/Program Files/Git/usr/bin'
 const SSH = process.platform === 'win32' ? `${GIT_BIN}/ssh.exe` : 'ssh'
 const SSH_KEYGEN = process.platform === 'win32' ? `${GIT_BIN}/ssh-keygen.exe` : 'ssh-keygen'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'regit-e2e-'))
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-e2e-'))
 const slash = (p: string): string => p.replaceAll('\\', '/')
 
 function hg(cwd: string, ...args: string[]): string {
@@ -177,7 +177,7 @@ afterAll(async () => {
   fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 })
 
-describe('regit against real sandboxes', () => {
+describe('remodeck against real sandboxes', () => {
   let h1: Host
   let h2: Host
   let ws1: Workspace

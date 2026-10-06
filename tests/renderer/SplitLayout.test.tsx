@@ -22,7 +22,7 @@ const drag = (sep: HTMLElement, from: number, to: number, axis: 'x' | 'y' = 'x')
 }
 
 const stored = (): Record<string, unknown> =>
-  JSON.parse(localStorage.getItem('regit.layout') ?? '{}')
+  JSON.parse(localStorage.getItem('remodeck.layout') ?? '{}')
 
 describe('SplitLayout', () => {
   afterEach(() => localStorage.clear())
@@ -61,7 +61,7 @@ describe('SplitLayout', () => {
   })
 
   it('falls back to defaults on corrupt JSON', () => {
-    localStorage.setItem('regit.layout', '{nope')
+    localStorage.setItem('remodeck.layout', '{nope')
     expect(readLayout()).toEqual({ left: 240, middle: 320, bottom: 260, collapsed: false })
   })
 

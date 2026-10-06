@@ -1,6 +1,6 @@
-import type { RegitApi } from '../../shared/ipc'
+import type { RemodeckApi } from '../../shared/ipc'
 
-export const api: RegitApi = window.regit
+export const api: RemodeckApi = window.remodeck
 
 /** Human-readable message from a rejected IPC call (strips Electron's "Error invoking remote method" prefix). */
 export function errorMessage(e: unknown): string {

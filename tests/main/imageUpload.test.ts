@@ -16,24 +16,24 @@ import { MAX_IMAGE_BYTES, uploadImage } from '../../src/main/terminal/imageUploa
 describe('uploadImage', () => {
   let home: string
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'regit-img-')).replaceAll('\\', '/')
+    home = mkdtempSync(join(tmpdir(), 'remodeck-img-')).replaceAll('\\', '/')
   })
   afterEach(() => rmSync(home, { recursive: true, force: true }))
 
-  it('round-trips every byte value into ~/.cache/regit/paste with the given ext', async () => {
+  it('round-trips every byte value into ~/.cache/remodeck/paste with the given ext', async () => {
     const bytes = new Uint8Array(1024)
     for (let i = 0; i < bytes.length; i++) bytes[i] = i % 256
     const remote = await uploadImage(new LocalTarget(home), bytes, 'webp')
     // Git Bash on Windows maps C:/... to /c/... or /tmp/...: compare the part under $HOME and read via the local path.
     const rel = remote.slice(remote.indexOf('/.cache/'))
-    expect(rel).toMatch(/^[/][.]cache[/]regit[/]paste[/][0-9a-f-]{36}[.]webp$/)
+    expect(rel).toMatch(/^[/][.]cache[/]remodeck[/]paste[/][0-9a-f-]{36}[.]webp$/)
     const p = home + rel
     expect(p.endsWith('.webp')).toBe(true)
     expect(Uint8Array.from(readFileSync(p))).toEqual(bytes)
   })
 
   it('removes files older than a day but keeps fresh ones', async () => {
-    const dir = `${home}/.cache/regit/paste`
+    const dir = `${home}/.cache/remodeck/paste`
     mkdirSync(dir, { recursive: true })
     const old = `${dir}/old.png`
     const fresh = `${dir}/fresh.png`

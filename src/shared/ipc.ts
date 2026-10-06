@@ -21,8 +21,8 @@ export type RepoPolicyPatch = Partial<
   Pick<Repo, 'protectedBranches' | 'alwaysAllowPush' | 'enforceRules'>
 >
 
-/** Exposed to the renderer as `window.regit`. */
-export interface RegitApi {
+/** Exposed to the renderer as `window.remodeck`. */
+export interface RemodeckApi {
   hosts: {
     list(): Promise<Host[]>
     add(sshHost: string, label: string): Promise<Host>
@@ -85,9 +85,9 @@ export interface RegitApi {
 }
 
 /** Main-side implementation of the API; events are pushed with webContents.send instead of `on`. */
-export type MainApi = Omit<RegitApi, 'on'>
+export type MainApi = Omit<RemodeckApi, 'on'>
 
-export type RegitEvent =
+export type RemodeckEvent =
   'host-status' | 'terminal-data' | 'terminal-exit' | 'approval-request' | 'workspace-synced'
 
 export const IPC_CHANNELS = {
@@ -141,7 +141,7 @@ export const IPC_CHANNELS = {
     'workspace-synced': 'event:workspace-synced'
   }
 } as const satisfies { [G in keyof MainApi]: { [M in keyof MainApi[G]]: string } } & {
-  events: Record<RegitEvent, string>
+  events: Record<RemodeckEvent, string>
 }
 
 /** Fire-and-forget channels (ipcRenderer.send / ipcMain.on); every other method channel is invoke/handle. */

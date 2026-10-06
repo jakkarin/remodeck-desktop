@@ -6,7 +6,7 @@ export const IMAGE_EXTS: readonly ImageExt[] = ['png', 'jpg', 'gif', 'webp']
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 /**
- * Uploads an image to `$HOME/.cache/regit/paste` on the sandbox (outside any repo) and returns its absolute path.
+ * Uploads an image to `$HOME/.cache/remodeck/paste` on the sandbox (outside any repo) and returns its absolute path.
  * Files older than a day in that directory are removed best-effort.
  */
 export async function uploadImage(
@@ -24,14 +24,14 @@ export async function uploadImage(
   const script = [
     'set -e',
     'umask 077',
-    'd="$HOME/.cache/regit/paste"',
+    'd="$HOME/.cache/remodeck/paste"',
     'mkdir -p "$d"',
     'chmod 700 "$d"',
     'find "$d" -type f -mmin +1440 -delete 2>/dev/null || true',
     `f="$d/${name}"`,
-    `base64 -d > "$f" <<'REGIT_EOF'`,
+    `base64 -d > "$f" <<'REMODECK_EOF'`,
     b64,
-    'REGIT_EOF',
+    'REMODECK_EOF',
     'printf \'%s\n\' "$f"',
     ''
   ].join('\n')

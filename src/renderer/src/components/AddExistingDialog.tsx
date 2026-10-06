@@ -107,12 +107,12 @@ export function AddExistingDialog({
               {`จะผูก workspace นี้กับ github.com/${info.owner}/${info.name}`}
             </p>
             <p>
-              regit จะ fetch repo นี้ด้วย GitHub credential ของคุณ แล้ว push branch/tag ทั้งหมดของ
+              remodeck จะ fetch repo นี้ด้วย GitHub credential ของคุณ แล้ว push branch/tag ทั้งหมดของ
               repo นี้เข้า sandbox
             </p>
             {!info.known && (
               <div className="warning">
-                repo นี้ยังไม่เคยใช้ใน regit — ตรวจสอบให้แน่ใจว่าเป็น repo ที่ตั้งใจ
+                repo นี้ยังไม่เคยใช้ใน remodeck — ตรวจสอบให้แน่ใจว่าเป็น repo ที่ตั้งใจ
               </div>
             )}
             {info.alwaysAllowPush && (

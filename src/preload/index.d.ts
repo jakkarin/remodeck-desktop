@@ -1,7 +1,7 @@
-import type { RegitApi } from '../shared/ipc'
+import type { RemodeckApi } from '../shared/ipc'
 
 declare global {
   interface Window {
-    regit: RegitApi
+    remodeck: RemodeckApi
   }
 }

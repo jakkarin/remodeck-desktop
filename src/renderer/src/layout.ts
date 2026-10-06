@@ -1,6 +1,6 @@
 import { readJson, writeJson } from './storage'
 
-export const LAYOUT_KEY = 'regit.layout'
+export const LAYOUT_KEY = 'remodeck.layout'
 export const MIN_COL = 160
 export const MIN_BOTTOM = 80
 

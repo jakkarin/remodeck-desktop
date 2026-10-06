@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 export function makeTmp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'regit-'))
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-'))
 }
 
 /** Runs git in `cwd`; resolves stdout, rejects on non-zero exit. */

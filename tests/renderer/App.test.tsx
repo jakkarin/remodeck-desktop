@@ -118,7 +118,7 @@ describe('App with a workspace', () => {
     const toggle = screen.getByRole('button', { name: 'Collapse terminal' })
     fireEvent.click(toggle)
     expect(screen.getByRole('button', { name: 'Expand terminal' })).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('regit.layout') ?? '{}').collapsed).toBe(true)
+    expect(JSON.parse(localStorage.getItem('remodeck.layout') ?? '{}').collapsed).toBe(true)
   })
 
   it('the + button opens a terminal in the active workspace', async () => {

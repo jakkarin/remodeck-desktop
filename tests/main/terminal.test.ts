@@ -25,7 +25,7 @@ class FakePty implements PtyLike {
   }
 }
 
-const NOTICE = '\r\n[regit] tunnel port busy, retrying…\r\n'
+const NOTICE = '\r\n[remodeck] tunnel port busy, retrying…\r\n'
 const FORWARD_ERR = 'Warning: remote port forwarding failed for listen port 30000\r\n'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -343,7 +343,7 @@ describe('TerminalService', () => {
     })
     ptys[0].dataCb(FORWARD_ERR)
     expect(() => ptys[0].exitCb({ exitCode: 255 })).not.toThrow()
-    expect(events.slice(-2)).toEqual(['data:\r\n[regit] conpty boom\r\n', 'exit:-1'])
+    expect(events.slice(-2)).toEqual(['data:\r\n[remodeck] conpty boom\r\n', 'exit:-1'])
     expect(bridge.revokeSession).toHaveBeenCalledOnce()
     expect(approval.revokeSession).toHaveBeenCalledOnce()
   })

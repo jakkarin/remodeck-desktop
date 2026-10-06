@@ -1,4 +1,4 @@
-# A stand-in AI sandbox: plain Linux with sshd and git, nothing regit-specific installed.
+# A stand-in AI sandbox: plain Linux with sshd and git, nothing remodeck-specific installed.
 FROM debian:bookworm-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssh-server git ca-certificates \
@@ -6,7 +6,7 @@ RUN apt-get update \
  && useradd -m -s /bin/bash dev \
  && mkdir -p /run/sshd \
  && printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nAllowTcpForwarding yes\n' \
-      > /etc/ssh/sshd_config.d/regit-e2e.conf
+      > /etc/ssh/sshd_config.d/remodeck-e2e.conf
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 EXPOSE 22

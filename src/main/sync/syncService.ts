@@ -303,7 +303,7 @@ export class SyncService {
   /**
    * Register a repo that already exists in the sandbox as a workspace, without modifying it.
    * The only writes to the sandbox repo are the ones sync() always does (origin refs and tags pushed from the mirror):
-   * no `git init`, no remote changes, no checkout. On failure only regit's own records are rolled back.
+   * no `git init`, no remote changes, no checkout. On failure only remodeck's own records are rolled back.
    */
   async addExisting(
     hostId: string,
@@ -352,7 +352,7 @@ export class SyncService {
 
   /**
    * Read-only preview for the confirmation step: which GitHub repo this sandbox path resolves to, and whether
-   * regit already knows it. Writes nothing (no store change, no mirror, no fetch).
+   * remodeck already knows it. Writes nothing (no store change, no mirror, no fetch).
    */
   async describeExisting(hostId: string, sandboxPath: string): Promise<ExistingRepoInfo> {
     const path = this.checkExistingPath(hostId, sandboxPath)

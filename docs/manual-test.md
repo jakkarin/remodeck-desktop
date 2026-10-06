@@ -107,7 +107,7 @@
 |---|---|---|
 | 8.1 | ใน sandbox มี repo ที่ clone มาเองอยู่แล้ว (origin ชี้ไป GitHub) พร้อม branch ที่ยังไม่ push และไฟล์ที่ยังไม่ commit; จด `git rev-parse HEAD`, `git status --porcelain` และ `cat .git/config` ไว้ | ☐ |
 | 8.2 | Host connected → เปิด Switcher → กด "＋ Add existing repo…" → ใส่ path (เช่น `~/work/my-app`) → Check → ต้องเห็น "จะผูก workspace นี้กับ github.com/<owner>/<name>" (ยังไม่มีการ fetch/เพิ่มอะไร) → ตรวจว่าเป็น repo ที่ตั้งใจ แล้วกด Confirm & Add | ☐ |
-| 8.2a | Check repo ที่ยังไม่เคยใช้ใน regit → เห็นคำเตือน "repo นี้ยังไม่เคยใช้ใน regit"; Check repo ที่ตั้ง Always allow push ไว้ → เห็นคำเตือน "repo นี้ตั้ง Always allow push ไว้"; กด Back หรือแก้ path/host → กลับไปขั้น Check | ☐ |
+| 8.2a | Check repo ที่ยังไม่เคยใช้ใน remodeck → เห็นคำเตือน "repo นี้ยังไม่เคยใช้ใน remodeck"; Check repo ที่ตั้ง Always allow push ไว้ → เห็นคำเตือน "repo นี้ตั้ง Always allow push ไว้"; กด Back หรือแก้ path/host → กลับไปขั้น Check | ☐ |
 | 8.2b | หลัง Check แล้ว ใน sandbox รัน `git remote set-url origin https://github.com/other/repo.git` → กด Confirm & Add → error "origin ของ repo เปลี่ยนไปจากที่ยืนยัน (ตอนนี้ชี้ไป other/repo) — กรุณาตรวจสอบใหม่" ไม่มี workspace/repo/mirror ถูกเพิ่ม | ☐ |
 | 8.3 | Workspace ใหม่ถูกเลือกอัตโนมัติ; branch ที่มีเฉพาะใน sandbox แสดงในรายการ branch และ review ได้ | ☐ |
 | 8.4 | ใน sandbox: `git rev-parse HEAD`, `git status --porcelain` และ `.git/config` เหมือนที่จดไว้ทุกไบต์ (ไม่มี checkout, ไม่เปลี่ยน origin) | ☐ |
