@@ -689,4 +689,86 @@ describe('ContainerService', () => {
     expect(t.svc.find('h', ID1)).toBeNull()
     expect(t.svc.project('h', 'shop')).toBeNull()
   })
+
+  describe('stats and inspect', () => {
+    const STATS_PATH = (id: string): string => `/containers/${id}/stats?stream=false`
+    const goodStats = {
+      cpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 2000, online_cpus: 1 },
+      precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 1000 },
+      memory_stats: { usage: 1000, limit: 4000 }
+    }
+    const never = (): Promise<void> => new Promise<void>(() => {})
+
+    it('watchStats emits stats for running containers only', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1), raw(ID2, 'exited')])
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) =>
+        path === LIST_PATH ? [raw(ID1), raw(ID2, 'exited')] : goodStats
+      )
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      t.svc.watchStats('h', true) // idempotent
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1))
+      expect(got.mock.calls[0][0]).toBe('h')
+      expect(Object.keys(got.mock.calls[0][1])).toEqual([ID1])
+      expect(got.mock.calls[0][1][ID1]).toEqual({ cpu: 10, memBytes: 1000, memLimit: 4000 })
+      expect(t.json.mock.calls.filter((c) => c[1] === STATS_PATH(ID1)).length).toBe(1)
+      expect(t.json.mock.calls.some((c) => c[1] === STATS_PATH(ID2))).toBe(false)
+    })
+
+    it('watchStats(false) and dispose stop the loop', async () => {
+      let release: () => void = () => {}
+      const t = setup({ sleep: () => new Promise<void>((r) => (release = r)) })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) => (path === LIST_PATH ? [raw(ID1)] : goodStats))
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1))
+      t.svc.watchStats('h', false)
+      release()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(got).toHaveBeenCalledTimes(1)
+      // restart, then dispose
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(2))
+      t.svc.dispose('h')
+      release()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(got).toHaveBeenCalledTimes(2)
+    })
+
+    it('watchStats on an unopened host is a no-op', async () => {
+      const t = setup({ sleep: never })
+      expect(() => t.svc.watchStats('h', true)).not.toThrow()
+      expect(() => t.svc.watchStats('h', false)).not.toThrow()
+      expect(t.json).not.toHaveBeenCalled()
+    })
+
+    it('inspect returns raw JSON; 404 maps to Thai message; bad id rejected', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      const body = { Id: ID1, Config: {} }
+      t.json.mockImplementation(async (_m, path) =>
+        path === `/containers/${ID1}/json` ? body : []
+      )
+      await expect(t.svc.inspect('h', ID1)).resolves.toBe(body)
+      await expect(t.svc.inspect('h', 'bad/../id')).rejects.toThrow('container id ไม่ถูกต้อง')
+      await expect(t.svc.inspect('nope', ID1)).rejects.toThrow('ยังไม่ได้เปิด host นี้')
+      t.json.mockImplementation(async (_m, path) => {
+        if (path === `/containers/${ID1}/json`) throw new DockerError(404, 'no such container')
+        return []
+      })
+      await expect(t.svc.inspect('h', ID1)).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+      expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
+      t.json.mockImplementation(async () => {
+        throw new DockerError(500, 'daemon exploded')
+      })
+      await expect(t.svc.inspect('h', ID1)).rejects.toThrow('daemon exploded')
+    })
+  })
 })

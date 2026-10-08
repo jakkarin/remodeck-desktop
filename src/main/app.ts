@@ -72,7 +72,7 @@ function isTerminalRequest(r: unknown): r is HostTerminalRequest {
 export function containersApi(deps: {
   hostOf(id: string): Host
   connection: Pick<ConnectionService, 'requireConnected' | 'probeDocker'>
-  service: Pick<ContainerService, 'open' | 'action' | 'find' | 'project'>
+  service: Pick<ContainerService, 'open' | 'action' | 'find' | 'project' | 'inspect' | 'watchStats'>
   terminal: Pick<TerminalService, 'openHost'>
 }): MainApi['containers'] {
   return {
@@ -90,6 +90,21 @@ export function containersApi(deps: {
       deps.connection.requireConnected(hostId)
       if (!CONTAINER_ACTIONS.includes(action as string)) throw new Error('Invalid container action')
       return deps.service.action(hostId, id, action as ContainerAction)
+    },
+    inspect: async (hostId, id) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.service.inspect(hostId, id)
+    },
+    watchStats: (hostId, on) => {
+      try {
+        deps.hostOf(hostId)
+        deps.connection.requireConnected(hostId)
+        if (typeof on !== 'boolean') return
+        deps.service.watchStats(hostId, on)
+      } catch {
+        // unknown or disconnected host: nothing to watch
+      }
     },
     openTerminal: async (hostId, req) => {
       deps.hostOf(hostId)
@@ -120,6 +135,7 @@ export function wireContainerService(
 ): { onDisconnect(hostId: string): void } {
   service.on('changed', (hostId, list) => send(EV['containers-changed'], hostId, list))
   service.on('live', (hostId, live) => send(EV['containers-live'], hostId, live))
+  service.on('stats', (hostId, map) => send(EV['containers-stats'], hostId, map))
   return { onDisconnect: (hostId) => service.dispose(hostId) }
 }
 

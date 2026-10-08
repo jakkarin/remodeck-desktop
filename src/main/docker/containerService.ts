@@ -7,7 +7,9 @@ import {
   type ContainerProject,
   groupContainers
 } from '../../shared/containers'
+import type { ContainerStats } from '../../shared/containerDetails'
 import { DockerError, type DockerClient } from './dockerClient'
+import { startStatsLoop } from './statsLoop'
 
 const EVENTS_PATH = '/events?filters=' + encodeURIComponent('{"type":["container"]}')
 const LIST_PATH = '/containers/json?all=1'
@@ -48,6 +50,7 @@ type HostState = {
   relisting?: { owner: { close(): void } | undefined; promise: Promise<boolean> }
   relistSeq: number
   syncing?: Set<string>
+  stats?: { stop(): void }
 }
 
 function eventId(ev: unknown): string | undefined {
@@ -127,6 +130,46 @@ export class ContainerService extends EventEmitter {
     await this.refetch(hostId, st, id)
   }
 
+  watchStats(hostId: string, on: boolean): void {
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) return
+    if (!on) {
+      st.stats?.stop()
+      st.stats = undefined
+      return
+    }
+    if (st.stats) return
+    st.stats = startStatsLoop({
+      client: st.client,
+      runningIds: () =>
+        this.snapshot(st)
+          .filter((c) => c.state === 'running')
+          .map((c) => c.id),
+      emit: (map: Record<string, ContainerStats>) => {
+        if (!st.disposed) this.emit('stats', hostId, map)
+      },
+      sleep: this.sleep
+    })
+  }
+
+  async inspect(hostId: string, id: string): Promise<unknown> {
+    if (!CONTAINER_ID.test(id)) throw new Error('container id ไม่ถูกต้อง')
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
+    try {
+      return await st.client.json('GET', `/containers/${id}/json`)
+    } catch (e) {
+      if (e instanceof DockerError) {
+        if (e.status === 404) {
+          await this.refetch(hostId, st, id).catch(() => {})
+          throw new Error('container นี้ถูกลบไปแล้ว')
+        }
+        throw new Error(e.message)
+      }
+      throw e
+    }
+  }
+
   find(hostId: string, id: string): ContainerInfo | null {
     const st = this.hosts.get(hostId)
     return st && !st.disposed ? (st.list.get(id) ?? null) : null
@@ -143,6 +186,8 @@ export class ContainerService extends EventEmitter {
     if (!st) return
     this.hosts.delete(hostId)
     st.disposed = true
+    st.stats?.stop()
+    st.stats = undefined
     st.list.clear()
     st.inflight.clear()
     try {

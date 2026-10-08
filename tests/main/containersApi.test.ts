@@ -22,6 +22,8 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
   const service = {
     open: vi.fn(async () => ({ list: [], live: true })),
     action: vi.fn(async () => undefined),
+    inspect: vi.fn(async () => ({ Id: ID })),
+    watchStats: vi.fn(),
     find: vi.fn((_h: string, id: string) =>
       id === ID ? ({ id: ID, name: 'web-1' } as never) : null
     ),
@@ -29,12 +31,12 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
       name === 'My.App'
         ? ({ name: 'My.App', workingDir: '/srv/x', configFiles: [] } as never)
         : name === 'shop'
-        ? ({
-            name: 'shop',
-            workingDir: '/srv/shop',
-            configFiles: ['/srv/shop/compose.yml']
-          } as never)
-        : null
+          ? ({
+              name: 'shop',
+              workingDir: '/srv/shop',
+              configFiles: ['/srv/shop/compose.yml']
+            } as never)
+          : null
     )
   }
   const terminal = {
@@ -111,6 +113,42 @@ describe('containersApi', () => {
   })
 })
 
+describe('containersApi stats and inspect', () => {
+  it('inspect requires a connected host', async () => {
+    const t = setup({ connected: false })
+    await expect(t.api.inspect('h1', ID)).rejects.toThrow('Host ยังไม่ได้ connect')
+    expect(t.service.inspect).not.toHaveBeenCalled()
+  })
+
+  it('inspect delegates when connected and rejects an unknown host', async () => {
+    const t = setup()
+    await expect(t.api.inspect('h1', ID)).resolves.toEqual({ Id: ID })
+    expect(t.service.inspect).toHaveBeenCalledWith('h1', ID)
+    await expect(t.api.inspect('nope', ID)).rejects.toThrow('ไม่พบ host')
+  })
+
+  it('watchStats ignores a disconnected host without throwing', () => {
+    const t = setup({ connected: false })
+    expect(() => t.api.watchStats('h1', true)).not.toThrow()
+    expect(t.service.watchStats).not.toHaveBeenCalled()
+  })
+
+  it('watchStats ignores an unknown host and a non-boolean flag', () => {
+    const t = setup()
+    expect(() => t.api.watchStats('nope', true)).not.toThrow()
+    expect(() => t.api.watchStats('h1', 'yes' as never)).not.toThrow()
+    expect(t.service.watchStats).not.toHaveBeenCalled()
+  })
+
+  it('watchStats delegates for a connected host', () => {
+    const t = setup()
+    t.api.watchStats('h1', true)
+    t.api.watchStats('h1', false)
+    expect(t.service.watchStats).toHaveBeenNthCalledWith(1, 'h1', true)
+    expect(t.service.watchStats).toHaveBeenNthCalledWith(2, 'h1', false)
+  })
+})
+
 describe('wireContainerService', () => {
   it('forwards changed/live as IPC sends and disposes the host on disconnect', async () => {
     const { EventEmitter } = await import('node:events')
@@ -119,8 +157,12 @@ describe('wireContainerService', () => {
     const wiring = wireContainerService(svc as never, send)
     svc.emit('changed', 'h1', [{ id: 'x' }])
     svc.emit('live', 'h1', false)
+    svc.emit('stats', 'h1', { x: { cpu: 1, memBytes: 2, memLimit: 3 } })
     expect(send).toHaveBeenNthCalledWith(1, 'event:containers-changed', 'h1', [{ id: 'x' }])
     expect(send).toHaveBeenNthCalledWith(2, 'event:containers-live', 'h1', false)
+    expect(send).toHaveBeenNthCalledWith(3, 'event:containers-stats', 'h1', {
+      x: { cpu: 1, memBytes: 2, memLimit: 3 }
+    })
     wiring.onDisconnect('h1')
     expect(svc.dispose).toHaveBeenCalledWith('h1')
   })
