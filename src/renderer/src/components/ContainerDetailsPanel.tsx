@@ -1,0 +1,174 @@
+import { Eye, EyeOff, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { toContainerDetails, type ContainerDetails } from '../../../shared/containerDetails'
+import type { ContainerInfo } from '../../../shared/containers'
+import type { Host } from '../../../shared/types'
+import { api, errorMessage } from '../api'
+import { dangerLevel } from '../danger'
+import { Button, IconButton } from './ui'
+
+type Tab = 'overview' | 'env' | 'json'
+const TABS: [Tab, string][] = [
+  ['overview', 'Overview'],
+  ['env', 'Env'],
+  ['json', 'JSON']
+]
+const DASH = '—'
+
+function List({ items }: { items: string[] }): React.JSX.Element {
+  if (items.length === 0) return <>{DASH}</>
+  return (
+    <ul className="details-list mono">
+      {items.map((s, i) => (
+        <li key={`${i}:${s}`}>{s}</li>
+      ))}
+    </ul>
+  )
+}
+
+function Overview({ d }: { d: ContainerDetails['overview'] }): React.JSX.Element {
+  const state = d.exitCode === null ? d.state : `${d.state} (exit ${d.exitCode})`
+  const field = (label: string, value: React.ReactNode): React.JSX.Element => (
+    <>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </>
+  )
+  return (
+    <dl className="details-fields">
+      {field('Image', <span className="mono">{d.image || DASH}</span>)}
+      {field('Created', d.created || DASH)}
+      {field('State', state || DASH)}
+      {field('Restart policy', d.restartPolicy)}
+      {field('Ports', <List items={d.ports} />)}
+      {field(
+        'Mounts',
+        <List items={d.mounts.map((m) => `${m.source} → ${m.target} (${m.mode})`)} />
+      )}
+      {field('Networks', <List items={d.networks.map((n) => `${n.name} ${n.ip}`.trim())} />)}
+      {field('Labels', <List items={d.labels.map(([k, v]) => `${k}=${v}`)} />)}
+    </dl>
+  )
+}
+
+function Env({ env }: { env: ContainerDetails['env'] }): React.JSX.Element {
+  const [shown, setShown] = useState<ReadonlySet<number>>(new Set())
+  if (env.length === 0) return <div className="muted">ไม่มี environment variable</div>
+  const toggle = (i: number): void =>
+    setShown((s) => {
+      const n = new Set(s)
+      if (n.has(i)) n.delete(i)
+      else n.add(i)
+      return n
+    })
+  return (
+    <ul className="details-env">
+      {env.map((e, i) => {
+        const on = shown.has(i)
+        return (
+          <li key={`${i}:${e.key}`}>
+            <span className="mono details-env-text">
+              {e.key} = <span>{on ? e.value : '••••••'}</span>
+            </span>
+            <IconButton
+              aria-label={`${on ? 'ซ่อนค่า' : 'แสดงค่า'} ${e.key}`}
+              aria-pressed={on}
+              onClick={() => toggle(i)}
+            >
+              {on ? <EyeOff size={14} /> : <Eye size={14} />}
+            </IconButton>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+export function ContainerDetailsPanel({
+  host,
+  container,
+  onClose
+}: {
+  host: Host
+  container: ContainerInfo
+  onClose: () => void
+}): React.JSX.Element {
+  const [tab, setTab] = useState<Tab>('overview')
+  const [details, setDetails] = useState<ContainerDetails | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    // `stale` guards against a late result after unmount or a newer fetch.
+    let stale = false
+    dangerLevel('inspect', host.protected)
+    api.containers
+      .inspect(host.id, container.id)
+      .then((raw) => {
+        if (stale) return
+        setDetails(toContainerDetails(raw))
+        setError(null)
+      })
+      .catch((e) => {
+        if (!stale) setError(errorMessage(e))
+      })
+    return () => {
+      stale = true
+    }
+  }, [host.id, host.protected, container.id, container.state, container.status, attempt])
+
+  return (
+    <aside className="details-panel" aria-label={`รายละเอียด ${container.name}`}>
+      <div className="details-header">
+        <span className="container-name mono">{container.name}</span>
+        <IconButton aria-label="ปิดรายละเอียด" onClick={onClose}>
+          <X size={14} />
+        </IconButton>
+      </div>
+      <div role="tablist" className="details-tabs">
+        {TABS.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`details-tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls="details-body"
+            className="details-tab"
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div
+        id="details-body"
+        role="tabpanel"
+        aria-labelledby={`details-tab-${tab}`}
+        className="details-body"
+      >
+        {error !== null && (
+          <div>
+            <div className="error">{error}</div>
+            <Button
+              onClick={() => {
+                setError(null)
+                setAttempt((n) => n + 1)
+              }}
+            >
+              ลองอีกครั้ง
+            </Button>
+          </div>
+        )}
+        {error === null && details === null && <div className="muted">กำลังโหลด…</div>}
+        {error === null && details !== null && tab === 'overview' && (
+          <Overview d={details.overview} />
+        )}
+        {error === null && details !== null && tab === 'env' && <Env env={details.env} />}
+        {error === null && details !== null && tab === 'json' && (
+          <pre className="details-json mono">{details.json}</pre>
+        )}
+      </div>
+    </aside>
+  )
+}

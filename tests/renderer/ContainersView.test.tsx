@@ -8,7 +8,7 @@ const handlers: Record<string, Set<Handler>> = {}
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
-    containers: { open: vi.fn(), action: vi.fn(), watchStats: vi.fn() },
+    containers: { open: vi.fn(), action: vi.fn(), watchStats: vi.fn(), inspect: vi.fn() },
     on: vi.fn((event: string, cb: Handler) => {
       ;(handlers[event] ??= new Set()).add(cb)
       return () => handlers[event].delete(cb)
@@ -51,6 +51,9 @@ beforeEach(() => {
   for (const k of Object.keys(handlers)) delete handlers[k]
   vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: true })
   vi.mocked(api.containers.action).mockResolvedValue(undefined)
+  vi.mocked(api.containers.inspect).mockResolvedValue({
+    Config: { Image: 'img', Env: ['K=secret-value'] }
+  })
   vi.mocked(openHostTerminal).mockResolvedValue({} as never)
 })
 
@@ -423,5 +426,54 @@ describe('ContainersView', () => {
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Logs web' }))
     expect(await screen.findByText('no pty')).toBeInTheDocument()
+  })
+
+  it('clicking a name opens details, clicking again closes', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const name = screen.getByRole('button', { name: 'รายละเอียด web' })
+    expect(name).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(name)
+    expect(await screen.findByRole('complementary')).toBeInTheDocument()
+    expect(api.containers.inspect).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'))
+    expect(name).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(name)
+    expect(screen.queryByRole('complementary')).toBeNull()
+  })
+
+  it('clicking the row background opens nothing', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    expect(screen.queryByRole('complementary')).toBeNull()
+    expect(api.containers.inspect).not.toHaveBeenCalled()
+  })
+
+  it('selected container removed from list closes the panel', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'รายละเอียด web' }))
+    await screen.findByRole('complementary')
+    act(() => {
+      for (const cb of handlers['containers-changed'] ?? [])
+        (cb as (...a: unknown[]) => void)(
+          'h1',
+          LIST.filter((c) => c.name !== 'web')
+        )
+    })
+    await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull())
+  })
+
+  it('switching selection resets revealed env', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'รายละเอียด web' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'แสดงค่า K' }))
+    expect(screen.getByText('secret-value')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'รายละเอียด solo' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
+    await screen.findByRole('button', { name: 'แสดงค่า K' })
+    expect(screen.queryByText('secret-value')).toBeNull()
   })
 })

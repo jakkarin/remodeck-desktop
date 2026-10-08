@@ -15,12 +15,16 @@ export function ContainerItem({
   container: c,
   busy,
   stats,
+  selected,
+  onSelect,
   onAction,
   onTerminal
 }: {
   container: ContainerInfo
   busy: boolean
   stats?: ContainerStats
+  selected: boolean
+  onSelect: () => void
   onAction: (action: ContainerAction) => void
   onTerminal: (kind: 'logs' | 'shell') => void
 }): React.JSX.Element {
@@ -91,7 +95,15 @@ export function ContainerItem({
       }
     >
       <div className="container-title">
-        <span className="container-name mono">{c.name}</span>
+        <button
+          type="button"
+          className="container-name container-select mono"
+          aria-label={`รายละเอียด ${c.name}`}
+          aria-pressed={selected}
+          onClick={onSelect}
+        >
+          {c.name}
+        </button>
         <Badge tone={stateTone[c.state]}>{capitalise(c.state)}</Badge>
       </div>
       <div className="container-metadata muted">

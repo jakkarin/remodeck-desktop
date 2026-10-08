@@ -20,6 +20,7 @@ import { ErrorBanner } from './ErrorBanner'
 import { Badge, Button, TextInput } from './ui'
 import { GroupPanel } from './ui/GroupedList'
 import { ContainerItem } from './ContainerItem'
+import { ContainerDetailsPanel } from './ContainerDetailsPanel'
 
 const COLLAPSED_KEY = 'remodeck.composeCollapsed'
 
@@ -56,6 +57,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const [actionError, setActionError] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const collapsed = collapsedAll[host.id] ?? []
   const toggleProject = (name: string): void => {
@@ -147,6 +149,10 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   }
   if (list === null) return <div className="containers-view muted">กำลังโหลด…</div>
 
+  const selected = selectedId === null ? undefined : list.find((c) => c.id === selectedId)
+  // The selected container left the list: close its panel.
+  if (selectedId !== null && !selected) setSelectedId(null)
+
   const needle = filter.trim().toLowerCase()
   const visible = list.filter(
     (c) =>
@@ -163,56 +169,74 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       container={c}
       busy={busy.has(c.id)}
       stats={stats[c.id]}
+      selected={selectedId === c.id}
+      onSelect={() => setSelectedId((cur) => (cur === c.id ? null : c.id))}
       onAction={(action) => request(c, action)}
       onTerminal={(kind) => terminal(c, kind)}
     />
   )
   return (
     <div className="containers-view">
-      <div className="containers-toolbar">
-        <TextInput
-          aria-label="Filter containers"
-          placeholder="Filter"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <label>
-          <input
-            type="checkbox"
-            checked={showStopped}
-            onChange={(e) => setShowStopped(e.target.checked)}
-          />
-          แสดงตัวที่หยุด
-        </label>
-        {!live && <Badge tone="warning">หยุดอัปเดตสด</Badge>}
-      </div>
-      {actionError && <ErrorBanner message={actionError} />}
-      {list.length === 0 && <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>}
-      {list.length > 0 && visible.length === 0 && (
-        <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
-      )}
-      {projects.map((p) => (
-        <GroupPanel
-          key={p.name}
-          title={`${p.name} (compose)`}
-          collapsed={collapsed.includes(p.name)}
-          onToggle={() => toggleProject(p.name)}
-          titleHint={projectHint(p)}
-          actions={COMPOSE_LABELS.map(([action, label]) => (
-            <Button
-              key={action}
-              aria-label={`${label} ${p.name}`}
-              disabled={busy.has(`compose:${p.name}`)}
-              onClick={() => compose(p.name, action)}
+      <div className={`containers-split${selected ? ' has-details' : ''}`}>
+        <div className="containers-main">
+          <div className="containers-toolbar">
+            <TextInput
+              aria-label="Filter containers"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <label>
+              <input
+                type="checkbox"
+                checked={showStopped}
+                onChange={(e) => setShowStopped(e.target.checked)}
+              />
+              แสดงตัวที่หยุด
+            </label>
+            {!live && <Badge tone="warning">หยุดอัปเดตสด</Badge>}
+          </div>
+          {actionError && <ErrorBanner message={actionError} />}
+          {list.length === 0 && (
+            <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>
+          )}
+          {list.length > 0 && visible.length === 0 && (
+            <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
+          )}
+          {projects.map((p) => (
+            <GroupPanel
+              key={p.name}
+              title={`${p.name} (compose)`}
+              collapsed={collapsed.includes(p.name)}
+              onToggle={() => toggleProject(p.name)}
+              titleHint={projectHint(p)}
+              actions={COMPOSE_LABELS.map(([action, label]) => (
+                <Button
+                  key={action}
+                  aria-label={`${label} ${p.name}`}
+                  disabled={busy.has(`compose:${p.name}`)}
+                  onClick={() => compose(p.name, action)}
+                >
+                  {label}
+                </Button>
+              ))}
             >
-              {label}
-            </Button>
+              {p.containers.map(row)}
+            </GroupPanel>
           ))}
-        >
-          {p.containers.map(row)}
-        </GroupPanel>
-      ))}
-      {standalone.length > 0 && <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>}
+          {standalone.length > 0 && (
+            <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>
+          )}
+        </div>
+        {selected && (
+          <ContainerDetailsPanel
+            key={selected.id}
+            host={host}
+            container={selected}
+            onClose={() => setSelectedId(null)}
+          />
+        )}
+      </div>
       {pending && !stale && (
         <ConfirmDanger
           host={host}
