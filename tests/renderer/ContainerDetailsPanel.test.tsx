@@ -16,10 +16,13 @@ const web: ContainerInfo = {
   id: 'web000000000',
   name: 'web',
   image: 'nginx',
+  imageId: '',
   state: 'running',
   status: 'Up 1 hour',
   created: 0,
   ports: [],
+  volumes: [],
+  networks: [],
   compose: null
 }
 

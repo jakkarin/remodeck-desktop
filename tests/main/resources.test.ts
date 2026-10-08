@@ -163,10 +163,27 @@ describe('validators', () => {
       'nginx:1.27',
       'ghcr.io/o/app:v1',
       `sha256:${'a'.repeat(64)}`,
-      `app@sha256:${SHA}`
+      `app@sha256:${SHA}`,
+      'localhost:5000/app:1',
+      'myreg:5000/team/app',
+      `library/redis@sha256:${SHA}`
     ])
       expect(IMAGE_REF.test(ok), ok).toBe(true)
-    for (const bad of ['../x', 'a/../x', 'a?b', 'a#b', 'a%2f', 'a b', ''])
+    for (const bad of [
+      '../x',
+      'a/../x',
+      'a/.',
+      'a/./b',
+      'a//b',
+      'a/',
+      'Upper/app',
+      'a:..',
+      'a?b',
+      'a#b',
+      'a%2f',
+      'a b',
+      ''
+    ])
       expect(IMAGE_REF.test(bad), bad).toBe(false)
   })
   it('VOLUME_NAME / NETWORK_ID accept and reject', () => {

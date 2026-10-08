@@ -40,10 +40,13 @@ const mk = (name: string, project?: string): ContainerInfo => ({
   id: name.padEnd(12, '0'),
   name,
   image: 'img',
+  imageId: '',
   state: 'running',
   status: 'Up',
   created: 1,
   ports: [],
+  volumes: [],
+  networks: [],
   compose: project
     ? { project, service: name, workingDir: `/srv/${project}`, configFiles: ['/srv/c.yml'] }
     : null

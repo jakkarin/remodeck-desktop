@@ -19,9 +19,15 @@ export type ResourceRow = {
 
 export type PruneResult = { deleted: number; reclaimed: number | null }
 
-/** Anchored image reference validator; the lookahead rejects any `..` segment. */
-export const IMAGE_REF =
-  /^(?!.*\.\.)(sha256:[a-f0-9]{64}|[a-z0-9][a-z0-9._\-/]*(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(@sha256:[a-f0-9]{64})?)$/
+// Docker reference grammar: [domain[:port]/]component(/component)*[:tag][@sha256:digest], or a full id.
+const PATH_COMPONENT = String.raw`[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*`
+const DOMAIN_COMPONENT = String.raw`[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?`
+// Like Docker, a first segment is only a registry host if it has a dot or port, or is localhost.
+const DOMAIN = String.raw`(?:${DOMAIN_COMPONENT}(?:\.${DOMAIN_COMPONENT})+(?::[0-9]+)?/|${DOMAIN_COMPONENT}:[0-9]+/|localhost/)?`
+const NAME = `${DOMAIN}${PATH_COMPONENT}(?:/${PATH_COMPONENT})*`
+export const IMAGE_REF = new RegExp(
+  String.raw`^(?:sha256:[a-f0-9]{64}|${NAME}(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[a-f0-9]{64})?)$`
+)
 export const VOLUME_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/
 export const NETWORK_ID = /^[a-f0-9]{12,64}$/
 

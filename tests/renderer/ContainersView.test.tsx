@@ -30,10 +30,13 @@ const mk = (name: string, over: Partial<ContainerInfo> = {}): ContainerInfo => (
   id: name.padEnd(12, '0'),
   name,
   image: `${name}-image`,
+  imageId: '',
   state: 'running',
   status: 'Up 1 hour',
   created: 0,
   ports: ['8080→80/tcp', '443/tcp'],
+  volumes: [],
+  networks: [],
   compose: null,
   ...over
 })
