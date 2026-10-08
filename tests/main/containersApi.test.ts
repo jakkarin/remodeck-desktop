@@ -26,7 +26,9 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
       id === ID ? ({ id: ID, name: 'web-1' } as never) : null
     ),
     project: vi.fn((_h: string, name: string) =>
-      name === 'shop'
+      name === 'My.App'
+        ? ({ name: 'My.App', workingDir: '/srv/x', configFiles: [] } as never)
+        : name === 'shop'
         ? ({
             name: 'shop',
             workingDir: '/srv/shop',
@@ -147,8 +149,17 @@ describe('containersApi.openTerminal', () => {
     await t.api.openTerminal('h1', { kind: 'compose', project: 'shop', action: 'up' })
     const [, cmd, label] = t.terminal.openHost.mock.calls[0]
     expect(label).toBe('up · shop')
-    expect(cmd).toContain('/srv/shop')
-    expect(cmd).toContain('compose.yml')
+    expect(cmd).toBe(
+      `docker compose -p 'shop' --project-directory '/srv/shop' -f '/srv/shop/compose.yml' up -d`
+    )
+  })
+
+  it('an invalid-named project in the list yields the Thai compose project error', async () => {
+    const t = setup()
+    await expect(
+      t.api.openTerminal('h1', { kind: 'compose', project: 'My.App', action: 'up' })
+    ).rejects.toThrow('ชื่อ compose project ไม่ถูกต้อง')
+    expect(t.terminal.openHost).not.toHaveBeenCalled()
   })
 
   it('rejects when the container is not in the list', async () => {

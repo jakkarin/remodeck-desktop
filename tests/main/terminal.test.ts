@@ -417,6 +417,15 @@ describe('TerminalService.uploadImage', () => {
     expect(targetFor).toHaveBeenCalledWith('h2')
   })
 
+  it('rejects image upload for host tabs', async () => {
+    const { svc, targetFor } = setup()
+    const { tabId } = svc.openHost('h1', 'docker ps', 'logs')
+    await expect(svc.uploadImage(tabId, new Uint8Array([1]), 'png')).rejects.toThrow(
+      'วางรูปได้เฉพาะ terminal ของ workspace'
+    )
+    expect(targetFor).not.toHaveBeenCalled()
+  })
+
   describe('host tabs', () => {
     beforeEach(() => vi.useFakeTimers())
     it('openHost spawns ssh -t <host> <cmd> without -R and registers no bridge session', () => {

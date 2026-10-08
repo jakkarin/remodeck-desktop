@@ -317,6 +317,20 @@ describe('ContainersView', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('double-clicking compose Up opens one terminal while the first is pending', async () => {
+    let done: (v: never) => void = () => {}
+    vi.mocked(openHostTerminal).mockReturnValueOnce(new Promise((r) => (done = r)))
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const up = screen.getByRole('button', { name: 'Up shop' })
+    fireEvent.click(up)
+    fireEvent.click(up)
+    expect(openHostTerminal).toHaveBeenCalledTimes(1)
+    expect(up).toBeDisabled()
+    done({} as never)
+    await waitFor(() => expect(up).not.toBeDisabled())
+  })
+
   it('compose Up asks for click confirm on a protected host', async () => {
     render(<ContainersView host={prot} />)
     await screen.findByText('web')

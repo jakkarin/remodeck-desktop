@@ -21,6 +21,12 @@ describe('hostCommands', () => {
       `docker compose -p 'shop' --project-directory '/srv/my app' -f '/srv/my app/it'\\''s.yml' -f '/srv/my app/b.yml' up -d`
     )
   })
+  it('compose up/pull/restart without dir or files throws the Thai path error', () => {
+    expect(() => composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'up')).toThrow(
+      'ไม่พบ path ของ compose project นี้ จึงสั่ง up ไม่ได้'
+    )
+    expect(() => composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'pull')).toThrow('จึงสั่ง pull ไม่ได้')
+  })
   it('compose omits missing dir and files', () => {
     expect(composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'down')).toBe(`docker compose -p 'shop' down`)
   })
@@ -30,7 +36,7 @@ describe('hostCommands', () => {
     expect(() => composeCommand({ name: 'ok', workingDir: '/srv', configFiles: ['x.yml'] }, 'pull')).toThrow()
   })
   it('rejects an unknown compose action', () => {
-    expect(() => composeCommand({ name: 'ok', workingDir: '', configFiles: [] }, 'rm' as ComposeAction)).toThrow()
+    expect(() => composeCommand({ name: 'ok', workingDir: '/srv', configFiles: [] }, 'rm' as ComposeAction)).toThrow()
   })
   it('buildHostSshArgs', () => {
     expect(buildHostSshArgs('box1', 'docker ps')).toEqual(['-t', 'box1', 'docker ps'])

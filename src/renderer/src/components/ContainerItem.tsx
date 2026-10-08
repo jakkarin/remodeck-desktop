@@ -22,13 +22,18 @@ export function ContainerItem({
     <ItemRow
       actions={
         <div className="container-actions">
-          <IconButton aria-label={`Logs ${c.name}`} title="Logs" onClick={() => onTerminal('logs')}>
+          <IconButton
+            aria-label={`Logs ${c.name}`}
+            title="Logs"
+            disabled={busy}
+            onClick={() => onTerminal('logs')}
+          >
             <ScrollText size={14} />
           </IconButton>
           <IconButton
             aria-label={`Shell ${c.name}`}
             title="Shell"
-            disabled={c.state !== 'running'}
+            disabled={busy || c.state !== 'running'}
             onClick={() => onTerminal('shell')}
           >
             <SquareTerminal size={14} />

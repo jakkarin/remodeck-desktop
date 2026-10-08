@@ -26,6 +26,8 @@ export function composeCommand(
 ): string {
   if (!COMPOSE_PROJECT.test(p.name)) throw new Error('ชื่อ compose project ไม่ถูกต้อง')
   if (!COMPOSE_ACTIONS.includes(action)) throw new Error('compose action ไม่ถูกต้อง')
+  if (action !== 'down' && !p.workingDir && p.configFiles.length === 0)
+    throw new Error(`ไม่พบ path ของ compose project นี้ จึงสั่ง ${action} ไม่ได้`)
   const parts = ['docker compose', '-p', shQuote(p.name)]
   if (p.workingDir) {
     validateSandboxPath(p.workingDir)

@@ -164,6 +164,7 @@ export class TerminalService extends EventEmitter {
   async uploadImage(tabId: string, bytes: Uint8Array, ext: ImageExt): Promise<string> {
     const tab = this.tabs.get(tabId)
     if (!tab) throw new Error('ไม่พบ terminal tab')
+    if (tab.kind === 'host') throw new Error('วางรูปได้เฉพาะ terminal ของ workspace')
     return uploadImage(this.deps.targetFor(tab.hostId), bytes, ext)
   }
 

@@ -101,24 +101,38 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     await openHostTerminal(host.id, req)
     setActionError(null)
   }
-  const terminal = (c: ContainerInfo, kind: 'logs' | 'shell'): void => {
-    openTerminal({ kind, id: c.id }).catch((e) => setActionError(errorMessage(e)))
+  // Hold `key` busy until the terminal request settles so a double click opens one tab.
+  const guarded = (key: string, fn: () => Promise<void>): Promise<void> => {
+    mark(key, true)
+    return fn().finally(() => mark(key, false))
   }
-  const compose = (project: string, action: ComposeAction): void => {
-    const level = dangerLevel(`compose-${action}`, host.protected)
-    const go = (): Promise<void> => openTerminal({ kind: 'compose', project, action })
+  const gate = (
+    level: ReturnType<typeof dangerLevel>,
+    summary: string,
+    confirmLabel: string,
+    key: string,
+    req: HostTerminalRequest
+  ): void => {
+    const go = (): Promise<void> => guarded(key, () => openTerminal(req))
     if (level === 'none') {
       go().catch((e) => setActionError(errorMessage(e)))
     } else {
-      setPending({
-        hostId: host.id,
-        summary: `${action} · ${project}`,
-        confirmLabel: capitalise(action),
-        mode: level,
-        run: go
-      })
+      setPending({ hostId: host.id, summary, confirmLabel, mode: level, run: go })
     }
   }
+  const terminal = (c: ContainerInfo, kind: 'logs' | 'shell'): void =>
+    gate(dangerLevel(kind, host.protected), `${kind} · ${c.name}`, capitalise(kind), c.id, {
+      kind,
+      id: c.id
+    })
+  const compose = (project: string, action: ComposeAction): void =>
+    gate(
+      dangerLevel(`compose-${action}`, host.protected),
+      `${action} · ${project}`,
+      capitalise(action),
+      `compose:${project}`,
+      { kind: 'compose', project, action }
+    )
 
   if (error !== null) {
     return (
@@ -185,6 +199,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
             <Button
               key={action}
               aria-label={`${label} ${p.name}`}
+              disabled={busy.has(`compose:${p.name}`)}
               onClick={() => compose(p.name, action)}
             >
               {label}

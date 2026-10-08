@@ -1116,7 +1116,12 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-2);
+}
+.ui-list-heading:has(.ui-list-heading-actions) .ui-list-toggle {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 .ui-list-heading-actions {
   display: inline-flex;

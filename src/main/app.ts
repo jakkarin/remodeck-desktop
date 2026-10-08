@@ -10,7 +10,6 @@ import type {
 } from '../shared/types'
 import {
   COMPOSE_ACTIONS,
-  COMPOSE_PROJECT,
   CONTAINER_ID,
   type ContainerAction,
   type HostTerminalRequest
@@ -66,11 +65,7 @@ function isTerminalRequest(r: unknown): r is HostTerminalRequest {
   if (r.kind === 'logs' || r.kind === 'shell')
     return typeof r.id === 'string' && CONTAINER_ID.test(r.id)
   if (r.kind === 'compose')
-    return (
-      typeof r.project === 'string' &&
-      COMPOSE_PROJECT.test(r.project) &&
-      COMPOSE_ACTIONS.includes(r.action as never)
-    )
+    return typeof r.project === 'string' && COMPOSE_ACTIONS.includes(r.action as never)
   return false
 }
 
