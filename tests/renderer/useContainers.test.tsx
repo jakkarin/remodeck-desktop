@@ -23,10 +23,13 @@ const mk = (name: string): ContainerInfo => ({
   id: name.padEnd(12, '0'),
   name,
   image: 'img',
+  imageId: '',
   state: 'running',
   status: 'Up',
   created: 0,
   ports: [],
+  volumes: [],
+  networks: [],
   compose: null
 })
 type Open = { list: ContainerInfo[]; live: boolean }

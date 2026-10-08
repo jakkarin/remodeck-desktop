@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import type { BranchInfo, FileChange, HostStatus } from '../../src/shared/types'
 
 type Handler = (...args: unknown[]) => void
@@ -30,6 +30,7 @@ vi.mock('../../src/renderer/src/api', () => ({
 import { api } from '../../src/renderer/src/api'
 import { WorkspaceScreen } from '../../src/renderer/src/components/WorkspaceScreen'
 import { ChangesPane } from '../../src/renderer/src/components/ChangesPane'
+import { Toaster } from '../../src/renderer/src/components/Toaster'
 import { AppStateContext, type AppState } from '../../src/renderer/src/state'
 
 const branch = (over: Partial<BranchInfo> = {}): BranchInfo => ({
@@ -163,7 +164,7 @@ describe('WorkspaceScreen selection', () => {
     await screen.findByText('b.ts')
     vi.mocked(api.workspaces.branches).mockResolvedValue([branch({ name: 'fix/b' })])
     await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 1 }))
-    expect(await screen.findByText('เลือก branch ทางซ้าย')).toBeInTheDocument()
+    expect(await screen.findByText('Select a branch on the left')).toBeInTheDocument()
     expect(screen.queryByText('b.ts')).toBeNull()
     expect(document.querySelector('.error')).toBeNull()
   })
@@ -199,19 +200,19 @@ describe('WorkspaceScreen branch list', () => {
   it('shows ahead/behind and badges, and the new marker clears once seen', async () => {
     renderScreen()
     await screen.findByText('feat/a')
-    expect(screen.queryByLabelText('ใหม่')).toBeNull()
+    expect(screen.queryByLabelText('New')).toBeNull()
     vi.mocked(api.workspaces.branches).mockResolvedValue([
       branch({ sha: 'changed', behind: 1, rewritten: true }),
       branch({ name: 'fix/b', merged: true, ahead: 0 })
     ])
     await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 1 }))
-    expect(await screen.findByLabelText('ใหม่')).toBeInTheDocument()
+    expect(await screen.findByLabelText('New')).toBeInTheDocument()
     expect(screen.getByText('↑2')).toBeInTheDocument()
     expect(screen.getByText('↓1')).toBeInTheDocument()
     expect(screen.getByText('merged')).toBeInTheDocument()
     expect(screen.getByText('⚠ rewritten')).toBeInTheDocument()
     fireEvent.click(screen.getByText('feat/a'))
-    await waitFor(() => expect(screen.queryByLabelText('ใหม่')).toBeNull())
+    await waitFor(() => expect(screen.queryByLabelText('New')).toBeNull())
   })
 
   it('lists worktrees and opens a terminal at that path', async () => {
@@ -232,7 +233,7 @@ describe('WorkspaceScreen branch list', () => {
     vi.mocked(api.workspaces.files).mockResolvedValue([])
     renderScreen()
     fireEvent.click(await screen.findByText('feat/a'))
-    expect(await screen.findByText('ไม่มี commit ใหม่เทียบกับ base')).toBeInTheDocument()
+    expect(await screen.findByText('No new commits compared to base')).toBeInTheDocument()
   })
 })
 
@@ -240,7 +241,7 @@ describe('WorkspaceScreen disconnected', () => {
   it('shows the banner, disables Push and worktree-free branch list stays', async () => {
     renderScreen({ state: 'disconnected' })
     expect(await screen.findByText('feat/a')).toBeInTheDocument()
-    expect(screen.getByText(/ไม่ได้เชื่อมต่อ/)).toBeInTheDocument()
+    expect(screen.getByText(/is not connected/)).toBeInTheDocument()
     expect(api.workspaces.worktrees).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('feat/a'))
     const push = await screen.findByRole('button', { name: 'Push to GitHub' })
@@ -271,21 +272,37 @@ describe('WorkspaceScreen push bar (moved from ReviewView)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Push to GitHub' }))
     await waitFor(() => expect(api.workspaces.push).toHaveBeenCalledWith('w1', 'feat/a', 'feat/a'))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Open PR' })).toBeEnabled())
-    expect(screen.getByText('Pushed')).toBeInTheDocument()
   })
 
-  it('shows a non-fast-forward message verbatim and keeps Open PR disabled', async () => {
-    const message = 'ถูกปฏิเสธ: non-fast-forward'
+  it('announces a successful push with a toast', async () => {
+    vi.mocked(api.workspaces.push).mockResolvedValue({ ok: true })
+    render(<Toaster />)
+    renderScreen()
+    await select()
+    fireEvent.click(screen.getByRole('button', { name: 'Push to GitHub' }))
+    // The toast store is module-level, so earlier pushes may still be queued; check the newest.
+    const toast = (await screen.findAllByRole('status')).at(-1)!
+    expect(toast).toHaveTextContent('Pushed')
+    expect(toast).toHaveTextContent('feat/a → origin/feat/a')
+    fireEvent.click(within(toast).getByRole('button', { name: 'Dismiss notification' }))
+    expect(toast).not.toBeInTheDocument()
+  })
+
+  it('toasts a non-fast-forward message verbatim and keeps Open PR disabled', async () => {
+    const message = 'rejected: non-fast-forward'
     vi.mocked(api.workspaces.push).mockResolvedValue({
       ok: false,
       reason: 'non-fast-forward',
       message
     })
+    render(<Toaster />)
     renderScreen()
     await select()
     expect(screen.getByRole('button', { name: 'Open PR' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Push to GitHub' }))
-    expect(await screen.findByText(message)).toBeInTheDocument()
+    const toast = await screen.findByRole('alert')
+    expect(toast).toHaveTextContent('Push failed')
+    expect(toast).toHaveTextContent(message)
     expect(screen.getByRole('button', { name: 'Open PR' })).toBeDisabled()
   })
 
@@ -360,9 +377,9 @@ describe('ChangesPane push bar isolation', () => {
     const { rerender } = render(<ChangesPane workspaceId="w1" {...props} />)
     fireEvent.change(screen.getByLabelText('Target branch'), { target: { value: 'custom' } })
     fireEvent.click(screen.getByRole('button', { name: 'Push to GitHub' }))
-    expect(await screen.findByText('Pushed')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open PR' })).toBeEnabled())
     rerender(<ChangesPane workspaceId="w2" {...props} />)
-    expect(screen.queryByText('Pushed')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open PR' })).toBeDisabled()
     expect(screen.getByLabelText('Target branch')).toHaveValue('feat/a')
   })
 })

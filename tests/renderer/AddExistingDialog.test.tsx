@@ -70,9 +70,11 @@ describe('AddExistingDialog', () => {
     await check('  ~/work/app ')
     expect(api.workspaces.inspectExisting).toHaveBeenCalledWith('h1', '~/work/app')
     expect(api.workspaces.addExisting).not.toHaveBeenCalled()
-    expect(screen.getByText(/จะผูก workspace นี้กับ github\.com\/o\/r/)).toBeInTheDocument()
     expect(
-      screen.getByText(/remodeck จะ fetch repo นี้ด้วย GitHub credential ของคุณ/)
+      screen.getByText(/This workspace will be linked to github\.com\/o\/r/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/remodeck will fetch this repo with your GitHub credentials/)
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Path')).toBeDisabled()
   })
@@ -103,14 +105,16 @@ describe('AddExistingDialog', () => {
     renderDialog(['h1'])
     await check('~/x', { known: false })
     expect(
-      screen.getByText('repo นี้ยังไม่เคยใช้ใน remodeck — ตรวจสอบให้แน่ใจว่าเป็น repo ที่ตั้งใจ')
+      screen.getByText(
+        'This repo has not been used in remodeck before — make sure it is the one you intend'
+      )
     ).toBeInTheDocument()
   })
 
   it('shows no warnings for a known repo without Always allow push', async () => {
     renderDialog(['h1'])
     await check('~/x')
-    expect(screen.queryByText(/ยังไม่เคยใช้ใน remodeck/)).toBeNull()
+    expect(screen.queryByText(/has not been used in remodeck/)).toBeNull()
     expect(screen.queryByText(/Always allow push/)).toBeNull()
   })
 
@@ -119,7 +123,7 @@ describe('AddExistingDialog', () => {
     await check('~/x', { alwaysAllowPush: true })
     expect(
       screen.getByText(
-        'repo นี้ตั้ง Always allow push ไว้ — agent ใน sandbox จะ push ได้โดยไม่ต้องขออนุมัติ'
+        'This repo has Always allow push on — agents in the sandbox can push without approval'
       )
     ).toBeInTheDocument()
   })
@@ -130,7 +134,7 @@ describe('AddExistingDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(screen.getByLabelText('Path')).toHaveValue('~/work/app')
     expect(screen.getByLabelText('Path')).toBeEnabled()
-    expect(screen.queryByText(/จะผูก workspace/)).toBeNull()
+    expect(screen.queryByText(/will be linked to/)).toBeNull()
     fireEvent.change(screen.getByLabelText('Path'), { target: { value: '~/other' } })
     expect(screen.getByRole('button', { name: 'Check' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Confirm & Add' })).toBeNull()
@@ -171,20 +175,20 @@ describe('AddExistingDialog', () => {
   })
 
   it('renders an inspect rejection and stays on step 1', async () => {
-    vi.mocked(api.workspaces.inspectExisting).mockRejectedValue(new Error('ไม่ใช่ git repo: ~/x'))
+    vi.mocked(api.workspaces.inspectExisting).mockRejectedValue(new Error('Not a git repo: ~/x'))
     renderDialog(['h1'])
     fireEvent.change(screen.getByLabelText('Path'), { target: { value: '~/x' } })
     fireEvent.click(screen.getByRole('button', { name: 'Check' }))
-    expect(await screen.findByText('ไม่ใช่ git repo: ~/x')).toBeInTheDocument()
+    expect(await screen.findByText('Not a git repo: ~/x')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Check' })).toBeEnabled()
   })
 
   it('renders an add rejection and stays on step 2, usable again', async () => {
-    vi.mocked(api.workspaces.addExisting).mockRejectedValue(new Error('origin ของ repo เปลี่ยนไป'))
+    vi.mocked(api.workspaces.addExisting).mockRejectedValue(new Error('repo origin changed'))
     renderDialog(['h1'])
     await check('~/x')
     fireEvent.click(screen.getByRole('button', { name: 'Confirm & Add' }))
-    expect(await screen.findByText('origin ของ repo เปลี่ยนไป')).toBeInTheDocument()
+    expect(await screen.findByText('repo origin changed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm & Add' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Back' })).toBeEnabled()
   })

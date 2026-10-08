@@ -59,7 +59,7 @@ export function BranchPane({
             {b.ahead > 0 && <span className="muted">{`↑${b.ahead}`}</span>}
             {b.behind > 0 && <span className="muted">{`↓${b.behind}`}</span>}
             {isNew(b) && (
-              <span className="new-dot" aria-label="ใหม่">
+              <span className="new-dot" aria-label="New">
                 ●
               </span>
             )}

@@ -7,6 +7,7 @@ import { GitModule } from './components/GitModule'
 import { SettingsDialog } from './components/SettingsDialog'
 import { readLayout, saveCollapsed } from './layout'
 import { TerminalTabs } from './components/TerminalTabs'
+import { Toaster } from './components/Toaster'
 import { TopBar } from './components/TopBar'
 import { AppStateProvider, useAppState } from './state'
 import { SettingsOpenerContext, type SettingsSection } from './settingsOpener'
@@ -85,6 +86,7 @@ function App(): React.JSX.Element {
     <AppStateProvider>
       <Layout />
       <ApprovalModal />
+      <Toaster />
     </AppStateProvider>
   )
 }

@@ -14,8 +14,8 @@ export async function uploadImage(
   bytes: Uint8Array,
   ext: ImageExt
 ): Promise<string> {
-  if (bytes.length === 0) throw new Error('รูปภาพว่างเปล่า')
-  if (bytes.length > MAX_IMAGE_BYTES) throw new Error('รูปภาพใหญ่เกิน 10MB')
+  if (bytes.length === 0) throw new Error('Image is empty')
+  if (bytes.length > MAX_IMAGE_BYTES) throw new Error('Image exceeds 10MB')
   const b64 = Buffer.from(bytes)
     .toString('base64')
     .replace(/(.{76})/g, '$1\n')
@@ -36,6 +36,6 @@ export async function uploadImage(
     ''
   ].join('\n')
   const r = await target.exec(script)
-  if (r.code !== 0) throw new Error(r.stderr.trim() || 'อัปโหลดรูปภาพไม่สำเร็จ')
+  if (r.code !== 0) throw new Error(r.stderr.trim() || 'Image upload failed')
   return r.stdout.trim()
 }

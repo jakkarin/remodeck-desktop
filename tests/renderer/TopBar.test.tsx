@@ -78,10 +78,10 @@ describe('TopBar', () => {
   })
 
   it('warns with the error as title when the last sync failed', () => {
-    renderBar(up, { w1: { kind: 'light', at: NOW - 1000, error: 'fetch พัง' } })
+    renderBar(up, { w1: { kind: 'light', at: NOW - 1000, error: 'fetch broke' } })
     const btn = screen.getByRole('button', { name: /Sync/ })
     expect(btn).toHaveClass('warn')
-    expect(btn).toHaveAttribute('title', 'fetch พัง')
+    expect(btn).toHaveAttribute('title', 'fetch broke')
   })
 
   it('clicking Sync calls api.workspaces.sync and spins while pending', async () => {
@@ -101,17 +101,17 @@ describe('TopBar', () => {
   })
 
   it('shows the error banner when sync rejects', async () => {
-    vi.mocked(api.workspaces.sync).mockRejectedValue(new Error('sync ล้มเหลว'))
+    vi.mocked(api.workspaces.sync).mockRejectedValue(new Error('sync failed'))
     renderBar(up)
     fireEvent.click(screen.getByRole('button', { name: 'Sync' }))
-    expect(await screen.findByText('sync ล้มเหลว')).toBeInTheDocument()
+    expect(await screen.findByText('sync failed')).toBeInTheDocument()
   })
 
   it.each(['disconnected', 'error'] as const)('disables Sync when the host is %s', (state) => {
     renderBar({ state })
     const btn = screen.getByRole('button', { name: 'Sync' })
     expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title', 'Host ยังไม่ได้ connect')
+    expect(btn).toHaveAttribute('title', 'Host is not connected')
   })
 
   it('renders the host and workspace switchers but no Settings button', () => {

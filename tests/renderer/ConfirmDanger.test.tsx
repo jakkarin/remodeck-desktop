@@ -35,7 +35,7 @@ describe('ConfirmDanger', () => {
 
   it('type mode requires the exact host label', () => {
     setup('type')
-    const input = screen.getByLabelText('พิมพ์ชื่อ host เพื่อยืนยัน')
+    const input = screen.getByLabelText('Type the host name to confirm')
     const btn = screen.getByRole('button', { name: 'Remove' })
     expect(btn).toBeDisabled()
     fireEvent.change(input, { target: { value: 'box' } })

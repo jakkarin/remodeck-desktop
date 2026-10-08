@@ -61,7 +61,16 @@ function fakeApi(): MainApi {
       pasteImage: fn(),
       uploadImage: fn()
     },
-    containers: { open: fn(), action: fn() },
+    containers: {
+      open: fn(),
+      action: fn(),
+      openTerminal: fn(),
+      inspect: fn(),
+      resources: fn(),
+      removeResource: fn(),
+      prune: fn(),
+      watchStats: vi.fn()
+    },
     approval: { respond: vi.fn() },
     prefs: { get: fn(), update: fn() },
     pushLog: { read: fn() }
@@ -104,6 +113,7 @@ describe('IPC contract', () => {
         IPC_CHANNELS.terminal.write,
         IPC_CHANNELS.terminal.resize,
         IPC_CHANNELS.terminal.close,
+        IPC_CHANNELS.containers.watchStats,
         IPC_CHANNELS.approval.respond
       ].sort()
     )

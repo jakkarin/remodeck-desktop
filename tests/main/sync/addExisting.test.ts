@@ -100,20 +100,22 @@ describe('SyncService.addExisting', () => {
 
   it('rejects a missing path', async () => {
     await expect(svc.addExisting(hostId, '~/nope', ACME)).rejects.toThrow(
-      'ไม่พบ path ใน sandbox: ~/nope'
+      'Path not found in sandbox: ~/nope'
     )
     expect(store.config.workspaces).toHaveLength(0)
   })
 
   it('rejects a path that is a file', async () => {
     fs.writeFileSync(sb('file'), 'x')
-    await expect(svc.addExisting(hostId, '~/file', ACME)).rejects.toThrow('ไม่พบ path ใน sandbox')
+    await expect(svc.addExisting(hostId, '~/file', ACME)).rejects.toThrow(
+      'Path not found in sandbox'
+    )
   })
 
   it('rejects a directory that is not a git repo', async () => {
     fs.mkdirSync(sb('plain'))
     await expect(svc.addExisting(hostId, '~/plain', ACME)).rejects.toThrow(
-      'ไม่ใช่ git repo: ~/plain'
+      'Not a git repo: ~/plain'
     )
     expect(store.config.workspaces).toHaveLength(0)
   })
@@ -121,13 +123,15 @@ describe('SyncService.addExisting', () => {
   it('rejects a bare repo', async () => {
     fs.mkdirSync(sb('bare.git'))
     await git(sb('bare.git'), 'init', '--bare')
-    await expect(svc.addExisting(hostId, '~/bare.git', ACME)).rejects.toThrow('เป็น bare repo')
+    await expect(svc.addExisting(hostId, '~/bare.git', ACME)).rejects.toThrow('Bare repo')
   })
 
   it('rejects a subdirectory of a repo', async () => {
     await gh.seed({ 'sub/a.txt': 'hi' })
     await vmRepo('api')
-    await expect(svc.addExisting(hostId, '~/api/sub', ACME)).rejects.toThrow('ไม่ใช่ root ของ repo')
+    await expect(svc.addExisting(hostId, '~/api/sub', ACME)).rejects.toThrow(
+      'Path is not the repo root'
+    )
     expect(store.config.workspaces).toHaveLength(0)
   })
 
@@ -135,7 +139,7 @@ describe('SyncService.addExisting', () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('api')
     await expect(svc.addExisting(hostId, '~/api/.git', ACME)).rejects.toThrow(
-      'ไม่ใช่ root ของ repo'
+      'Path is not the repo root'
     )
   })
 
@@ -154,14 +158,16 @@ describe('SyncService.addExisting', () => {
   it('rejects a repo without an origin remote', async () => {
     fs.mkdirSync(sb('noorigin'))
     await git(sb('noorigin'), 'init')
-    await expect(svc.addExisting(hostId, '~/noorigin', ACME)).rejects.toThrow('ไม่มี remote origin')
+    await expect(svc.addExisting(hostId, '~/noorigin', ACME)).rejects.toThrow(
+      'Repo has no remote origin'
+    )
   })
 
   it('rejects a non-GitHub origin', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('gl', 'https://gitlab.com/a/b.git')
     await expect(svc.addExisting(hostId, '~/gl', ACME)).rejects.toThrow(
-      'origin ไม่ได้ชี้ไป GitHub: https://gitlab.com/a/b.git'
+      'Origin does not point to GitHub: https://gitlab.com/a/b.git'
     )
     expect(store.config.workspaces).toHaveLength(0)
   })
@@ -170,12 +176,14 @@ describe('SyncService.addExisting', () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('cred', 'https://bob:s3cret@gitlab.com/a/b.git')
     const err = await svc.addExisting(hostId, '~/cred', ACME).catch((e: Error) => e)
-    expect((err as Error).message).toBe('origin ไม่ได้ชี้ไป GitHub: https://***@gitlab.com/a/b.git')
+    expect((err as Error).message).toBe(
+      'Origin does not point to GitHub: https://***@gitlab.com/a/b.git'
+    )
   })
 
   it('rejects a relative path before touching anything', async () => {
     await expect(svc.addExisting(hostId, 'api', ACME)).rejects.toThrow(
-      'path ต้องขึ้นต้นด้วย / หรือ ~/'
+      'Path must start with / or ~/'
     )
   })
 
@@ -183,7 +191,9 @@ describe('SyncService.addExisting', () => {
     await gh.seed({ 'a.txt': 'hi' })
     await vmRepo('api')
     await svc.addExisting(hostId, '~/api', ACME)
-    await expect(svc.addExisting(hostId, '~/api', ACME)).rejects.toThrow('มี workspace นี้อยู่แล้ว')
+    await expect(svc.addExisting(hostId, '~/api', ACME)).rejects.toThrow(
+      'This workspace already exists'
+    )
     expect(store.config.workspaces).toHaveLength(1)
   })
 
@@ -218,7 +228,7 @@ describe('SyncService.addExisting', () => {
     await git(g, 'push', 'origin', 'v1')
     const ws = await svc.addExisting(hostId, '~/api', ACME)
     expect(store.config.workspaces.map((w) => w.id)).toEqual([ws.id])
-    await expect(svc.sync(ws)).rejects.toThrow('tag ชนกับใน sandbox: v1')
+    await expect(svc.sync(ws)).rejects.toThrow('Tags conflict with the sandbox: v1')
   })
 
   it('shows a branch that exists only in the VM under refs/remotes/ws-<id>/', async () => {
@@ -295,11 +305,11 @@ describe('SyncService.addExisting', () => {
       await gh.seed({ 'a.txt': 'hi' })
       await vmRepo('api')
       await expect(svc.describeExisting(hostId, 'api')).rejects.toThrow(
-        'path ต้องขึ้นต้นด้วย / หรือ ~/'
+        'Path must start with / or ~/'
       )
       await svc.addExisting(hostId, '~/api', ACME)
       await expect(svc.describeExisting(hostId, '~/api/')).rejects.toThrow(
-        'มี workspace นี้อยู่แล้ว'
+        'This workspace already exists'
       )
     })
   })
@@ -311,7 +321,7 @@ describe('SyncService.addExisting', () => {
       await git(dir, 'remote', 'set-url', 'origin', 'https://github.com/victim/private.git')
       const spy = vi.spyOn(host, 'run')
       await expect(svc.addExisting(hostId, '~/api', ACME)).rejects.toThrow(
-        'origin ของ repo เปลี่ยนไปจากที่ยืนยัน (ตอนนี้ชี้ไป victim/private) — กรุณาตรวจสอบใหม่'
+        'The repo origin changed since confirmation (now points to victim/private) — please check again'
       )
       expect(spy).not.toHaveBeenCalled()
       spy.mockRestore()

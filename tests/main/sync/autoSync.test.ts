@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { AutoSync, FULL_MS, LIGHT_MS } from '../../../src/main/sync/autoSync'
 
-const NOT_CONNECTED = 'Host ยังไม่ได้ connect'
+const NOT_CONNECTED = 'Host is not connected'
 
 interface Made {
   deps: {

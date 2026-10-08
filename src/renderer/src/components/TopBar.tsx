@@ -44,7 +44,7 @@ export function TopBar({ now = Date.now }: { now?: () => number }): React.JSX.El
     }
   }
 
-  const title = hostDown ? 'Host ยังไม่ได้ connect' : info?.error
+  const title = hostDown ? 'Host is not connected' : info?.error
   return (
     <header className="topbar">
       <HostSelector />

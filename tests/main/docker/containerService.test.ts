@@ -320,12 +320,12 @@ describe('ContainerService', () => {
     await t.svc.open('h')
     await t.ready()
     t.json.mockRejectedValueOnce(new DockerError(404, 'No such container'))
-    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('This container no longer exists')
     t.json.mockRejectedValueOnce(
       new DockerError(409, 'You cannot remove a running container abc. Stop it first')
     )
     await expect(t.svc.action('h', ID1, 'remove')).rejects.toThrow(
-      'ต้อง stop container ก่อนจึงจะ remove ได้'
+      'Stop the container before removing it'
     )
     t.json.mockRejectedValueOnce(new DockerError(500, 'daemon exploded'))
     await expect(t.svc.action('h', ID1, 'restart')).rejects.toThrow('daemon exploded')
@@ -660,8 +660,229 @@ describe('ContainerService', () => {
     t.json.mockClear()
     t.json.mockRejectedValueOnce(new DockerError(404, 'No such container'))
     t.json.mockResolvedValueOnce([])
-    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('This container no longer exists')
     expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
     expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).length).toBe(0)
+  })
+
+  it('find and project read the open list; null when unopened or disposed', async () => {
+    const t = setup()
+    expect(t.svc.find('h', ID1)).toBeNull()
+    expect(t.svc.project('h', 'shop')).toBeNull()
+    t.list([
+      raw(ID1),
+      {
+        ...raw(ID2),
+        Labels: {
+          'com.docker.compose.project': 'shop',
+          'com.docker.compose.project.working_dir': '/srv/shop',
+          'com.docker.compose.project.config_files': '/srv/shop/compose.yml'
+        }
+      }
+    ])
+    await t.svc.open('h')
+    expect(t.svc.find('h', ID1)?.id).toBe(ID1)
+    expect(t.svc.find('h', 'z'.repeat(64))).toBeNull()
+    expect(t.svc.project('h', 'shop')?.containers.map((c) => c.id)).toEqual([ID2])
+    expect(t.svc.project('h', 'nope')).toBeNull()
+    t.svc.dispose('h')
+    expect(t.svc.find('h', ID1)).toBeNull()
+    expect(t.svc.project('h', 'shop')).toBeNull()
+  })
+
+  describe('stats and inspect', () => {
+    const STATS_PATH = (id: string): string => `/containers/${id}/stats?stream=false&one-shot=true`
+    const goodStats = {
+      cpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 2000, online_cpus: 1 },
+      precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 1000 },
+      memory_stats: { usage: 1000, limit: 4000 }
+    }
+    const never = (): Promise<void> => new Promise<void>(() => {})
+
+    it('watchStats emits stats for running containers only', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1), raw(ID2, 'exited')])
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) =>
+        path === LIST_PATH ? [raw(ID1), raw(ID2, 'exited')] : goodStats
+      )
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      t.svc.watchStats('h', true) // idempotent
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1))
+      expect(got.mock.calls[0][0]).toBe('h')
+      expect(Object.keys(got.mock.calls[0][1])).toEqual([ID1])
+      expect(got.mock.calls[0][1][ID1]).toEqual({ cpu: 10, memBytes: 1000, memLimit: 4000 })
+      expect(t.json.mock.calls.filter((c) => c[1] === STATS_PATH(ID1)).length).toBe(1)
+      expect(t.json.mock.calls.some((c) => c[1] === STATS_PATH(ID2))).toBe(false)
+    })
+
+    it('watchStats(false) and dispose stop the loop', async () => {
+      let release: () => void = () => {}
+      const t = setup({ sleep: () => new Promise<void>((r) => (release = r)) })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) => (path === LIST_PATH ? [raw(ID1)] : goodStats))
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1))
+      t.svc.watchStats('h', false)
+      release()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(got).toHaveBeenCalledTimes(1)
+      // restart, then dispose
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(2))
+      t.svc.dispose('h')
+      release()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(got).toHaveBeenCalledTimes(2)
+    })
+
+    it('watchStats(true) after stop waits for the in-flight request (one at a time)', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      let pending = 0
+      let maxPending = 0
+      const releases: Array<() => void> = []
+      t.json.mockImplementation(async (_m, path) => {
+        if (path === LIST_PATH) return [raw(ID1)]
+        maxPending = Math.max(maxPending, ++pending)
+        await new Promise<void>((r) => releases.push(r))
+        pending--
+        return goodStats
+      })
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(releases.length).toBe(1))
+      t.svc.watchStats('h', false)
+      t.svc.watchStats('h', true)
+      t.svc.watchStats('h', true)
+      await new Promise((r) => setTimeout(r, 10))
+      expect(releases.length).toBe(1)
+      releases[0]()
+      await vi.waitFor(() => expect(releases.length).toBe(2))
+      expect(maxPending).toBe(1)
+      releases[1]()
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1))
+    })
+
+    it('watchStats(false) while waiting for the old loop does not restart', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      const releases: Array<() => void> = []
+      t.json.mockImplementation(async (_m, path) => {
+        if (path === LIST_PATH) return [raw(ID1)]
+        await new Promise<void>((r) => releases.push(r))
+        return goodStats
+      })
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(releases.length).toBe(1))
+      t.svc.watchStats('h', false)
+      t.svc.watchStats('h', true)
+      t.svc.watchStats('h', false)
+      releases[0]()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(releases.length).toBe(1)
+    })
+
+    it('a rejected loop is cleared so polling restarts', async () => {
+      let n = 0
+      const t = setup({
+        sleep: () => (n++ === 0 ? Promise.reject(new Error('sleep boom')) : never())
+      })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) => (path === LIST_PATH ? [raw(ID1)] : goodStats))
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(2))
+    })
+
+    it('watchStats on an unopened host is a no-op', async () => {
+      const t = setup({ sleep: never })
+      expect(() => t.svc.watchStats('h', true)).not.toThrow()
+      expect(() => t.svc.watchStats('h', false)).not.toThrow()
+      expect(t.json).not.toHaveBeenCalled()
+    })
+
+    it('inspect returns raw JSON; 404 maps to Thai message; bad id rejected', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      const body = { Id: ID1, Config: {} }
+      t.json.mockImplementation(async (_m, path) =>
+        path === `/containers/${ID1}/json` ? body : []
+      )
+      await expect(t.svc.inspect('h', ID1)).resolves.toBe(body)
+      await expect(t.svc.inspect('h', 'bad/../id')).rejects.toThrow('Invalid container id')
+      await expect(t.svc.inspect('nope', ID1)).rejects.toThrow('This host is not open')
+      t.json.mockImplementation(async (_m, path) => {
+        if (path === `/containers/${ID1}/json`) throw new DockerError(404, 'no such container')
+        return []
+      })
+      await expect(t.svc.inspect('h', ID1)).rejects.toThrow('This container no longer exists')
+      expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
+      t.json.mockImplementation(async () => {
+        throw new DockerError(500, 'daemon exploded')
+      })
+      await expect(t.svc.inspect('h', ID1)).rejects.toThrow('daemon exploded')
+    })
+  })
+
+  describe('resources', () => {
+    const NET = 'c'.repeat(64)
+    const never = (): Promise<void> => new Promise<void>(() => {})
+
+    it('service methods require an open host', async () => {
+      const t = setup({ sleep: never })
+      await expect(t.svc.resources('nope', 'image')).rejects.toThrow('This host is not open')
+      await expect(t.svc.removeResource('nope', 'volume', 'v')).rejects.toThrow(
+        'This host is not open'
+      )
+      await expect(t.svc.prune('nope', 'network')).rejects.toThrow('This host is not open')
+      expect(t.json).not.toHaveBeenCalled()
+    })
+
+    it('delegates with the host client and maps Docker errors', async () => {
+      const t = setup({ sleep: never })
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) =>
+        path === '/volumes' ? { Volumes: [{ Name: 'data' }] } : path === '/volumes/prune' ? {} : []
+      )
+      await expect(t.svc.resources('h', 'volume')).resolves.toHaveLength(1)
+      await expect(t.svc.prune('h', 'volume')).resolves.toEqual({ deleted: 0, reclaimed: null })
+      t.json.mockImplementation(async (m) => {
+        if (m === 'DELETE') throw new DockerError(409, 'volume is in use')
+        return []
+      })
+      await expect(t.svc.removeResource('h', 'volume', 'data')).rejects.toThrow(
+        'This volume is in use by a container — remove that container first'
+      )
+    })
+
+    it('removing a builtIn network throws the predefined message without DELETE', async () => {
+      const t = setup({ sleep: never })
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) =>
+        path === '/networks' ? [{ Id: NET, Name: 'bridge', Driver: 'bridge' }] : []
+      )
+      await expect(t.svc.removeResource('h', 'network', NET)).rejects.toThrow(
+        'Built-in networks (bridge/host/none) cannot be removed'
+      )
+      expect(t.json.mock.calls.some((c) => c[0] === 'DELETE')).toBe(false)
+      // unknown ref: Docker decides
+      const other = 'd'.repeat(64)
+      await t.svc.removeResource('h', 'network', other)
+      expect(t.json).toHaveBeenLastCalledWith('DELETE', `/networks/${other}`, undefined, {
+        timeoutMs: 120000
+      })
+    })
   })
 })

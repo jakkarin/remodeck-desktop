@@ -77,7 +77,7 @@ export async function listCommits(
     })
 }
 
-const NOT_IN_BRANCH = 'commit ไม่อยู่ใน branch นี้'
+const NOT_IN_BRANCH = 'Commit is not on this branch'
 
 /** Throws unless `sha` is a full sha that is in `ref` but not in `base`. */
 export async function requireCommitInRange(

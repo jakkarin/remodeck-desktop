@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import type { ContainerInfo } from '../../src/shared/containers'
 import type { Host } from '../../src/shared/types'
 
@@ -8,7 +8,13 @@ const handlers: Record<string, Set<Handler>> = {}
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
-    containers: { open: vi.fn(), action: vi.fn() },
+    containers: {
+      open: vi.fn(),
+      action: vi.fn(),
+      watchStats: vi.fn(),
+      inspect: vi.fn(),
+      resources: vi.fn()
+    },
     on: vi.fn((event: string, cb: Handler) => {
       ;(handlers[event] ??= new Set()).add(cb)
       return () => handlers[event].delete(cb)
@@ -17,7 +23,10 @@ vi.mock('../../src/renderer/src/api', () => ({
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
+vi.mock('../../src/renderer/src/terminalEvents', () => ({ openHostTerminal: vi.fn() }))
+
 import { api } from '../../src/renderer/src/api'
+import { openHostTerminal } from '../../src/renderer/src/terminalEvents'
 import { ContainersView } from '../../src/renderer/src/components/ContainersView'
 
 const host: Host = { id: 'h1', sshHost: 'a', label: 'Box', protected: false }
@@ -27,10 +36,13 @@ const mk = (name: string, over: Partial<ContainerInfo> = {}): ContainerInfo => (
   id: name.padEnd(12, '0'),
   name,
   image: `${name}-image`,
+  imageId: '',
   state: 'running',
   status: 'Up 1 hour',
   created: 0,
   ports: ['8080→80/tcp', '443/tcp'],
+  volumes: [],
+  networks: [],
   compose: null,
   ...over
 })
@@ -48,9 +60,68 @@ beforeEach(() => {
   for (const k of Object.keys(handlers)) delete handlers[k]
   vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: true })
   vi.mocked(api.containers.action).mockResolvedValue(undefined)
+  vi.mocked(api.containers.inspect).mockResolvedValue({
+    Config: { Image: 'img', Env: ['K=secret-value'] }
+  })
+  vi.mocked(api.containers.resources).mockResolvedValue([])
+  vi.mocked(openHostTerminal).mockResolvedValue({} as never)
 })
 
 describe('ContainersView', () => {
+  it('shows CPU/RAM for running containers and — when missing; none for stopped', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [mk('web'), mk('nostat'), mk('old', { state: 'exited', status: 'Exited' })],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    await waitFor(() => expect(api.containers.watchStats).toHaveBeenCalledWith('h1', true))
+    act(() => {
+      for (const cb of handlers['containers-stats'] ?? [])
+        (cb as (...a: unknown[]) => void)('h1', {
+          [mk('web').id]: { cpu: 2.1, memBytes: 41943040, memLimit: 1 }
+        })
+    })
+    expect(screen.getByText('CPU 2.1%')).toBeInTheDocument()
+    expect(screen.getByText('RAM 40 MB')).toBeInTheDocument()
+    expect(screen.getByText('CPU —')).toBeInTheDocument()
+    expect(screen.getByText('RAM —')).toBeInTheDocument()
+    act(() => {
+      for (const cb of handlers['containers-stats'] ?? [])
+        (cb as (...a: unknown[]) => void)('h1', {
+          [mk('web').id]: { cpu: null, memBytes: 41943040, memLimit: 1 }
+        })
+    })
+    expect(screen.getAllByText('CPU —')).toHaveLength(2)
+    expect(screen.getByText('RAM 40 MB')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Show stopped'))
+    expect(screen.getAllByText(/^CPU /)).toHaveLength(2)
+  })
+
+  it('keeps each project’s metadata and actions in its own named list group', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [
+        mk('web', { compose: comp }),
+        mk('worker', { compose: { ...comp, project: 'jobs' } }),
+        mk('solo', { ports: [] })
+      ],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    const row = within(within(shop).getByRole('list')).getByRole('listitem')
+    expect(within(row).getByText('web-image')).toBeInTheDocument()
+    expect(within(row).getByText('Running')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
+    expect(within(shop).queryByText('worker')).toBeNull()
+    expect(
+      within(screen.getByRole('region', { name: 'jobs (compose)' })).getByText('worker')
+    ).toBeInTheDocument()
+    const standalone = screen.getByRole('region', { name: 'Standalone' })
+    expect(within(standalone).getByText('No ports')).toBeInTheDocument()
+    expect(within(standalone).queryByText('web')).toBeNull()
+  })
+
   it('groups compose projects and standalone, hiding stopped by default', async () => {
     render(<ContainersView host={host} />)
     expect(await screen.findByText('shop (compose)')).toBeInTheDocument()
@@ -65,7 +136,7 @@ describe('ContainersView', () => {
   it('shows stopped containers with the checkbox', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    fireEvent.click(screen.getByLabelText('Show stopped'))
     expect(screen.getByText('db')).toBeInTheDocument()
     expect(screen.getByText('old')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start old' })).toBeInTheDocument()
@@ -85,17 +156,54 @@ describe('ContainersView', () => {
     const { unmount } = render(<ContainersView host={host} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: /shop \(compose\)/ }))
-    expect(screen.queryByText('web')).toBeNull()
+    expect(screen.getByText('web')).not.toBeVisible()
     expect(JSON.parse(localStorage.getItem('remodeck.composeCollapsed') ?? '{}')).toEqual({
       h1: ['shop']
     })
     unmount()
     const second = render(<ContainersView host={host} />)
     await screen.findByText('solo')
-    expect(screen.queryByText('web')).toBeNull()
+    expect(screen.getByText('web')).not.toBeVisible()
     second.unmount()
     render(<ContainersView host={{ ...host, id: 'h2' }} />)
     expect(await screen.findByText('web')).toBeInTheDocument()
+  })
+
+  it('offers Start only for stopped containers and Stop/Restart only for running ones', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByLabelText('Show stopped'))
+    expect(screen.getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restart web' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start web' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Start old' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop old' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Restart old' })).toBeNull()
+  })
+
+  it('collapses a compose project and wires the toggle to its list', async () => {
+    render(<ContainersView host={host} />)
+    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    const toggle = within(shop).getByRole('button', { name: /shop \(compose\)/ })
+    const listId = toggle.getAttribute('aria-controls') ?? ''
+    expect(document.getElementById(listId)).not.toBeNull()
+    expect(within(shop).getByText('web')).toBeVisible()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(document.getElementById(listId)).not.toBeVisible()
+    expect(within(shop).queryByRole('listitem')).toBeNull()
+    expect(screen.getByText('solo')).toBeVisible()
+  })
+
+  it('disables Start and Remove while a container is being removed', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [mk('gone', { state: 'removing', status: 'Removal In Progress' })],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    fireEvent.click(await screen.findByLabelText('Show stopped'))
+    expect(screen.getByRole('button', { name: 'Start gone' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove gone' })).toBeDisabled()
   })
 
   it('runs Stop directly on a normal host', async () => {
@@ -125,7 +233,7 @@ describe('ContainersView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove web' }))
     const confirm = screen.getByRole('button', { name: 'Remove' })
     expect(confirm).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('พิมพ์ชื่อ host เพื่อยืนยัน'), {
+    fireEvent.change(screen.getByLabelText('Type the host name to confirm'), {
       target: { value: 'Box' }
     })
     expect(confirm).toBeEnabled()
@@ -148,18 +256,18 @@ describe('ContainersView', () => {
   it('shows the live-paused badge', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    expect(screen.queryByText('หยุดอัปเดตสด')).toBeNull()
+    expect(screen.queryByText('Live updates paused')).toBeNull()
     for (const cb of handlers['containers-live'] ?? []) {
       ;(cb as (...a: unknown[]) => void)('h1', false)
     }
-    expect(await screen.findByText('หยุดอัปเดตสด')).toBeInTheDocument()
+    expect(await screen.findByText('Live updates paused')).toBeInTheDocument()
   })
 
   it('shows the stale badge when open reports the stream is not live', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: false })
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    expect(screen.getByText('หยุดอัปเดตสด')).toBeInTheDocument()
+    expect(screen.getByText('Live updates paused')).toBeInTheDocument()
   })
 
   it('disables the buttons of a container while its action runs, so a double click sends once', async () => {
@@ -181,16 +289,49 @@ describe('ContainersView', () => {
   it('shows the connection error with Retry', async () => {
     vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('no socket'))
     render(<ContainersView host={host} />)
-    expect(await screen.findByText('เชื่อมต่อ docker บน Box ไม่ได้')).toBeInTheDocument()
+    expect(await screen.findByText('Cannot connect to docker on Box')).toBeInTheDocument()
     expect(screen.getByText('no socket')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('web')).toBeInTheDocument()
   })
 
+  it('disables the resource tabs while the containers list is in error', async () => {
+    vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('no socket'))
+    render(<ContainersView host={host} />)
+    await screen.findByText('Cannot connect to docker on Box')
+    for (const name of ['Images', 'Volumes', 'Networks']) {
+      const t = screen.getByRole('tab', { name })
+      expect(t).toBeDisabled()
+      expect(t).toHaveAttribute('title', 'Failed to load containers — press Retry first')
+    }
+    expect(screen.getByRole('tab', { name: 'Containers' })).toBeEnabled()
+  })
+
+  it('switches back to Containers when the list errors while a resource tab is shown', async () => {
+    vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('first'))
+    render(<ContainersView host={host} />)
+    await screen.findByText('first')
+    let fail!: (e: Error) => void
+    vi.mocked(api.containers.open).mockReturnValueOnce(
+      new Promise((_, reject) => {
+        fail = reject
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Images' }))
+    expect(await screen.findByLabelText('Filter Images')).toBeInTheDocument()
+    await act(async () => {
+      fail(new Error('second'))
+    })
+    expect(await screen.findByText('second')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Containers' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Images' })).toBeDisabled()
+  })
+
   it('shows the empty message', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({ list: [], live: true })
     render(<ContainersView host={host} />)
-    expect(await screen.findByText('ยังไม่มี container บน Box')).toBeInTheDocument()
+    expect(await screen.findByText('No containers on Box')).toBeInTheDocument()
   })
 
   it('drops an open confirm when the host changes and never acts on the new host', async () => {
@@ -208,6 +349,260 @@ describe('ContainersView', () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
     fireEvent.change(screen.getByLabelText('Filter containers'), { target: { value: 'zzz' } })
-    expect(screen.getByText('ไม่มี container ที่ตรงกับตัวกรอง')).toBeInTheDocument()
+    expect(screen.getByText('No containers match the filter')).toBeInTheDocument()
+  })
+
+  it('Logs opens a logs terminal for that container', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Logs web' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'logs',
+        id: 'web'.padEnd(12, '0')
+      })
+    )
+  })
+
+  it('Shell is disabled for a stopped container and opens shell for a running one', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByLabelText('Show stopped'))
+    expect(screen.getByRole('button', { name: 'Shell old' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Logs old' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Shell web' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'shell',
+        id: 'web'.padEnd(12, '0')
+      })
+    )
+  })
+
+  it('compose Up runs immediately on a normal host', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Up shop' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'compose',
+        project: 'shop',
+        action: 'up'
+      })
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('double-clicking compose Up opens one terminal while the first is pending', async () => {
+    let done: (v: never) => void = () => {}
+    vi.mocked(openHostTerminal).mockReturnValueOnce(new Promise((r) => (done = r)))
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const up = screen.getByRole('button', { name: 'Up shop' })
+    fireEvent.click(up)
+    fireEvent.click(up)
+    expect(openHostTerminal).toHaveBeenCalledTimes(1)
+    expect(up).toBeDisabled()
+    done({} as never)
+    await waitFor(() => expect(up).not.toBeDisabled())
+  })
+
+  it('compose Up asks for click confirm on a protected host', async () => {
+    render(<ContainersView host={prot} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Up shop' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('up · shop')).toBeInTheDocument()
+    expect(openHostTerminal).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Up' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'compose',
+        project: 'shop',
+        action: 'up'
+      })
+    )
+  })
+
+  it('compose Down asks click on normal and typed host label on protected', async () => {
+    const first = render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
+    const click = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    expect(click).toBeEnabled()
+    expect(openHostTerminal).not.toHaveBeenCalled()
+    first.unmount()
+    render(<ContainersView host={prot} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
+    const typed = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    expect(typed).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Type the host name to confirm'), {
+      target: { value: 'Box' }
+    })
+    fireEvent.click(typed)
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'compose',
+        project: 'shop',
+        action: 'down'
+      })
+    )
+  })
+
+  it('compose group tooltip shows the path, or the missing-path hint', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [
+        mk('web', { compose: { ...comp, configFiles: ['a.yml', 'b.yml'] } }),
+        mk('worker', { compose: { ...comp, project: 'jobs', workingDir: '', configFiles: [] } })
+      ],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    expect(within(shop).getByRole('button', { name: /shop \(compose\)/ })).toHaveAttribute(
+      'title',
+      '/w · a.yml, b.yml'
+    )
+    const jobs = screen.getByRole('region', { name: 'jobs (compose)' })
+    expect(within(jobs).getByRole('button', { name: /jobs \(compose\)/ })).toHaveAttribute(
+      'title',
+      'Compose project path unknown (see the terminal for actual results)'
+    )
+  })
+
+  it('openHostTerminal rejection shows the error banner', async () => {
+    vi.mocked(openHostTerminal).mockRejectedValueOnce(new Error('no pty'))
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Logs web' }))
+    expect(await screen.findByText('no pty')).toBeInTheDocument()
+  })
+
+  it('clicking a name opens details, clicking again closes', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const name = screen.getByRole('button', { name: 'Details for web' })
+    expect(name).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(name)
+    expect(await screen.findByRole('complementary')).toBeInTheDocument()
+    expect(api.containers.inspect).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'))
+    expect(name).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(name)
+    expect(screen.queryByRole('complementary')).toBeNull()
+  })
+
+  it('clicking the row background opens nothing', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    expect(screen.queryByRole('complementary')).toBeNull()
+    expect(api.containers.inspect).not.toHaveBeenCalled()
+  })
+
+  it('selected container removed from list closes the panel', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    await screen.findByRole('complementary')
+    act(() => {
+      for (const cb of handlers['containers-changed'] ?? [])
+        (cb as (...a: unknown[]) => void)(
+          'h1',
+          LIST.filter((c) => c.name !== 'web')
+        )
+    })
+    await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull())
+  })
+
+  it('switching selection resets revealed env', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Show K' }))
+    expect(screen.getByText('secret-value')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Details for solo' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
+    await screen.findByRole('button', { name: 'Show K' })
+    expect(screen.queryByText('secret-value')).toBeNull()
+  })
+
+  it('tab strip switches between Containers and Images', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const strip = screen.getByRole('tablist', { name: 'Docker resources' })
+    const tabs = within(strip).getAllByRole('tab')
+    expect(tabs.map((t) => t.textContent)).toEqual(['Containers', 'Images', 'Volumes', 'Networks'])
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    vi.mocked(api.containers.resources).mockResolvedValue([
+      {
+        kind: 'image',
+        ref: 'nginx:1',
+        name: 'nginx:1',
+        id: 'i',
+        size: null,
+        created: null,
+        driver: '',
+        builtIn: false
+      }
+    ])
+    fireEvent.click(tabs[1])
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('nginx:1')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter containers')).toBeNull()
+    fireEvent.click(tabs[0])
+    expect(await screen.findByText('web')).toBeInTheDocument()
+  })
+
+  it('switching resource tabs resets the filter', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('tab', { name: 'Images' }))
+    const input = await screen.findByLabelText('Filter Images')
+    fireEvent.change(input, { target: { value: 'abc' } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Volumes' }))
+    expect(await screen.findByLabelText('Filter Volumes')).toHaveValue('')
+    fireEvent.click(screen.getByRole('tab', { name: 'Images' }))
+    expect(await screen.findByLabelText('Filter Images')).toHaveValue('')
+  })
+
+  it('stats watching is off while a resource tab is shown', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    await waitFor(() => expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true))
+    fireEvent.click(screen.getByRole('tab', { name: 'Volumes' }))
+    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', false)
+    fireEvent.click(screen.getByRole('tab', { name: 'Containers' }))
+    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
+  })
+
+  it('dragging the details separator resizes the panel and remembers the width', async () => {
+    const { container, unmount } = render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    expect(screen.queryByRole('separator', { name: 'Resize details' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    const sep = await screen.findByRole('separator', { name: 'Resize details' })
+    const split = container.querySelector<HTMLElement>('.containers-split')!
+    expect(split.style.getPropertyValue('--details-width')).toBe('400px')
+    fireEvent.pointerDown(sep, { clientX: 600 })
+    fireEvent.pointerMove(window, { clientX: 500 })
+    fireEvent.pointerUp(window, { clientX: 500 })
+    expect(split.style.getPropertyValue('--details-width')).toBe('500px')
+    // Narrower than the minimum clamps to 280.
+    fireEvent.pointerDown(sep, { clientX: 500 })
+    fireEvent.pointerMove(window, { clientX: 900 })
+    fireEvent.pointerUp(window, { clientX: 900 })
+    expect(split.style.getPropertyValue('--details-width')).toBe('280px')
+    unmount()
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    await screen.findByRole('separator', { name: 'Resize details' })
+    expect(
+      document
+        .querySelector<HTMLElement>('.containers-split')!
+        .style.getPropertyValue('--details-width')
+    ).toBe('280px')
   })
 })

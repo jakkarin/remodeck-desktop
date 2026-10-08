@@ -1,31 +1,76 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronRight, Play, RotateCw, Square, Trash2 } from 'lucide-react'
-import type { ContainerAction, ContainerInfo } from '../../../shared/containers'
+import { useRef, useState } from 'react'
+import type {
+  ComposeAction,
+  ContainerAction,
+  ContainerInfo,
+  ContainerProject,
+  HostTerminalRequest
+} from '../../../shared/containers'
 import { groupContainers } from '../../../shared/containers'
 import type { Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
+import { capitalise, isActiveContainer } from '../containerPresentation'
 import { dangerLevel } from '../danger'
 import { readJson, writeJson } from '../storage'
+import { startDragResize } from '../dragResize'
+import { openHostTerminal } from '../terminalEvents'
 import { useContainers } from '../useContainers'
+import { useContainerStats } from '../useContainerStats'
 import { ConfirmDanger } from './ConfirmDanger'
 import { ErrorBanner } from './ErrorBanner'
-import { Badge, Button, IconButton, TextInput } from './ui'
+import { Badge, Button, TextInput } from './ui'
+import { GroupPanel } from './ui/GroupedList'
+import { ContainerItem } from './ContainerItem'
+import { ContainerDetailsPanel } from './ContainerDetailsPanel'
+import { ResourcesView } from './ResourcesView'
+import type { ResourceKind } from '../../../shared/resources'
+
+type Tab = 'containers' | ResourceKind
+const TABS: [Tab, string][] = [
+  ['containers', 'Containers'],
+  ['image', 'Images'],
+  ['volume', 'Volumes'],
+  ['network', 'Networks']
+]
 
 const COLLAPSED_KEY = 'remodeck.composeCollapsed'
-const ACTIVE: readonly string[] = ['running', 'restarting', 'paused']
+const DETAILS_WIDTH_KEY = 'remodeck.containerDetailsWidth'
+const DETAILS_MIN = 280
+const DETAILS_DEFAULT = 400
+// Room the container list keeps when the details panel is dragged wider.
+const LIST_MIN = 320
 
-const isActive = (c: ContainerInfo): boolean => ACTIVE.includes(c.state)
-const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
+function readDetailsWidth(): number {
+  const v = readJson<unknown>(DETAILS_WIDTH_KEY, null)
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(DETAILS_MIN, v) : DETAILS_DEFAULT
+}
 
 type Pending = {
   hostId: string
-  container: ContainerInfo
-  action: ContainerAction
+  summary: string
+  confirmLabel: string
   mode: 'click' | 'type'
+  run: () => Promise<void>
+}
+
+const COMPOSE_LABELS: [ComposeAction, string][] = [
+  ['up', 'Up'],
+  ['pull', 'Pull'],
+  ['restart', 'Restart'],
+  ['down', 'Down']
+]
+const NO_PATH_HINT = 'Compose project path unknown (see the terminal for actual results)'
+
+function projectHint(p: ContainerProject): string {
+  return p.workingDir && p.configFiles.length > 0
+    ? `${p.workingDir} · ${p.configFiles.join(', ')}`
+    : NO_PATH_HINT
 }
 
 export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const { list, live, error, retry } = useContainers(host.id)
+  const [tab, setTab] = useState<Tab>('containers')
+  const stats = useContainerStats(host.id, list !== null && tab === 'containers')
   const [filter, setFilter] = useState('')
   const [showStopped, setShowStopped] = useState(false)
   const [collapsedAll, setCollapsedAll] = useState<Record<string, string[]>>(() =>
@@ -34,6 +79,9 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const [actionError, setActionError] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detailsWidth, setDetailsWidth] = useState(readDetailsWidth)
+  const splitRef = useRef<HTMLDivElement>(null)
 
   const collapsed = collapsedAll[host.id] ?? []
   const toggleProject = (name: string): void => {
@@ -53,40 +101,133 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     await api.containers.action(host.id, c.id, action)
     setActionError(null)
   }
+  const mark = (id: string, on: boolean): void =>
+    setBusy((s) => {
+      const n = new Set(s)
+      if (on) n.add(id)
+      else n.delete(id)
+      return n
+    })
   const request = (c: ContainerInfo, action: ContainerAction): void => {
     const level = dangerLevel(action, host.protected)
     if (level === 'none') {
-      const mark = (on: boolean): void =>
-        setBusy((s) => {
-          const n = new Set(s)
-          if (on) n.add(c.id)
-          else n.delete(c.id)
-          return n
-        })
-      mark(true)
+      mark(c.id, true)
       run(c, action)
         .catch((e) => setActionError(errorMessage(e)))
-        .finally(() => mark(false))
+        .finally(() => mark(c.id, false))
     } else {
-      setPending({ hostId: host.id, container: c, action, mode: level })
+      setPending({
+        hostId: host.id,
+        summary: `${action} · ${c.name}`,
+        confirmLabel: capitalise(action),
+        mode: level,
+        run: () => run(c, action)
+      })
     }
+  }
+  const openTerminal = async (req: HostTerminalRequest): Promise<void> => {
+    await openHostTerminal(host.id, req)
+    setActionError(null)
+  }
+  // Hold `key` busy until the terminal request settles so a double click opens one tab.
+  const guarded = (key: string, fn: () => Promise<void>): Promise<void> => {
+    mark(key, true)
+    return fn().finally(() => mark(key, false))
+  }
+  const gate = (
+    level: ReturnType<typeof dangerLevel>,
+    summary: string,
+    confirmLabel: string,
+    key: string,
+    req: HostTerminalRequest
+  ): void => {
+    const go = (): Promise<void> => guarded(key, () => openTerminal(req))
+    if (level === 'none') {
+      go().catch((e) => setActionError(errorMessage(e)))
+    } else {
+      setPending({ hostId: host.id, summary, confirmLabel, mode: level, run: go })
+    }
+  }
+  const terminal = (c: ContainerInfo, kind: 'logs' | 'shell'): void =>
+    gate(dangerLevel(kind, host.protected), `${kind} · ${c.name}`, capitalise(kind), c.id, {
+      kind,
+      id: c.id
+    })
+  const compose = (project: string, action: ComposeAction): void =>
+    gate(
+      dangerLevel(`compose-${action}`, host.protected),
+      `${action} · ${project}`,
+      capitalise(action),
+      `compose:${project}`,
+      { kind: 'compose', project, action }
+    )
+
+  // The resource tabs need the host the failed list left disposed.
+  if (error !== null && tab !== 'containers') setTab('containers')
+  const tabStrip = (
+    <div role="tablist" aria-label="Docker resources" className="containers-tabbar">
+      {TABS.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tab === id}
+          className={`containers-tab${tab === id ? ' active' : ''}`}
+          disabled={error !== null && id !== 'containers'}
+          title={
+            error !== null && id !== 'containers'
+              ? 'Failed to load containers — press Retry first'
+              : undefined
+          }
+          onClick={() => setTab(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+  if (tab !== 'containers') {
+    return (
+      <div className="containers-view">
+        {tabStrip}
+        <div className="containers-body">
+          <ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />
+        </div>
+      </div>
+    )
   }
 
   if (error !== null) {
     return (
       <div className="containers-view">
-        <ErrorBanner message={`เชื่อมต่อ docker บน ${host.label} ไม่ได้`} />
-        <div className="error">{error}</div>
-        <Button onClick={retry}>Retry</Button>
+        {tabStrip}
+        <div className="containers-body">
+          <ErrorBanner message={`Cannot connect to docker on ${host.label}`} />
+          <div className="error">{error}</div>
+          <Button onClick={retry}>Retry</Button>
+        </div>
       </div>
     )
   }
-  if (list === null) return <div className="containers-view muted">กำลังโหลด…</div>
+  if (list === null) {
+    return (
+      <div className="containers-view">
+        {tabStrip}
+        <div className="containers-body">
+          <div className="muted">Loading…</div>
+        </div>
+      </div>
+    )
+  }
+
+  const selected = selectedId === null ? undefined : list.find((c) => c.id === selectedId)
+  // The selected container left the list: close its panel.
+  if (selectedId !== null && !selected) setSelectedId(null)
 
   const needle = filter.trim().toLowerCase()
   const visible = list.filter(
     (c) =>
-      (showStopped || isActive(c)) &&
+      (showStopped || isActiveContainer(c)) &&
       (needle === '' ||
         c.name.toLowerCase().includes(needle) ||
         c.image.toLowerCase().includes(needle))
@@ -94,106 +235,115 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const { projects, standalone } = groupContainers(visible)
 
   const row = (c: ContainerInfo): React.JSX.Element => (
-    <li key={c.id} className="container-row">
-      <span className={`state-dot state-${c.state}`} title={c.state} aria-hidden="true" />
-      <span className="container-name mono">{c.name}</span>
-      <span className="container-image muted">{c.image}</span>
-      <span className="container-ports muted">{c.ports.join(', ')}</span>
-      <span className="container-status muted">{c.status}</span>
-      <span className="container-actions">
-        {isActive(c) ? (
-          <>
-            <IconButton
-              aria-label={`Stop ${c.name}`}
-              disabled={busy.has(c.id)}
-              onClick={() => request(c, 'stop')}
-            >
-              <Square size={14} />
-            </IconButton>
-            <IconButton
-              aria-label={`Restart ${c.name}`}
-              disabled={busy.has(c.id)}
-              onClick={() => request(c, 'restart')}
-            >
-              <RotateCw size={14} />
-            </IconButton>
-          </>
-        ) : (
-          <IconButton
-            aria-label={`Start ${c.name}`}
-            disabled={busy.has(c.id)}
-            onClick={() => request(c, 'start')}
-          >
-            <Play size={14} />
-          </IconButton>
-        )}
-        <IconButton
-          aria-label={`Remove ${c.name}`}
-          disabled={busy.has(c.id)}
-          onClick={() => request(c, 'remove')}
-        >
-          <Trash2 size={14} />
-        </IconButton>
-      </span>
-    </li>
+    <ContainerItem
+      key={c.id}
+      container={c}
+      busy={busy.has(c.id)}
+      stats={stats[c.id]}
+      selected={selectedId === c.id}
+      onSelect={() => setSelectedId((cur) => (cur === c.id ? null : c.id))}
+      onAction={(action) => request(c, action)}
+      onTerminal={(kind) => terminal(c, kind)}
+    />
   )
-
+  const resizeDetails = (e: React.PointerEvent<HTMLDivElement>): void => {
+    // A 0 width (no layout, e.g. jsdom) means no maximum.
+    const w = splitRef.current?.getBoundingClientRect().width ?? 0
+    startDragResize(e, {
+      axis: 'x',
+      start: detailsWidth,
+      min: DETAILS_MIN,
+      max: w > 0 ? Math.max(DETAILS_MIN, w - LIST_MIN) : Infinity,
+      invert: true,
+      onChange: setDetailsWidth,
+      onEnd: (width) => writeJson(DETAILS_WIDTH_KEY, width)
+    })
+  }
   return (
     <div className="containers-view">
-      <div className="containers-toolbar">
-        <TextInput
-          aria-label="Filter containers"
-          placeholder="Filter"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <label>
-          <input
-            type="checkbox"
-            checked={showStopped}
-            onChange={(e) => setShowStopped(e.target.checked)}
-          />
-          แสดงตัวที่หยุด
-        </label>
-        {!live && <Badge tone="warning">หยุดอัปเดตสด</Badge>}
+      {tabStrip}
+      <div className="containers-body">
+        <div
+          ref={splitRef}
+          className={`containers-split${selected ? ' has-details' : ''}`}
+          style={{ '--details-width': `${detailsWidth}px` } as React.CSSProperties}
+        >
+          <div className="containers-main">
+            <div className="containers-toolbar">
+              <TextInput
+                aria-label="Filter containers"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showStopped}
+                  onChange={(e) => setShowStopped(e.target.checked)}
+                />
+                Show stopped
+              </label>
+              {!live && <Badge tone="warning">Live updates paused</Badge>}
+            </div>
+            {actionError && <ErrorBanner message={actionError} />}
+            {list.length === 0 && <div className="muted">{`No containers on ${host.label}`}</div>}
+            {list.length > 0 && visible.length === 0 && (
+              <div className="muted">No containers match the filter</div>
+            )}
+            {projects.map((p) => (
+              <GroupPanel
+                key={p.name}
+                title={`${p.name} (compose)`}
+                collapsed={collapsed.includes(p.name)}
+                onToggle={() => toggleProject(p.name)}
+                titleHint={projectHint(p)}
+                actions={COMPOSE_LABELS.map(([action, label]) => (
+                  <Button
+                    key={action}
+                    aria-label={`${label} ${p.name}`}
+                    disabled={busy.has(`compose:${p.name}`)}
+                    onClick={() => compose(p.name, action)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              >
+                {p.containers.map(row)}
+              </GroupPanel>
+            ))}
+            {standalone.length > 0 && (
+              <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>
+            )}
+          </div>
+          {selected && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize details"
+              className="split-sep split-sep-v containers-details-sep"
+              onPointerDown={resizeDetails}
+            />
+          )}
+          {selected && (
+            <ContainerDetailsPanel
+              key={selected.id}
+              host={host}
+              container={selected}
+              onClose={() => setSelectedId(null)}
+            />
+          )}
+        </div>
       </div>
-      {actionError && <ErrorBanner message={actionError} />}
-      {list.length === 0 && <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>}
-      {list.length > 0 && visible.length === 0 && (
-        <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
-      )}
-      {projects.map((p) => {
-        const isCollapsed = collapsed.includes(p.name)
-        return (
-          <section key={p.name} className="container-group">
-            <button
-              type="button"
-              className="container-group-header"
-              aria-expanded={!isCollapsed}
-              onClick={() => toggleProject(p.name)}
-            >
-              {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-              <span>{`${p.name} (compose)`}</span>
-            </button>
-            {!isCollapsed && <ul>{p.containers.map(row)}</ul>}
-          </section>
-        )
-      })}
-      {standalone.length > 0 && (
-        <section className="container-group">
-          <div className="container-group-header">Standalone</div>
-          <ul>{standalone.map(row)}</ul>
-        </section>
-      )}
       {pending && !stale && (
         <ConfirmDanger
           host={host}
-          summary={`${pending.action} · ${pending.container.name}`}
-          confirmLabel={capitalise(pending.action)}
+          summary={pending.summary}
+          confirmLabel={pending.confirmLabel}
           mode={pending.mode}
           onConfirm={async () => {
             if (pending.hostId !== host.id) throw new Error('host changed')
-            await run(pending.container, pending.action)
+            await pending.run()
           }}
           onClose={() => setPending(null)}
         />

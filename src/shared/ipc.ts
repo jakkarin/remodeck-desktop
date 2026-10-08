@@ -1,5 +1,7 @@
 // Typed IPC contract between main and renderer: types and channel names only, no node imports.
-import type { ContainerAction, ContainerInfo } from './containers'
+import type { ContainerStats } from './containerDetails'
+import type { PruneResult, ResourceKind, ResourceRow } from './resources'
+import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './containers'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -84,6 +86,19 @@ export interface RemodeckApi {
     /** Lists the host's containers and starts live updates; rejects with the probe detail when docker is unusable. */
     open(hostId: string): Promise<{ list: ContainerInfo[]; live: boolean }>
     action(hostId: string, id: string, action: ContainerAction): Promise<void>
+    /** Raw `docker inspect` JSON for one container. */
+    inspect(hostId: string, id: string): Promise<unknown>
+    /** Fresh list of images, volumes or networks (not cached). */
+    resources(hostId: string, kind: ResourceKind): Promise<ResourceRow[]>
+    removeResource(hostId: string, kind: ResourceKind, ref: string): Promise<void>
+    prune(hostId: string, kind: ResourceKind): Promise<PruneResult>
+    /** Starts or stops the live CPU/RAM polling for the host's running containers (fire-and-forget). */
+    watchStats(hostId: string, on: boolean): void
+    /** Opens a logs, shell or compose terminal tab on the host over ssh. */
+    openTerminal(
+      hostId: string,
+      req: HostTerminalRequest
+    ): Promise<{ tabId: string; label: string; hostId: string }>
   }
   approval: { respond(requestId: string, decision: ApprovalDecision): void }
   prefs: {
@@ -98,6 +113,10 @@ export interface RemodeckApi {
   on(event: 'workspace-synced', cb: (id: string, info: SyncInfo) => void): () => void
   on(event: 'containers-changed', cb: (hostId: string, list: ContainerInfo[]) => void): () => void
   on(event: 'containers-live', cb: (hostId: string, live: boolean) => void): () => void
+  on(
+    event: 'containers-stats',
+    cb: (hostId: string, stats: Record<string, ContainerStats>) => void
+  ): () => void
 }
 
 /** Main-side implementation of the API; events are pushed with webContents.send instead of `on`. */
@@ -111,6 +130,7 @@ export type RemodeckEvent =
   | 'workspace-synced'
   | 'containers-changed'
   | 'containers-live'
+  | 'containers-stats'
 
 export const IPC_CHANNELS = {
   hosts: {
@@ -154,7 +174,16 @@ export const IPC_CHANNELS = {
     pasteImage: 'terminal:pasteImage',
     uploadImage: 'terminal:uploadImage'
   },
-  containers: { open: 'containers:open', action: 'containers:action' },
+  containers: {
+    open: 'containers:open',
+    action: 'containers:action',
+    openTerminal: 'containers:openTerminal',
+    inspect: 'containers:inspect',
+    resources: 'containers:resources',
+    removeResource: 'containers:removeResource',
+    prune: 'containers:prune',
+    watchStats: 'containers:watchStats'
+  },
   approval: { respond: 'approval:respond' },
   prefs: { get: 'prefs:get', update: 'prefs:update' },
   pushLog: { read: 'pushLog:read' },
@@ -165,7 +194,8 @@ export const IPC_CHANNELS = {
     'approval-request': 'event:approval-request',
     'workspace-synced': 'event:workspace-synced',
     'containers-changed': 'event:containers-changed',
-    'containers-live': 'event:containers-live'
+    'containers-live': 'event:containers-live',
+    'containers-stats': 'event:containers-stats'
   }
 } as const satisfies { [G in keyof MainApi]: { [M in keyof MainApi[G]]: string } } & {
   events: Record<RemodeckEvent, string>
@@ -177,5 +207,6 @@ export const SEND_CHANNELS: ReadonlySet<string> = new Set<string>([
   IPC_CHANNELS.terminal.write,
   IPC_CHANNELS.terminal.resize,
   IPC_CHANNELS.terminal.close,
+  IPC_CHANNELS.containers.watchStats,
   IPC_CHANNELS.approval.respond
 ])

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { BranchInfo } from '../../../shared/types'
 import { api, errorMessage } from '../api'
+import { showToast } from '../toast'
 import { Button, TextInput } from './ui'
 
 export function PushBar({
@@ -16,31 +17,30 @@ export function PushBar({
   const [busy, setBusy] = useState(false)
   // Tied to the target that was pushed: editing the target makes Open PR depend on it again.
   const [pushedTarget, setPushedTarget] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const pushed = pushedTarget !== null && pushedTarget === target
   const canOpenPR = pushed || branch.base === `origin/${target}`
 
   async function push(): Promise<void> {
     setBusy(true)
-    setError(null)
     try {
       const out = await api.workspaces.push(workspaceId, branch.name, target)
-      if (out.ok) setPushedTarget(target)
-      else setError(out.message)
+      if (out.ok) {
+        setPushedTarget(target)
+        showToast('Pushed', { message: `${branch.name} → origin/${target}` })
+      } else showToast('Push failed', { tone: 'error', message: out.message })
     } catch (e) {
-      setError(errorMessage(e))
+      showToast('Push failed', { tone: 'error', message: errorMessage(e) })
     } finally {
       setBusy(false)
     }
   }
 
   async function openPR(): Promise<void> {
-    setError(null)
     try {
       await api.workspaces.openPR(workspaceId, target)
     } catch (e) {
-      setError(errorMessage(e))
+      showToast('Could not open PR', { tone: 'error', message: errorMessage(e) })
     }
   }
 
@@ -55,7 +55,7 @@ export function PushBar({
           variant="primary"
           aria-label="Push to GitHub"
           disabled={!connected || busy || !target}
-          title={connected ? undefined : 'Host ยังไม่ได้ connect'}
+          title={connected ? undefined : 'Host is not connected'}
           onClick={() => void push()}
         >
           ↑ Push
@@ -64,8 +64,6 @@ export function PushBar({
           Open PR
         </Button>
       </div>
-      {pushed && <div className="ok">Pushed</div>}
-      {error && <div className="error">{error}</div>}
     </div>
   )
 }

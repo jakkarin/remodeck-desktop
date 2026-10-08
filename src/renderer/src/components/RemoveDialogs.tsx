@@ -70,7 +70,7 @@ export function RemoveWorkspaceDialog({
       }}
     >
       <p>
-        ลบ workspace <b>{label}</b> ออกจาก remodeck — ไม่มีการลบไฟล์ใน sandbox
+        Remove workspace <b>{label}</b> from remodeck — no files in the sandbox are deleted
       </p>
       {last && (
         <label className="checkbox">
@@ -79,7 +79,7 @@ export function RemoveWorkspaceDialog({
             checked={deleteMirror}
             onChange={(e) => setDeleteMirror(e.target.checked)}
           />
-          ลบ mirror ด้วยไหม?
+          Also delete the mirror?
         </label>
       )}
     </ConfirmDialog>
@@ -104,7 +104,7 @@ export function RemoveHostDialog({
       }}
     >
       <p>
-        ลบ host <b>{host.label}</b> ออกจาก remodeck — ไม่มีการลบไฟล์ใน sandbox
+        Remove host <b>{host.label}</b> from remodeck — no files in the sandbox are deleted
       </p>
     </ConfirmDialog>
   )

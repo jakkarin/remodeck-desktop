@@ -123,11 +123,11 @@ export function attachImageDrop(
       for (const file of files) {
         const ext = IMAGE_TYPES[file.type]
         if (!ext) {
-          onError(`${file.name}: ไม่ใช่ไฟล์รูปภาพที่รองรับ`)
+          onError(`${file.name}: not a supported image file`)
           continue
         }
         if (file.size > MAX_DROP_BYTES) {
-          onError(`${file.name}: ใหญ่เกิน 10MB`)
+          onError(`${file.name}: exceeds 10MB`)
           continue
         }
         try {

@@ -16,4 +16,4 @@ export function isValidSshHost(sshHost: string): boolean {
   return sshHost !== '' && !sshHost.startsWith('-') && !/\s/.test(sshHost)
 }
 
-export const INVALID_SSH_HOST = 'ssh host ไม่ถูกต้อง'
+export const INVALID_SSH_HOST = 'Invalid ssh host'

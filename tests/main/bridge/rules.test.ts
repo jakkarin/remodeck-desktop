@@ -10,7 +10,7 @@ describe('evaluateRules', () => {
   it('blocks deletions', () => {
     expect(evaluateRules([{ oldSha: A, newSha: ZERO_SHA, ref: 'refs/heads/feat' }], policy)).toEqual({
       allowed: false,
-      reason: 'ห้ามลบ refs/heads/feat'
+      reason: 'Deleting is not allowed: refs/heads/feat'
     })
   })
   it('blocks 64-hex zero deletions', () => {
@@ -20,7 +20,7 @@ describe('evaluateRules', () => {
   it('blocks protected branches', () => {
     expect(evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/main' }], policy)).toEqual({
       allowed: false,
-      reason: 'branch main ถูกป้องกัน'
+      reason: 'branch main is protected'
     })
   })
   it('matches protected names exactly', () => {
@@ -52,6 +52,6 @@ describe('evaluateRules', () => {
       ],
       policy
     )
-    expect(r).toEqual({ allowed: false, reason: 'branch release ถูกป้องกัน' })
+    expect(r).toEqual({ allowed: false, reason: 'branch release is protected' })
   })
 })

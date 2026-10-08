@@ -45,7 +45,7 @@ export function DiffPane({
           </div>
           {truncated && (
             <Button className="diff-more" onClick={() => setShowAll(true)}>
-              แสดงทั้งหมด
+              Show all
             </Button>
           )}
         </pre>

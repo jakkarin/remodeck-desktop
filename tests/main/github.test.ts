@@ -117,7 +117,7 @@ describe('GitHubClient', () => {
       (async () => new Response('[]')) as unknown as typeof fetch
     )
     await expect(c.listRepos()).rejects.toThrow(
-      'ยังไม่ได้ login GitHub — รัน git credential-manager github login ก่อน'
+      'Not logged in to GitHub — run git credential-manager github login first'
     )
   })
   it('throws on non-OK status', async () => {

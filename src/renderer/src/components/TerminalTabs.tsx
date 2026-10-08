@@ -13,7 +13,7 @@ import { Button, IconButton } from './ui'
 
 type Tab = { tabId: string; label: string; hostId: string; exited: boolean }
 
-const CLOSED = '[ปิดแล้ว]'
+const CLOSED = '[closed]'
 
 type PaneHandle = { write(d: string): void }
 
@@ -125,7 +125,7 @@ function TerminalPane({
         <div className="terminal-busy" role="status" aria-live="polite">
           <div className="terminal-busy-box">
             <Loader2 size={16} className="spinning" aria-hidden="true" />
-            <span>กำลังอัปโหลดรูป…</span>
+            <span>Uploading image…</span>
           </div>
         </div>
       )}
@@ -156,6 +156,12 @@ export function TerminalTabs({
     },
     []
   )
+  const collapsedRef = useRef(collapsed)
+  const onToggleRef = useRef(onToggle)
+  useEffect(() => {
+    collapsedRef.current = collapsed
+    onToggleRef.current = onToggle
+  })
   const [tabs, setTabs] = useState<Tab[]>([])
   // Remembered active tab per host, so switching hosts back restores it.
   const [activeByHost, setActiveByHost] = useState<Record<string, string | null>>({})
@@ -193,6 +199,7 @@ export function TerminalTabs({
           : [...prev, { tabId, label, hostId, exited: false }]
       )
       setActiveByHost((prev) => ({ ...prev, [hostId]: tabId }))
+      if (collapsedRef.current) onToggleRef.current()
     })
     return () => {
       offData()
@@ -224,10 +231,10 @@ export function TerminalTabs({
   }
 
   const plusTitle = !activeWs
-    ? 'ยังไม่ได้เลือก workspace'
+    ? 'No workspace selected'
     : hostUp
       ? undefined
-      : 'Host ยังไม่ได้ connect'
+      : 'Host is not connected'
   return (
     <div className="terminal-panel" id="terminal-panel">
       <div className="terminal-tabbar">

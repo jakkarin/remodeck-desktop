@@ -8,7 +8,14 @@ import type {
   Repo,
   Workspace
 } from '../shared/types'
-import type { ContainerAction } from '../shared/containers'
+import {
+  COMPOSE_ACTIONS,
+  CONTAINER_ID,
+  type ContainerAction,
+  type HostTerminalRequest
+} from '../shared/containers'
+import { RESOURCE_KINDS, type ResourceKind } from '../shared/resources'
+import { composeCommand, logsCommand, shellCommand } from './docker/hostCommands'
 import { IPC_CHANNELS, type MainApi } from '../shared/ipc'
 import { ApprovalService } from './approval/approvalService'
 import { GitBridge } from './bridge/gitBridge'
@@ -54,10 +61,36 @@ export function parseHostPatch(patch: unknown): { label?: string; protected?: bo
 }
 const CONTAINER_ACTIONS: readonly string[] = ['start', 'stop', 'restart', 'remove']
 
+function isTerminalRequest(r: unknown): r is HostTerminalRequest {
+  if (!isPlainObject(r)) return false
+  if (r.kind === 'logs' || r.kind === 'shell')
+    return typeof r.id === 'string' && CONTAINER_ID.test(r.id)
+  if (r.kind === 'compose')
+    return typeof r.project === 'string' && COMPOSE_ACTIONS.includes(r.action as never)
+  return false
+}
+
+function checkKind(kind: unknown): ResourceKind {
+  if (!RESOURCE_KINDS.includes(kind as ResourceKind)) throw new Error('Invalid resource kind')
+  return kind as ResourceKind
+}
+
 export function containersApi(deps: {
   hostOf(id: string): Host
   connection: Pick<ConnectionService, 'requireConnected' | 'probeDocker'>
-  service: Pick<ContainerService, 'open' | 'action'>
+  service: Pick<
+    ContainerService,
+    | 'open'
+    | 'action'
+    | 'find'
+    | 'project'
+    | 'inspect'
+    | 'watchStats'
+    | 'resources'
+    | 'removeResource'
+    | 'prune'
+  >
+  terminal: Pick<TerminalService, 'openHost'>
 }): MainApi['containers'] {
   return {
     open: async (hostId) => {
@@ -74,6 +107,57 @@ export function containersApi(deps: {
       deps.connection.requireConnected(hostId)
       if (!CONTAINER_ACTIONS.includes(action as string)) throw new Error('Invalid container action')
       return deps.service.action(hostId, id, action as ContainerAction)
+    },
+    inspect: async (hostId, id) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.service.inspect(hostId, id)
+    },
+    resources: async (hostId, kind) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.service.resources(hostId, checkKind(kind))
+    },
+    removeResource: async (hostId, kind, ref) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      const k = checkKind(kind)
+      if (typeof ref !== 'string') throw new Error('Invalid resource ref')
+      return deps.service.removeResource(hostId, k, ref)
+    },
+    prune: async (hostId, kind) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.service.prune(hostId, checkKind(kind))
+    },
+    watchStats: (hostId, on) => {
+      try {
+        deps.hostOf(hostId)
+        deps.connection.requireConnected(hostId)
+        if (typeof on !== 'boolean') return
+        deps.service.watchStats(hostId, on)
+      } catch {
+        // unknown or disconnected host: nothing to watch
+      }
+    },
+    openTerminal: async (hostId, req) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      if (!isTerminalRequest(req)) throw new Error('Invalid terminal request')
+      if (req.kind === 'compose') {
+        const p = deps.service.project(hostId, req.project)
+        if (!p) throw new Error('Compose project not found')
+        return deps.terminal.openHost(
+          hostId,
+          composeCommand(p, req.action),
+          `${req.action} · ${p.name}`
+        )
+      }
+      const c = deps.service.find(hostId, req.id)
+      if (!c) throw new Error('Container not found')
+      return req.kind === 'logs'
+        ? deps.terminal.openHost(hostId, logsCommand(c.id), `logs · ${c.name}`)
+        : deps.terminal.openHost(hostId, shellCommand(c.id), `sh · ${c.name}`)
     }
   }
 }
@@ -85,6 +169,7 @@ export function wireContainerService(
 ): { onDisconnect(hostId: string): void } {
   service.on('changed', (hostId, list) => send(EV['containers-changed'], hostId, list))
   service.on('live', (hostId, live) => send(EV['containers-live'], hostId, live))
+  service.on('stats', (hostId, map) => send(EV['containers-stats'], hostId, map))
   return { onDisconnect: (hostId) => service.dispose(hostId) }
 }
 
@@ -116,17 +201,17 @@ export async function createApp(opts: {
 
   const hostOf = (id: string): Host => {
     const h = store.config.hosts.find((x) => x.id === id)
-    if (!h) throw new Error('ไม่พบ host')
+    if (!h) throw new Error('Host not found')
     return h
   }
   const wsOf = (id: string): Workspace => {
     const w = store.config.workspaces.find((x) => x.id === id)
-    if (!w) throw new Error('ไม่พบ workspace')
+    if (!w) throw new Error('Workspace not found')
     return w
   }
   const repoOf = (id: string): Repo => {
     const r = store.config.repos.find((x) => x.id === id)
-    if (!r) throw new Error('ไม่พบ repo')
+    if (!r) throw new Error('Repo not found')
     return r
   }
   const targetFor = (hostId: string): SshTarget => new SshTarget(hostOf(hostId).sshHost, sshPath)
@@ -208,7 +293,7 @@ export async function createApp(opts: {
       sync.rewrittenBranches(ws.id)
     )
     const b = list.find((x) => x.name === branch)
-    if (!b) throw new Error(`ไม่พบ branch ${branch}`)
+    if (!b) throw new Error(`Branch not found: ${branch}`)
     return { base: `refs/remotes/${b.base}`, ref: `refs/remotes/ws-${ws.id}/${branch}` }
   }
 
@@ -265,7 +350,7 @@ export async function createApp(opts: {
       list: async () => store.config.workspaces,
       clone: async (hostId, repoInput, sandboxPath) => {
         const parsed = parseRepoInput(repoInput)
-        if (!parsed) throw new Error('รูปแบบ repo ไม่ถูกต้อง')
+        if (!parsed) throw new Error('Invalid repo format')
         validateSandboxPath(sandboxPath)
         hostOf(hostId)
         connection.requireConnected(hostId)
@@ -379,16 +464,16 @@ export async function createApp(opts: {
         return term.uploadImage(tabId, new Uint8Array(img.toPNG()), 'png')
       },
       uploadImage: async (tabId, bytes, ext) => {
-        if (!(bytes instanceof Uint8Array)) throw new Error('ข้อมูลรูปภาพไม่ถูกต้อง')
+        if (!(bytes instanceof Uint8Array)) throw new Error('Invalid image data')
         const e = ext.toLowerCase() === 'jpeg' ? 'jpg' : ext.toLowerCase()
         if (!(IMAGE_EXTS as readonly string[]).includes(e))
-          throw new Error('ไม่รองรับไฟล์รูปประเภทนี้')
-        if (bytes.length === 0) throw new Error('รูปภาพว่างเปล่า')
-        if (bytes.length > MAX_IMAGE_BYTES) throw new Error('รูปภาพใหญ่เกิน 10MB')
+          throw new Error('Unsupported image type')
+        if (bytes.length === 0) throw new Error('Image is empty')
+        if (bytes.length > MAX_IMAGE_BYTES) throw new Error('Image exceeds 10MB')
         return term.uploadImage(tabId, bytes, e as ImageExt)
       }
     },
-    containers: containersApi({ hostOf, connection, service: containerService }),
+    containers: containersApi({ hostOf, connection, service: containerService, terminal: term }),
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)
     },

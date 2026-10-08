@@ -17,7 +17,7 @@ export class GitHubClient {
 
   async listRepos(): Promise<{ owner: string; name: string; defaultBranch: string }[]> {
     const c = await this.cred()
-    if (!c) throw new Error('ยังไม่ได้ login GitHub — รัน git credential-manager github login ก่อน')
+    if (!c) throw new Error('Not logged in to GitHub — run git credential-manager github login first')
     const res = await this.fetchImpl(`${this.apiBase}/user/repos?per_page=100&sort=pushed`, {
       headers: {
         Authorization: `Bearer ${c.password}`,

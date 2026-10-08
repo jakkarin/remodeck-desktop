@@ -53,7 +53,16 @@ const remodeck: RemodeckApi = {
     pasteImage: invoke(C.terminal.pasteImage),
     uploadImage: invoke(C.terminal.uploadImage)
   },
-  containers: { open: invoke(C.containers.open), action: invoke(C.containers.action) },
+  containers: {
+    open: invoke(C.containers.open),
+    action: invoke(C.containers.action),
+    openTerminal: invoke(C.containers.openTerminal),
+    inspect: invoke(C.containers.inspect),
+    resources: invoke(C.containers.resources),
+    removeResource: invoke(C.containers.removeResource),
+    prune: invoke(C.containers.prune),
+    watchStats: send(C.containers.watchStats)
+  },
   approval: { respond: send(C.approval.respond) },
   prefs: { get: invoke(C.prefs.get), update: invoke(C.prefs.update) },
   pushLog: { read: invoke(C.pushLog.read) },

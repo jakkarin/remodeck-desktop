@@ -215,13 +215,13 @@ describe('workspace queries', () => {
       ).resolves.toBeUndefined()
       const onMain = (await git(mirrorPath, 'rev-parse', base)).trim()
       await expect(requireCommitInRange(host, mirrorPath, base, ref, onMain)).rejects.toThrow(
-        'commit ไม่อยู่ใน branch นี้'
+        'Commit is not on this branch'
       )
       await expect(requireCommitInRange(host, mirrorPath, base, ref, 'HEAD')).rejects.toThrow(
-        'commit ไม่อยู่ใน branch นี้'
+        'Commit is not on this branch'
       )
       await expect(requireCommitInRange(host, mirrorPath, base, ref, '--output=x')).rejects.toThrow(
-        'commit ไม่อยู่ใน branch นี้'
+        'Commit is not on this branch'
       )
     })
   })

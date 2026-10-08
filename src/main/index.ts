@@ -78,7 +78,7 @@ app.whenReady().then(async () => {
     disposeApp = remodeck.dispose
     registerHandlers(ipcMain, remodeck.api)
   } catch (err) {
-    dialog.showErrorBox('remodeck', `เริ่มแอปไม่สำเร็จ\n${(err as Error).message}`)
+    dialog.showErrorBox('remodeck', `Failed to start the app\n${(err as Error).message}`)
     app.exit(1)
     return
   }

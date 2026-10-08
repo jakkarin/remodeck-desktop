@@ -215,7 +215,7 @@ describe('remodeck against real sandboxes', () => {
 
   it('refuses to clone into a non-empty path and leaves it untouched', async () => {
     await sx(c1, 'mkdir -p ~/busy && echo keep > ~/busy/file')
-    await expect(api.workspaces.clone(h1.id, 'acme/widget', '~/busy')).rejects.toThrow(/ไม่ว่าง/)
+    await expect(api.workspaces.clone(h1.id, 'acme/widget', '~/busy')).rejects.toThrow(/not empty/)
     expect(await sx(c1, 'ls -A ~/busy && cat ~/busy/file')).toBe('file\nkeep')
   })
 
@@ -327,7 +327,7 @@ describe('remodeck against real sandboxes', () => {
     const ws = await api.workspaces.addExisting(h1.id, '~/existing', expected)
     expect(ws).toMatchObject({ hostId: h1.id, sandboxPath: '~/existing' })
     await expect(api.workspaces.addExisting(h1.id, '~/existing', expected)).rejects.toThrow(
-      /มี workspace นี้อยู่แล้ว/
+      /This workspace already exists/
     )
 
     expect((await api.workspaces.branches(ws.id)).map((b) => b.name)).toContain('vm-only')

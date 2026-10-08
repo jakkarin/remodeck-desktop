@@ -44,7 +44,7 @@ export function ConfirmDanger({
           <TextInput
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            aria-label="พิมพ์ชื่อ host เพื่อยืนยัน"
+            aria-label="Type the host name to confirm"
             placeholder={host.label}
             autoFocus
           />

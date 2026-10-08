@@ -29,7 +29,7 @@ const NO_ORIGIN_CODE = 15
 /** Thrown by sync() when the sandbox refused some tags; branch refs were still synced. */
 class TagConflictError extends Error {
   constructor(tags: string[]) {
-    super(`tag ชนกับใน sandbox: ${tags.join(', ')}`)
+    super(`Tags conflict with the sandbox: ${tags.join(', ')}`)
   }
 }
 
@@ -179,7 +179,7 @@ export class SyncService {
       const newSha = await sha(srcRef)
       const updates = [{ oldSha, newSha, ref: dstRef }]
       if (repo.enforceRules && repo.protectedBranches.includes(target)) {
-        const message = `branch ${target} ถูกป้องกัน — แก้ได้ใน Settings`
+        const message = `branch ${target} is protected — change this in Settings`
         log({ updates, result: 'blocked', detail: message })
         return { ok: false, reason: 'protected', message }
       }
@@ -192,7 +192,7 @@ export class SyncService {
           return {
             ok: false,
             reason: 'non-fast-forward',
-            message: `GitHub มี commit ใหม่กว่า — กด Sync แล้วให้ AI rebase บน origin/${target}`
+            message: `GitHub has newer commits — press Sync, then have the AI rebase onto origin/${target}`
           }
         }
         log({ updates, result: 'error', detail: res.stderr })
@@ -238,7 +238,7 @@ export class SyncService {
         ''
       ].join('\n')
     )
-    if (check.code === NOT_EMPTY_CODE) throw new Error(`Path ไม่ว่าง: ${ws.sandboxPath}`)
+    if (check.code === NOT_EMPTY_CODE) throw new Error(`Path is not empty: ${ws.sandboxPath}`)
     if (check.code !== 0 && check.code !== RESUMABLE_CODE) throw new Error(check.stderr)
     const resume = check.code === RESUMABLE_CODE
 
@@ -316,7 +316,7 @@ export class SyncService {
         ? parseRepoInput(`${expected.owner}/${expected.name}`)
         : null
     if (!want || want.owner !== expected.owner || want.name !== expected.name)
-      throw new Error('repo ที่ยืนยันไม่ถูกต้อง')
+      throw new Error('The confirmed repo is invalid')
     // The sandbox is untrusted and may have changed origin since the user confirmed: re-probe before any write or fetch.
     const { owner, name } = await this.inspectExisting(hostId, path)
     if (
@@ -324,7 +324,7 @@ export class SyncService {
       name.toLowerCase() !== want.name.toLowerCase()
     )
       throw new Error(
-        `origin ของ repo เปลี่ยนไปจากที่ยืนยัน (ตอนนี้ชี้ไป ${owner}/${name}) — กรุณาตรวจสอบใหม่`
+        `The repo origin changed since confirmation (now points to ${owner}/${name}) — please check again`
       )
     const repo = this.store.upsertRepo(owner, name)
     const ws = this.store.addWorkspace(repo.id, hostId, path)
@@ -346,7 +346,7 @@ export class SyncService {
     validateSandboxPath(sandboxPath)
     const path = sandboxPath.replace(/\/+$/, '')
     if (this.store.config.workspaces.some((w) => w.hostId === hostId && w.sandboxPath === path))
-      throw new Error(`มี workspace นี้อยู่แล้ว: ${path}`)
+      throw new Error(`This workspace already exists: ${path}`)
     return path
   }
 
@@ -393,19 +393,19 @@ export class SyncService {
       case 0:
         break
       case NOT_FOUND_CODE:
-        throw new Error(`ไม่พบ path ใน sandbox: ${sandboxPath}`)
+        throw new Error(`Path not found in sandbox: ${sandboxPath}`)
       case NOT_REPO_CODE:
-        throw new Error(`ไม่ใช่ git repo: ${sandboxPath}`)
+        throw new Error(`Not a git repo: ${sandboxPath}`)
       case BARE_CODE:
-        throw new Error(`เป็น bare repo (ต้องมี working tree): ${sandboxPath}`)
+        throw new Error(`Bare repo (a working tree is required): ${sandboxPath}`)
       case NOT_ROOT_CODE: {
         const root = res.stdout.trim()
         throw new Error(
-          `path ไม่ใช่ root ของ repo: ${sandboxPath}` + (root ? ` (root คือ ${root})` : '')
+          `Path is not the repo root: ${sandboxPath}` + (root ? ` (root is ${root})` : '')
         )
       }
       case NO_ORIGIN_CODE:
-        throw new Error(`repo ไม่มี remote origin: ${sandboxPath}`)
+        throw new Error(`Repo has no remote origin: ${sandboxPath}`)
       default:
         throw new Error(res.stderr)
     }
@@ -413,7 +413,7 @@ export class SyncService {
     const parsed = /github\.com[/:]/.test(url) ? parseRepoInput(url) : null
     // Never echo credentials an origin URL may embed (https://user:token@host/...).
     if (!parsed)
-      throw new Error(`origin ไม่ได้ชี้ไป GitHub: ${url.replace(/\/\/[^@/\s]+@/, '//***@')}`)
+      throw new Error(`Origin does not point to GitHub: ${url.replace(/\/\/[^@/\s]+@/, '//***@')}`)
     return parsed
   }
 

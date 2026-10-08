@@ -3,9 +3,21 @@ import {
   CONTAINER_ID,
   toContainerInfo,
   type ContainerAction,
-  type ContainerInfo
+  type ContainerInfo,
+  type ContainerProject,
+  groupContainers
 } from '../../shared/containers'
+import type { ContainerStats } from '../../shared/containerDetails'
 import { DockerError, type DockerClient } from './dockerClient'
+import { startStatsLoop } from './statsLoop'
+import type { PruneResult, ResourceKind, ResourceRow } from '../../shared/resources'
+import {
+  PREDEFINED_NETWORK_MESSAGE,
+  dockerErrorMessage,
+  listResources,
+  pruneResources,
+  removeResource
+} from './resources'
 
 const EVENTS_PATH = '/events?filters=' + encodeURIComponent('{"type":["container"]}')
 const LIST_PATH = '/containers/json?all=1'
@@ -46,6 +58,8 @@ type HostState = {
   relisting?: { owner: { close(): void } | undefined; promise: Promise<boolean> }
   relistSeq: number
   syncing?: Set<string>
+  statsOn?: boolean
+  stats?: { stop(): void; done: Promise<void> }
 }
 
 function eventId(ev: unknown): string | undefined {
@@ -102,9 +116,9 @@ export class ContainerService extends EventEmitter {
   }
 
   async action(hostId: string, id: string, action: ContainerAction): Promise<void> {
-    if (!CONTAINER_ID.test(id)) throw new Error('container id ไม่ถูกต้อง')
+    if (!CONTAINER_ID.test(id)) throw new Error('Invalid container id')
     const st = this.hosts.get(hostId)
-    if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
+    if (!st || st.disposed) throw new Error('This host is not open')
     try {
       const o = { timeoutMs: ACTION_TIMEOUT_MS }
       if (action === 'remove') await st.client.json('DELETE', `/containers/${id}`, undefined, o)
@@ -113,10 +127,10 @@ export class ContainerService extends EventEmitter {
       if (e instanceof DockerError) {
         if (e.status === 404) {
           await this.refetch(hostId, st, id).catch(() => {})
-          throw new Error('container นี้ถูกลบไปแล้ว')
+          throw new Error('This container no longer exists')
         }
         if (e.status === 409 && action === 'remove' && /running/i.test(e.message)) {
-          throw new Error('ต้อง stop container ก่อนจึงจะ remove ได้')
+          throw new Error('Stop the container before removing it')
         }
         throw new Error(e.message)
       }
@@ -125,11 +139,108 @@ export class ContainerService extends EventEmitter {
     await this.refetch(hostId, st, id)
   }
 
+  watchStats(hostId: string, on: boolean): void {
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) return
+    st.statsOn = on
+    if (!on) st.stats?.stop()
+    // A stopped loop may still have a request in flight; its `done` restarts polling if wanted.
+    else if (!st.stats) this.startStats(hostId, st)
+  }
+
+  private startStats(hostId: string, st: HostState): void {
+    const loop = startStatsLoop({
+      client: st.client,
+      runningIds: () =>
+        this.snapshot(st)
+          .filter((c) => c.state === 'running')
+          .map((c) => c.id),
+      emit: (map: Record<string, ContainerStats>) => {
+        if (!st.disposed) this.emit('stats', hostId, map)
+      },
+      sleep: this.sleep
+    })
+    st.stats = loop
+    void loop.done.catch(() => {}).then(() => {
+      if (st.stats === loop) st.stats = undefined
+      if (st.statsOn && !st.disposed && !st.stats) this.startStats(hostId, st)
+    })
+  }
+
+  async inspect(hostId: string, id: string): Promise<unknown> {
+    if (!CONTAINER_ID.test(id)) throw new Error('Invalid container id')
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) throw new Error('This host is not open')
+    try {
+      return await st.client.json('GET', `/containers/${id}/json`)
+    } catch (e) {
+      if (e instanceof DockerError) {
+        if (e.status === 404) {
+          await this.refetch(hostId, st, id).catch(() => {})
+          throw new Error('This container no longer exists')
+        }
+        throw new Error(e.message)
+      }
+      throw e
+    }
+  }
+
+  private openClient(hostId: string): DockerClient {
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) throw new Error('This host is not open')
+    return st.client
+  }
+
+  async resources(hostId: string, kind: ResourceKind): Promise<ResourceRow[]> {
+    const client = this.openClient(hostId)
+    try {
+      return await listResources(client, kind)
+    } catch (e) {
+      throw dockerErrorMessage(kind, e)
+    }
+  }
+
+  async removeResource(hostId: string, kind: ResourceKind, ref: string): Promise<void> {
+    const client = this.openClient(hostId)
+    try {
+      if (kind === 'network') {
+        const row = (await listResources(client, kind)).find((r) => r.ref === ref)
+        if (row?.builtIn) throw new Error(PREDEFINED_NETWORK_MESSAGE)
+      }
+      await removeResource(client, kind, ref)
+    } catch (e) {
+      throw dockerErrorMessage(kind, e)
+    }
+  }
+
+  async prune(hostId: string, kind: ResourceKind): Promise<PruneResult> {
+    const client = this.openClient(hostId)
+    try {
+      return await pruneResources(client, kind)
+    } catch (e) {
+      throw dockerErrorMessage(kind, e)
+    }
+  }
+
+  find(hostId: string, id: string): ContainerInfo | null {
+    const st = this.hosts.get(hostId)
+    return st && !st.disposed ? (st.list.get(id) ?? null) : null
+  }
+
+  project(hostId: string, name: string): ContainerProject | null {
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) return null
+    return groupContainers(this.snapshot(st)).projects.find((p) => p.name === name) ?? null
+  }
+
   dispose(hostId: string): void {
     const st = this.hosts.get(hostId)
     if (!st) return
     this.hosts.delete(hostId)
     st.disposed = true
+    st.statsOn = false
+    st.stats?.stop()
+    st.stats = undefined
     st.list.clear()
     st.inflight.clear()
     try {

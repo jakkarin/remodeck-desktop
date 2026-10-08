@@ -1,4 +1,5 @@
 import { api } from './api'
+import type { HostTerminalRequest } from '../../shared/containers'
 
 export type OpenedTab = { tabId: string; label: string; hostId: string }
 
@@ -20,5 +21,15 @@ export function onTerminalOpened(cb: (tab: OpenedTab) => void): () => void {
 export async function openTerminal(workspaceId: string, path?: string): Promise<unknown> {
   const tab = await api.terminal.open(workspaceId, path)
   if (tab && typeof tab === 'object' && 'tabId' in tab) announceTerminal(tab)
+  return tab
+}
+
+/** Opens a host-bound command terminal (logs, shell, compose) and announces its tab. */
+export async function openHostTerminal(
+  hostId: string,
+  req: HostTerminalRequest
+): Promise<OpenedTab> {
+  const tab = await api.containers.openTerminal(hostId, req)
+  announceTerminal(tab)
   return tab
 }

@@ -65,7 +65,7 @@ function setup(connected: (h: string) => boolean = () => true) {
   const approval = { revokeSession: vi.fn() }
   const connection = {
     requireConnected: vi.fn((h: string) => {
-      if (!connected(h)) throw new Error('Host ยังไม่ได้ connect')
+      if (!connected(h)) throw new Error('Host is not connected')
     })
   }
   const targetFor = vi.fn((h: string) => ({
@@ -251,7 +251,7 @@ describe('TerminalService', () => {
 
   it('throws on disconnected host or unknown workspace', async () => {
     const { svc, connection, spawn, bridge } = setup((h) => h !== 'h1')
-    await expect(svc.open('w1')).rejects.toThrow('ยังไม่ได้ connect')
+    await expect(svc.open('w1')).rejects.toThrow('is not connected')
     expect(connection.requireConnected).toHaveBeenCalledWith('h1')
     await expect(svc.open('zzz')).rejects.toThrow()
     expect(spawn).not.toHaveBeenCalled()
@@ -415,5 +415,93 @@ describe('TerminalService.uploadImage', () => {
     const { tabId } = await svc.open('w2')
     await expect(svc.uploadImage(tabId, new Uint8Array([1]), 'png')).resolves.toBe('/home/u/h2.png')
     expect(targetFor).toHaveBeenCalledWith('h2')
+  })
+
+  it('rejects image upload for host tabs', async () => {
+    const { svc, targetFor } = setup()
+    const { tabId } = svc.openHost('h1', 'docker ps', 'logs')
+    await expect(svc.uploadImage(tabId, new Uint8Array([1]), 'png')).rejects.toThrow(
+      'Images can only be pasted into workspace terminals'
+    )
+    expect(targetFor).not.toHaveBeenCalled()
+  })
+
+  describe('host tabs', () => {
+    beforeEach(() => vi.useFakeTimers())
+    it('openHost spawns ssh -t <host> <cmd> without -R and registers no bridge session', () => {
+      const { svc, calls, bridge } = setup()
+      const r = svc.openHost('h1', 'docker ps', 'logs')
+      expect(r).toEqual({ tabId: expect.any(String), label: 'logs', hostId: 'h1' })
+      expect(calls[0]).toEqual(['-t', 'box1', 'docker ps'])
+      expect(bridge.registerSession).not.toHaveBeenCalled()
+    })
+
+    it('host tab exit prints the exit line then emits exit', () => {
+      const { svc, ptys, bridge } = setup()
+      const events: string[] = []
+      svc.on('data', (_id: string, d: string) => events.push(`data:${d}`))
+      svc.on('exit', (id: string, c: number) => events.push(`exit:${id}:${c}`))
+      const { tabId } = svc.openHost('h1', 'docker ps', 'logs')
+      ptys[0].exitCb({ exitCode: 130 })
+      expect(events).toEqual([
+        'data:\r\n[remodeck] exited with code 130\r\n',
+        `exit:${tabId}:130`
+      ])
+      expect(bridge.revokeSession).not.toHaveBeenCalled()
+    })
+
+    it('host tab output emits no idle', () => {
+      const { svc, ptys } = setup()
+      const idle = vi.fn()
+      svc.on('idle', idle)
+      svc.openHost('h1', 'docker ps', 'logs')
+      ptys[0].dataCb('x')
+      vi.advanceTimersByTime(IDLE_MS + 10)
+      expect(idle).not.toHaveBeenCalled()
+    })
+
+    it('closeAllForHost closes host tabs too, emits exit -1', () => {
+      const { svc, ptys } = setup()
+      const exit = vi.fn()
+      svc.on('exit', exit)
+      const { tabId } = svc.openHost('h1', 'docker ps', 'logs')
+      svc.closeAllForHost('h1')
+      expect(ptys[0].killed).toBe(true)
+      expect(exit).toHaveBeenCalledWith(tabId, -1)
+    })
+
+    it('closeAllForWorkspace leaves host tabs open', () => {
+      const { svc, ptys } = setup()
+      const exit = vi.fn()
+      svc.on('exit', exit)
+      svc.openHost('h1', 'docker ps', 'logs')
+      svc.closeAllForWorkspace('w1')
+      expect(ptys[0].killed).toBe(false)
+      expect(exit).not.toHaveBeenCalled()
+    })
+
+    it('openHost throws on disconnected host', () => {
+      const { svc, spawn } = setup(() => false)
+      expect(() => svc.openHost('h1', 'docker ps', 'logs')).toThrow('Host is not connected')
+      expect(spawn).not.toHaveBeenCalled()
+    })
+
+    it('openHost throws on unknown host', () => {
+      const { svc } = setup()
+      expect(() => svc.openHost('nope', 'docker ps', 'logs')).toThrow('Host not found')
+    })
+
+    it('spawn failure on openHost throws and leaves no tab', () => {
+      const { svc, spawn } = setup()
+      spawn.mockImplementationOnce(() => {
+        throw new Error('boom')
+      })
+      expect(() => svc.openHost('h1', 'docker ps', 'logs')).toThrow('boom')
+      expect(() => svc.write('x', 'y')).not.toThrow()
+      const exit = vi.fn()
+      svc.on('exit', exit)
+      svc.closeAllForHost('h1')
+      expect(exit).not.toHaveBeenCalled()
+    })
   })
 })

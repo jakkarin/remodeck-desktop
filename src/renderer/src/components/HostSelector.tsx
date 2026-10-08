@@ -143,7 +143,7 @@ export function HostSelector(): React.JSX.Element {
                     )}
                     <Button
                       disabled={hasWorkspaces}
-                      title={hasWorkspaces ? 'ลบ workspace ของ host นี้ก่อน' : undefined}
+                      title={hasWorkspaces ? 'Remove the workspaces on this host first' : undefined}
                       onClick={() => {
                         setMenu(null)
                         setRemovingHost(host)

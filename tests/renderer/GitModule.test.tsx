@@ -60,14 +60,14 @@ describe('GitModule', () => {
     rerender(ui({ ...v }))
     expect(v.probeGit).toHaveBeenCalledTimes(1)
     expect(v.probeGit).toHaveBeenCalledWith('h1')
-    expect(screen.getByText('กำลังตรวจ git…')).toBeInTheDocument()
+    expect(screen.getByText('Checking git…')).toBeInTheDocument()
   })
 
   it('shows the no-git message and re-probes with force', () => {
     const v = makeState({ gitCaps: { h1: null } })
     render(ui(v))
-    expect(screen.getByText(/ไม่พบ git บนเครื่องนี้/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
+    expect(screen.getByText(/Git was not found on this host/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
     expect(v.probeGit).toHaveBeenCalledWith('h1', true)
   })
 
@@ -76,7 +76,7 @@ describe('GitModule', () => {
     render(ui(v))
     expect(await screen.findByText('ssh dropped')).toBeInTheDocument()
     expect(v.probeGit).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
     expect(v.probeGit).toHaveBeenLastCalledWith('h1', true)
   })
 
@@ -86,10 +86,10 @@ describe('GitModule', () => {
       probeGit: vi.fn().mockRejectedValue(new Error('ssh dropped'))
     })
     render(ui(v))
-    fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
     expect(await screen.findByText('ssh dropped')).toBeInTheDocument()
-    expect(screen.getByText(/ไม่พบ git บนเครื่องนี้/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeEnabled()
+    expect(screen.getByText(/Git was not found on this host/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeEnabled()
   })
 
   it('disables the re-probe button while a probe is in flight', async () => {
@@ -97,17 +97,17 @@ describe('GitModule', () => {
     const pending = new Promise<void>((r) => (resolve = r))
     const v = makeState({ gitCaps: { h1: null }, probeGit: vi.fn().mockReturnValue(pending) })
     render(ui(v))
-    fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
-    expect(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeDisabled()
     resolve()
-    await waitFor(() => expect(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Check again' })).toBeEnabled())
   })
 
   it('shows forward and http warnings', () => {
     const v = makeState({ gitCaps: { h1: { version: '2', remoteHttp: false, forward: false } } })
     render(ui(v))
-    expect(screen.getByText(/git บนเครื่องนี้ไม่รองรับ HTTP/)).toBeInTheDocument()
-    expect(screen.getByText(/sshd ปิด AllowTcpForwarding/)).toBeInTheDocument()
+    expect(screen.getByText(/does not support HTTP/)).toBeInTheDocument()
+    expect(screen.getByText(/AllowTcpForwarding disabled/)).toBeInTheDocument()
     expect(screen.getByText('workspace-screen w1')).toBeInTheDocument()
   })
 
@@ -115,7 +115,7 @@ describe('GitModule', () => {
     vi.mocked(api.hosts.connect).mockResolvedValue(up)
     const v = makeState({ statuses: { h1: down } })
     render(ui(v))
-    expect(screen.getByText('Box ยังไม่ได้ connect')).toBeInTheDocument()
+    expect(screen.getByText('Box is not connected')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
     expect(api.hosts.connect).toHaveBeenCalledWith('h1')
     expect(v.probeGit).not.toHaveBeenCalled()
@@ -124,7 +124,7 @@ describe('GitModule', () => {
   it('renders the workspace screen when git is present', () => {
     render(ui(makeState({ gitCaps: { h1: caps } })))
     expect(screen.getByText('workspace-screen w1')).toBeInTheDocument()
-    expect(screen.queryByText(/ไม่รองรับ HTTP/)).toBeNull()
+    expect(screen.queryByText(/does not support HTTP/)).toBeNull()
   })
 
   it('shows the empty state when there is no host', () => {
@@ -134,6 +134,6 @@ describe('GitModule', () => {
 
   it('shows the empty state when the host has no workspace', () => {
     render(ui(makeState({ gitCaps: { h1: caps }, workspaces: [], activeWorkspaceId: null })))
-    expect(screen.getByText('ยังไม่มี workspace')).toBeInTheDocument()
+    expect(screen.getByText('No workspaces yet')).toBeInTheDocument()
   })
 })

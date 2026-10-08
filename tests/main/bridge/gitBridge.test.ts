@@ -231,7 +231,7 @@ describe('GitBridge', () => {
     expect(prompts).toHaveLength(0)
     expect(await remoteRef('refs/heads/main')).toBe(before)
     const log = store.readPushLog(10)
-    expect(log[0]).toMatchObject({ result: 'blocked', detail: 'branch main ถูกป้องกัน' })
+    expect(log[0]).toMatchObject({ result: 'blocked', detail: 'branch main is protected' })
   })
 
   it('re-reads the repo policy at request time', async () => {
@@ -252,7 +252,7 @@ describe('GitBridge', () => {
     expect(await remoteRef('refs/heads/feat')).toBe(before)
     expect(store.readPushLog(10)[0]).toMatchObject({
       result: 'blocked',
-      detail: 'ห้ามลบ refs/heads/feat'
+      detail: 'Deleting is not allowed: refs/heads/feat'
     })
   })
 
