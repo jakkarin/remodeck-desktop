@@ -8,7 +8,13 @@ const handlers: Record<string, Set<Handler>> = {}
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
-    containers: { open: vi.fn(), action: vi.fn(), watchStats: vi.fn(), inspect: vi.fn() },
+    containers: {
+      open: vi.fn(),
+      action: vi.fn(),
+      watchStats: vi.fn(),
+      inspect: vi.fn(),
+      resources: vi.fn()
+    },
     on: vi.fn((event: string, cb: Handler) => {
       ;(handlers[event] ??= new Set()).add(cb)
       return () => handlers[event].delete(cb)
@@ -57,6 +63,7 @@ beforeEach(() => {
   vi.mocked(api.containers.inspect).mockResolvedValue({
     Config: { Image: 'img', Env: ['K=secret-value'] }
   })
+  vi.mocked(api.containers.resources).mockResolvedValue([])
   vi.mocked(openHostTerminal).mockResolvedValue({} as never)
 })
 
@@ -486,5 +493,33 @@ describe('ContainersView', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
     await screen.findByRole('button', { name: 'แสดงค่า K' })
     expect(screen.queryByText('secret-value')).toBeNull()
+  })
+
+  it('tab strip switches between Containers and Images', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    const strip = screen.getByRole('tablist', { name: 'Docker resources' })
+    const tabs = within(strip).getAllByRole('tab')
+    expect(tabs.map((t) => t.textContent)).toEqual(['Containers', 'Images', 'Volumes', 'Networks'])
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    vi.mocked(api.containers.resources).mockResolvedValue([
+      { kind: 'image', ref: 'nginx:1', name: 'nginx:1', id: 'i', size: null, created: null, driver: '', builtIn: false }
+    ])
+    fireEvent.click(tabs[1])
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('nginx:1')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter containers')).toBeNull()
+    fireEvent.click(tabs[0])
+    expect(await screen.findByText('web')).toBeInTheDocument()
+  })
+
+  it('stats watching is off while a resource tab is shown', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
+    fireEvent.click(screen.getByRole('tab', { name: 'Volumes' }))
+    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', false)
+    fireEvent.click(screen.getByRole('tab', { name: 'Containers' }))
+    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
   })
 })

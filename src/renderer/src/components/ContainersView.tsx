@@ -21,6 +21,16 @@ import { Badge, Button, TextInput } from './ui'
 import { GroupPanel } from './ui/GroupedList'
 import { ContainerItem } from './ContainerItem'
 import { ContainerDetailsPanel } from './ContainerDetailsPanel'
+import { ResourcesView } from './ResourcesView'
+import type { ResourceKind } from '../../../shared/resources'
+
+type Tab = 'containers' | ResourceKind
+const TABS: [Tab, string][] = [
+  ['containers', 'Containers'],
+  ['image', 'Images'],
+  ['volume', 'Volumes'],
+  ['network', 'Networks']
+]
 
 const COLLAPSED_KEY = 'remodeck.composeCollapsed'
 
@@ -48,7 +58,8 @@ function projectHint(p: ContainerProject): string {
 
 export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const { list, live, error, retry } = useContainers(host.id)
-  const stats = useContainerStats(host.id, list !== null)
+  const [tab, setTab] = useState<Tab>('containers')
+  const stats = useContainerStats(host.id, list !== null && tab === 'containers')
   const [filter, setFilter] = useState('')
   const [showStopped, setShowStopped] = useState(false)
   const [collapsedAll, setCollapsedAll] = useState<Record<string, string[]>>(() =>
@@ -138,16 +149,49 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       { kind: 'compose', project, action }
     )
 
+  const tabStrip = (
+    <div role="tablist" aria-label="Docker resources" className="details-tabs">
+      {TABS.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tab === id}
+          className="details-tab"
+          onClick={() => setTab(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+  if (tab !== 'containers') {
+    return (
+      <div className="containers-view">
+        {tabStrip}
+        <ResourcesView host={host} kind={tab} containers={list ?? []} />
+      </div>
+    )
+  }
+
   if (error !== null) {
     return (
       <div className="containers-view">
+        {tabStrip}
         <ErrorBanner message={`เชื่อมต่อ docker บน ${host.label} ไม่ได้`} />
         <div className="error">{error}</div>
         <Button onClick={retry}>Retry</Button>
       </div>
     )
   }
-  if (list === null) return <div className="containers-view muted">กำลังโหลด…</div>
+  if (list === null) {
+    return (
+      <div className="containers-view">
+        {tabStrip}
+        <div className="muted">กำลังโหลด…</div>
+      </div>
+    )
+  }
 
   const selected = selectedId === null ? undefined : list.find((c) => c.id === selectedId)
   // The selected container left the list: close its panel.
@@ -177,6 +221,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   )
   return (
     <div className="containers-view">
+      {tabStrip}
       <div className={`containers-split${selected ? ' has-details' : ''}`}>
         <div className="containers-main">
           <div className="containers-toolbar">
