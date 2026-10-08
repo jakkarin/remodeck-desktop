@@ -664,4 +664,29 @@ describe('ContainerService', () => {
     expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
     expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).length).toBe(0)
   })
+
+  it('find and project read the open list; null when unopened or disposed', async () => {
+    const t = setup()
+    expect(t.svc.find('h', ID1)).toBeNull()
+    expect(t.svc.project('h', 'shop')).toBeNull()
+    t.list([
+      raw(ID1),
+      {
+        ...raw(ID2),
+        Labels: {
+          'com.docker.compose.project': 'shop',
+          'com.docker.compose.project.working_dir': '/srv/shop',
+          'com.docker.compose.project.config_files': '/srv/shop/compose.yml'
+        }
+      }
+    ])
+    await t.svc.open('h')
+    expect(t.svc.find('h', ID1)?.id).toBe(ID1)
+    expect(t.svc.find('h', 'z'.repeat(64))).toBeNull()
+    expect(t.svc.project('h', 'shop')?.containers.map((c) => c.id)).toEqual([ID2])
+    expect(t.svc.project('h', 'nope')).toBeNull()
+    t.svc.dispose('h')
+    expect(t.svc.find('h', ID1)).toBeNull()
+    expect(t.svc.project('h', 'shop')).toBeNull()
+  })
 })

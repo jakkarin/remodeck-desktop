@@ -61,7 +61,7 @@ function fakeApi(): MainApi {
       pasteImage: fn(),
       uploadImage: fn()
     },
-    containers: { open: fn(), action: fn() },
+    containers: { open: fn(), action: fn(), openTerminal: fn() },
     approval: { respond: vi.fn() },
     prefs: { get: fn(), update: fn() },
     pushLog: { read: fn() }

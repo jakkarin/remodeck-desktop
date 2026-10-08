@@ -1,5 +1,5 @@
 // Typed IPC contract between main and renderer: types and channel names only, no node imports.
-import type { ContainerAction, ContainerInfo } from './containers'
+import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './containers'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -84,6 +84,11 @@ export interface RemodeckApi {
     /** Lists the host's containers and starts live updates; rejects with the probe detail when docker is unusable. */
     open(hostId: string): Promise<{ list: ContainerInfo[]; live: boolean }>
     action(hostId: string, id: string, action: ContainerAction): Promise<void>
+    /** Opens a logs, shell or compose terminal tab on the host over ssh. */
+    openTerminal(
+      hostId: string,
+      req: HostTerminalRequest
+    ): Promise<{ tabId: string; label: string; hostId: string }>
   }
   approval: { respond(requestId: string, decision: ApprovalDecision): void }
   prefs: {
@@ -154,7 +159,11 @@ export const IPC_CHANNELS = {
     pasteImage: 'terminal:pasteImage',
     uploadImage: 'terminal:uploadImage'
   },
-  containers: { open: 'containers:open', action: 'containers:action' },
+  containers: {
+    open: 'containers:open',
+    action: 'containers:action',
+    openTerminal: 'containers:openTerminal'
+  },
   approval: { respond: 'approval:respond' },
   prefs: { get: 'prefs:get', update: 'prefs:update' },
   pushLog: { read: 'pushLog:read' },

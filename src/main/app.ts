@@ -8,7 +8,14 @@ import type {
   Repo,
   Workspace
 } from '../shared/types'
-import type { ContainerAction } from '../shared/containers'
+import {
+  COMPOSE_ACTIONS,
+  COMPOSE_PROJECT,
+  CONTAINER_ID,
+  type ContainerAction,
+  type HostTerminalRequest
+} from '../shared/containers'
+import { composeCommand, logsCommand, shellCommand } from './docker/hostCommands'
 import { IPC_CHANNELS, type MainApi } from '../shared/ipc'
 import { ApprovalService } from './approval/approvalService'
 import { GitBridge } from './bridge/gitBridge'
@@ -54,10 +61,24 @@ export function parseHostPatch(patch: unknown): { label?: string; protected?: bo
 }
 const CONTAINER_ACTIONS: readonly string[] = ['start', 'stop', 'restart', 'remove']
 
+function isTerminalRequest(r: unknown): r is HostTerminalRequest {
+  if (!isPlainObject(r)) return false
+  if (r.kind === 'logs' || r.kind === 'shell')
+    return typeof r.id === 'string' && CONTAINER_ID.test(r.id)
+  if (r.kind === 'compose')
+    return (
+      typeof r.project === 'string' &&
+      COMPOSE_PROJECT.test(r.project) &&
+      COMPOSE_ACTIONS.includes(r.action as never)
+    )
+  return false
+}
+
 export function containersApi(deps: {
   hostOf(id: string): Host
   connection: Pick<ConnectionService, 'requireConnected' | 'probeDocker'>
-  service: Pick<ContainerService, 'open' | 'action'>
+  service: Pick<ContainerService, 'open' | 'action' | 'find' | 'project'>
+  terminal: Pick<TerminalService, 'openHost'>
 }): MainApi['containers'] {
   return {
     open: async (hostId) => {
@@ -74,6 +95,25 @@ export function containersApi(deps: {
       deps.connection.requireConnected(hostId)
       if (!CONTAINER_ACTIONS.includes(action as string)) throw new Error('Invalid container action')
       return deps.service.action(hostId, id, action as ContainerAction)
+    },
+    openTerminal: async (hostId, req) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      if (!isTerminalRequest(req)) throw new Error('Invalid terminal request')
+      if (req.kind === 'compose') {
+        const p = deps.service.project(hostId, req.project)
+        if (!p) throw new Error('ไม่พบ compose project นี้')
+        return deps.terminal.openHost(
+          hostId,
+          composeCommand(p, req.action),
+          `${req.action} · ${p.name}`
+        )
+      }
+      const c = deps.service.find(hostId, req.id)
+      if (!c) throw new Error('ไม่พบ container นี้')
+      return req.kind === 'logs'
+        ? deps.terminal.openHost(hostId, logsCommand(c.id), `logs · ${c.name}`)
+        : deps.terminal.openHost(hostId, shellCommand(c.id), `sh · ${c.name}`)
     }
   }
 }
@@ -388,7 +428,7 @@ export async function createApp(opts: {
         return term.uploadImage(tabId, bytes, e as ImageExt)
       }
     },
-    containers: containersApi({ hostOf, connection, service: containerService }),
+    containers: containersApi({ hostOf, connection, service: containerService, terminal: term }),
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)
     },

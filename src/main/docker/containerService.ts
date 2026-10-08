@@ -3,7 +3,9 @@ import {
   CONTAINER_ID,
   toContainerInfo,
   type ContainerAction,
-  type ContainerInfo
+  type ContainerInfo,
+  type ContainerProject,
+  groupContainers
 } from '../../shared/containers'
 import { DockerError, type DockerClient } from './dockerClient'
 
@@ -123,6 +125,17 @@ export class ContainerService extends EventEmitter {
       throw e
     }
     await this.refetch(hostId, st, id)
+  }
+
+  find(hostId: string, id: string): ContainerInfo | null {
+    const st = this.hosts.get(hostId)
+    return st && !st.disposed ? (st.list.get(id) ?? null) : null
+  }
+
+  project(hostId: string, name: string): ContainerProject | null {
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) return null
+    return groupContainers(this.snapshot(st)).projects.find((p) => p.name === name) ?? null
   }
 
   dispose(hostId: string): void {
