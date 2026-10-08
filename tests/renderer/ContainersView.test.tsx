@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { ContainerInfo } from '../../src/shared/containers'
 import type { Host } from '../../src/shared/types'
 
@@ -51,6 +51,30 @@ beforeEach(() => {
 })
 
 describe('ContainersView', () => {
+  it('keeps each project’s metadata and actions in its own named list group', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [
+        mk('web', { compose: comp }),
+        mk('worker', { compose: { ...comp, project: 'jobs' } }),
+        mk('solo', { ports: [] })
+      ],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    const row = within(within(shop).getByRole('list')).getByRole('listitem')
+    expect(within(row).getByText('web-image')).toBeInTheDocument()
+    expect(within(row).getByText('Running')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
+    expect(within(shop).queryByText('worker')).toBeNull()
+    expect(
+      within(screen.getByRole('region', { name: 'jobs (compose)' })).getByText('worker')
+    ).toBeInTheDocument()
+    const standalone = screen.getByRole('region', { name: 'Standalone' })
+    expect(within(standalone).getByText('No ports')).toBeInTheDocument()
+    expect(within(standalone).queryByText('web')).toBeNull()
+  })
+
   it('groups compose projects and standalone, hiding stopped by default', async () => {
     render(<ContainersView host={host} />)
     expect(await screen.findByText('shop (compose)')).toBeInTheDocument()
@@ -85,17 +109,54 @@ describe('ContainersView', () => {
     const { unmount } = render(<ContainersView host={host} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: /shop \(compose\)/ }))
-    expect(screen.queryByText('web')).toBeNull()
+    expect(screen.getByText('web')).not.toBeVisible()
     expect(JSON.parse(localStorage.getItem('remodeck.composeCollapsed') ?? '{}')).toEqual({
       h1: ['shop']
     })
     unmount()
     const second = render(<ContainersView host={host} />)
     await screen.findByText('solo')
-    expect(screen.queryByText('web')).toBeNull()
+    expect(screen.getByText('web')).not.toBeVisible()
     second.unmount()
     render(<ContainersView host={{ ...host, id: 'h2' }} />)
     expect(await screen.findByText('web')).toBeInTheDocument()
+  })
+
+  it('offers Start only for stopped containers and Stop/Restart only for running ones', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    expect(screen.getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restart web' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start web' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Start old' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop old' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Restart old' })).toBeNull()
+  })
+
+  it('collapses a compose project and wires the toggle to its list', async () => {
+    render(<ContainersView host={host} />)
+    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    const toggle = within(shop).getByRole('button', { name: /shop \(compose\)/ })
+    const listId = toggle.getAttribute('aria-controls') ?? ''
+    expect(document.getElementById(listId)).not.toBeNull()
+    expect(within(shop).getByText('web')).toBeVisible()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(document.getElementById(listId)).not.toBeVisible()
+    expect(within(shop).queryByRole('listitem')).toBeNull()
+    expect(screen.getByText('solo')).toBeVisible()
+  })
+
+  it('disables Start and Remove while a container is being removed', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [mk('gone', { state: 'removing', status: 'Removal In Progress' })],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    fireEvent.click(await screen.findByLabelText('แสดงตัวที่หยุด'))
+    expect(screen.getByRole('button', { name: 'Start gone' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove gone' })).toBeDisabled()
   })
 
   it('runs Stop directly on a normal host', async () => {

@@ -36,12 +36,14 @@ export function TextInput({
   return <input {...props} className={`ui-input ${className}`.trim()} />
 }
 
+export type BadgeTone = 'neutral' | 'warning' | 'success' | 'danger'
+
 export function Badge({
   tone = 'neutral',
   className = '',
   ...props
 }: ComponentProps<'span'> & {
-  tone?: 'neutral' | 'warning' | 'success' | 'danger'
+  tone?: BadgeTone
 }): React.JSX.Element {
   return <span {...props} className={`badge badge-${tone} ${className}`.trim()} />
 }
