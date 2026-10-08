@@ -5,6 +5,7 @@ import type { GitBridge } from '../bridge/gitBridge'
 import type { ConnectionService } from '../connection/connectionService'
 import type { Store } from '../store/store'
 import type { SandboxTarget } from '../sandbox/target'
+import { buildHostSshArgs } from '../docker/hostCommands'
 import { uploadImage, type ImageExt } from './imageUpload'
 import { buildTerminalSshArgs, randomPort } from './sshCommand'
 
@@ -35,8 +36,9 @@ type Deps = {
 }
 
 type Tab = {
+  kind: 'workspace' | 'host'
   hostId: string
-  workspaceId: string
+  workspaceId: string | null
   token: string
   sessionId: string
   pty: PtyLike | null
@@ -97,6 +99,7 @@ export class TerminalService extends EventEmitter {
     const sessionId = crypto.randomUUID()
     const token = crypto.randomBytes(32).toString('base64url')
     const tab: Tab = {
+      kind: 'workspace',
       hostId: ws.hostId,
       workspaceId,
       token,
@@ -110,6 +113,43 @@ export class TerminalService extends EventEmitter {
 
     this.attempt(tabId, tab, host.sshHost, cwd, 1, new Set())
     return { tabId, label, hostId: ws.hostId }
+  }
+
+  /** Opens a tab running a remote command on a connected host. No bridge session, idle events or retry. */
+  openHost(hostId: string, remoteCmd: string, label: string): { tabId: string; label: string; hostId: string } {
+    const { store, connection, spawn, sshPath } = this.deps
+    connection.requireConnected(hostId)
+    const host = store.config.hosts.find((h) => h.id === hostId)
+    if (!host) throw new Error('ไม่พบ host')
+
+    const pty = spawn(sshPath, buildHostSshArgs(host.sshHost, remoteCmd), DEFAULT_SIZE)
+    const tabId = crypto.randomUUID()
+    const tab: Tab = {
+      kind: 'host',
+      hostId,
+      workspaceId: null,
+      token: '',
+      sessionId: '',
+      pty,
+      cancelAttempt: () => {},
+      idleTimer: null
+    }
+    this.tabs.set(tabId, tab)
+    let cancelled = false
+    tab.cancelAttempt = () => {
+      cancelled = true
+    }
+    pty.onData((d) => {
+      if (!cancelled) this.emit('data', tabId, d)
+    })
+    pty.onExit(({ exitCode }) => {
+      if (cancelled) return
+      cancelled = true
+      this.release(tabId, tab)
+      this.emit('data', tabId, `\r\n[remodeck] exited with code ${exitCode}\r\n`)
+      this.emit('exit', tabId, exitCode)
+    })
+    return { tabId, label, hostId }
   }
 
   write(tabId: string, data: string): void {
@@ -142,7 +182,7 @@ export class TerminalService extends EventEmitter {
   /** Main-initiated (workspace removal): emits exit -1 per tab. */
   closeAllForWorkspace(workspaceId: string): void {
     for (const [id, tab] of [...this.tabs]) {
-      if (tab.workspaceId === workspaceId) this.closeTab(id, true)
+      if (tab.kind === 'workspace' && tab.workspaceId === workspaceId) this.closeTab(id, true)
     }
   }
 
@@ -160,6 +200,7 @@ export class TerminalService extends EventEmitter {
     this.tabs.delete(tabId)
     if (tab.idleTimer) clearTimeout(tab.idleTimer)
     tab.idleTimer = null
+    if (tab.kind === 'host') return
     this.deps.bridge.revokeSession(tab.token)
     this.deps.approval.revokeSession(tab.sessionId)
   }
