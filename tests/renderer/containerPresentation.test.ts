@@ -38,4 +38,8 @@ describe('formatCpu / formatMem', () => {
     expect(formatMem(41943040)).toBe('40 MB')
     expect(formatMem(1073741824)).toBe('1.0 GB')
   })
+  it('switches to GB when the rounded MB value reaches 1024', () => {
+    expect(formatMem(1073741823)).toBe('1.0 GB')
+    expect(formatMem(1073741824 - 524289)).toBe('1023 MB')
+  })
 })

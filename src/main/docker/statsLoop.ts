@@ -15,29 +15,47 @@ export interface StatsLoopOptions {
 export function startStatsLoop(o: StatsLoopOptions): { stop(): void; done: Promise<void> } {
   let stopped = false
   let wake: () => void = () => {}
+  const latest = new Map<string, ContainerStats>()
   const woken = new Promise<void>((r) => (wake = r))
+  const prev = new Map<string, unknown>()
   const done = (async () => {
     while (!stopped) {
-      const map: Record<string, ContainerStats> = {}
-      for (const id of o.runningIds()) {
+      let ids: string[] = []
+      try {
+        ids = o.runningIds()
+      } catch {
+        // retry next cycle
+      }
+      const running = new Set(ids)
+      for (const id of [...latest.keys()]) if (!running.has(id)) latest.delete(id)
+      for (const id of [...prev.keys()]) if (!running.has(id)) prev.delete(id)
+      for (const id of ids) {
         if (stopped) return
         try {
           const raw = await o.client.json(
             'GET',
-            `/containers/${id}/stats?stream=false`,
+            `/containers/${id}/stats?stream=false&one-shot=true`,
             undefined,
             {
               timeoutMs: REQUEST_TIMEOUT_MS
             }
           )
-          const s = computeStats(raw)
-          if (s) map[id] = s
+          const s = computeStats(raw, prev.get(id))
+          const cpuStats = (raw as { cpu_stats?: unknown } | null)?.cpu_stats
+          if (cpuStats) prev.set(id, cpuStats)
+          if (s) latest.set(id, s)
+          else latest.delete(id)
         } catch {
-          // skip this id for this cycle
+          latest.delete(id)
+        }
+        if (stopped) return
+        try {
+          o.emit({ ...Object.fromEntries(latest) })
+        } catch {
+          // a throwing consumer must not end polling
         }
       }
       if (stopped) return
-      o.emit(map)
       await Promise.race([o.sleep(CYCLE_MS), woken])
     }
   })()

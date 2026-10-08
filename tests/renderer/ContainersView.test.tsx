@@ -76,6 +76,14 @@ describe('ContainersView', () => {
     expect(screen.getByText('RAM 40 MB')).toBeInTheDocument()
     expect(screen.getByText('CPU —')).toBeInTheDocument()
     expect(screen.getByText('RAM —')).toBeInTheDocument()
+    act(() => {
+      for (const cb of handlers['containers-stats'] ?? [])
+        (cb as (...a: unknown[]) => void)('h1', {
+          [mk('web').id]: { cpu: null, memBytes: 41943040, memLimit: 1 }
+        })
+    })
+    expect(screen.getAllByText('CPU —')).toHaveLength(2)
+    expect(screen.getByText('RAM 40 MB')).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
     expect(screen.getAllByText(/^CPU /)).toHaveLength(2)
   })

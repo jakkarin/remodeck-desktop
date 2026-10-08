@@ -18,7 +18,7 @@ vi.mock('../../src/renderer/src/api', () => ({
 import { api } from '../../src/renderer/src/api'
 import { useContainerStats } from '../../src/renderer/src/useContainerStats'
 
-const s = (cpu: number): Record<string, ContainerStats> => ({
+const s = (cpu: number | null): Record<string, ContainerStats> => ({
   c1: { cpu, memBytes: 1, memLimit: 2 }
 })
 const emit = (event: string, ...args: unknown[]): void =>
@@ -41,9 +41,28 @@ beforeEach(() => {
 describe('useContainerStats', () => {
   it('turns watching on when enabled and off on unmount', () => {
     const { unmount } = renderHook(() => useContainerStats('h1', true))
-    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
+    expect(vi.mocked(api.containers.watchStats).mock.calls).toEqual([['h1', true]])
     unmount()
-    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', false)
+    expect(vi.mocked(api.containers.watchStats).mock.calls).toEqual([
+      ['h1', true],
+      ['h1', false]
+    ])
+  })
+
+  it('stops watching and clears stats when enabled turns false', () => {
+    const { result, rerender } = renderHook(({ on }) => useContainerStats('h1', on), {
+      initialProps: { on: true }
+    })
+    emit('containers-stats', 'h1', s(3))
+    expect(result.current).toEqual(s(3))
+    rerender({ on: false })
+    expect(vi.mocked(api.containers.watchStats).mock.calls).toEqual([
+      ['h1', true],
+      ['h1', false]
+    ])
+    expect(result.current).toEqual({})
+    rerender({ on: true })
+    expect(result.current).toEqual({})
   })
 
   it('does not watch while disabled', () => {
@@ -54,9 +73,12 @@ describe('useContainerStats', () => {
   it('turns off when the document is hidden and back on when visible', () => {
     renderHook(() => useContainerStats('h1', true))
     setVisibility('hidden')
-    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', false)
     setVisibility('visible')
-    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
+    expect(vi.mocked(api.containers.watchStats).mock.calls).toEqual([
+      ['h1', true],
+      ['h1', false],
+      ['h1', true]
+    ])
   })
 
   it('ignores other hosts stats and clears them on host change', () => {
@@ -69,7 +91,10 @@ describe('useContainerStats', () => {
     expect(result.current).toEqual(s(3))
     rerender({ id: 'h2' })
     expect(result.current).toEqual({})
-    expect(api.containers.watchStats).toHaveBeenCalledWith('h1', false)
-    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h2', true)
+    expect(vi.mocked(api.containers.watchStats).mock.calls).toEqual([
+      ['h1', true],
+      ['h1', false],
+      ['h2', true]
+    ])
   })
 })

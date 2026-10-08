@@ -32,6 +32,8 @@ export function useContainerStats(
     return () => {
       document.removeEventListener('visibilitychange', sync)
       if (watching) api.containers.watchStats(hostId, false)
+      // Drop numbers from before we stopped watching so they never flash on re-enable.
+      setState((s) => (s.stats === NONE ? s : { hostId, stats: NONE }))
     }
   }, [hostId, enabled])
 

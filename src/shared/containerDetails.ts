@@ -1,4 +1,4 @@
-export type ContainerStats = { cpu: number; memBytes: number; memLimit: number }
+export type ContainerStats = { cpu: number | null; memBytes: number; memLimit: number }
 
 export type ContainerDetails = {
   overview: {
@@ -21,19 +21,27 @@ const asRecord = (v: unknown): Record<string, unknown> =>
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
-export function computeStats(raw: unknown): ContainerStats | null {
+/**
+ * `prev` is the previous `cpu_stats` seen for the same container. One-shot responses carry a
+ * zeroed `precpu_stats`, so it stands in as the "pre" sample; without either, cpu is null.
+ */
+export function computeStats(raw: unknown, prev?: unknown): ContainerStats | null {
   const r = asRecord(raw)
   if (!r.cpu_stats || typeof r.cpu_stats !== 'object') return null
   const mem = asRecord(r.memory_stats)
   if (typeof mem.usage !== 'number') return null
   const cpu = asRecord(r.cpu_stats)
-  const pre = asRecord(r.precpu_stats)
+  const inline = asRecord(r.precpu_stats)
+  const hasInline = typeof inline.system_cpu_usage === 'number' && inline.system_cpu_usage > 0
+  const prevRec = asRecord(prev)
+  const hasPrev = typeof prevRec.system_cpu_usage === 'number' && prevRec.system_cpu_usage > 0
+  const pre = hasInline ? inline : prevRec
   const cpuUsage = asRecord(cpu.cpu_usage)
   const dCpu = num(cpuUsage.total_usage) - num(asRecord(pre.cpu_usage).total_usage)
   const dSys = num(cpu.system_cpu_usage) - num(pre.system_cpu_usage)
   const percpu = Array.isArray(cpuUsage.percpu_usage) ? cpuUsage.percpu_usage.length : 0
   const cpus = num(cpu.online_cpus) || percpu || 1
-  const pct = dSys > 0 && dCpu >= 0 ? (dCpu / dSys) * cpus * 100 : 0
+  const pct = !hasInline && !hasPrev ? null : dSys > 0 && dCpu >= 0 ? (dCpu / dSys) * cpus * 100 : 0
   const stats = asRecord(mem.stats)
   const cache = [stats.inactive_file, stats.total_inactive_file, stats.cache].find(
     (v) => typeof v === 'number'

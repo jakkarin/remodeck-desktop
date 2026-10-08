@@ -1240,6 +1240,7 @@ textarea::placeholder {
 }
 .containers-main {
   min-width: 0;
+  container-type: inline-size;
 }
 .container-select {
   padding: 0;
@@ -1266,6 +1267,10 @@ textarea::placeholder {
   border-radius: calc(var(--radius-lg) + 2px);
   background: var(--bg-subtle);
   padding: var(--space-3) var(--space-4);
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
 }
 .details-header {
   display: flex;
@@ -1336,5 +1341,9 @@ textarea::placeholder {
 @container (max-width: 720px) {
   .containers-split.has-details {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .details-panel {
+    position: static;
+    max-height: none;
   }
 }

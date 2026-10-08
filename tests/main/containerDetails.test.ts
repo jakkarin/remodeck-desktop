@@ -18,6 +18,25 @@ describe('containerDetails', () => {
     }
     expect(computeStats(raw)).toEqual({ cpu: 0, memBytes: 70, memLimit: 1000 })
   })
+  it('computeStats: zeroed precpu uses prev cpu_stats, else cpu is null', () => {
+    const raw = {
+      cpu_stats: { cpu_usage: { total_usage: 400 }, system_cpu_usage: 2000, online_cpus: 2 },
+      precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 0 },
+      memory_stats: { usage: 100, limit: 1000 }
+    }
+    expect(computeStats(raw)).toEqual({ cpu: null, memBytes: 100, memLimit: 1000 })
+    const prev = { cpu_usage: { total_usage: 200 }, system_cpu_usage: 1000 }
+    expect(computeStats(raw, prev)).toEqual({ cpu: 40, memBytes: 100, memLimit: 1000 })
+  })
+  it('computeStats: in-response precpu wins over prev', () => {
+    const raw = {
+      cpu_stats: { cpu_usage: { total_usage: 400 }, system_cpu_usage: 2000, online_cpus: 2 },
+      precpu_stats: { cpu_usage: { total_usage: 200 }, system_cpu_usage: 1000 },
+      memory_stats: { usage: 100, limit: 1000 }
+    }
+    const prev = { cpu_usage: { total_usage: 0 }, system_cpu_usage: 1900 }
+    expect(computeStats(raw, prev)?.cpu).toBe(40)
+  })
   it('computeStats: malformed input is null', () => {
     for (const bad of [null, {}, { cpu_stats: {} }, 'x']) expect(computeStats(bad)).toBeNull()
   })

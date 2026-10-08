@@ -691,7 +691,7 @@ describe('ContainerService', () => {
   })
 
   describe('stats and inspect', () => {
-    const STATS_PATH = (id: string): string => `/containers/${id}/stats?stream=false`
+    const STATS_PATH = (id: string): string => `/containers/${id}/stats?stream=false&one-shot=true`
     const goodStats = {
       cpu_stats: { cpu_usage: { total_usage: 100 }, system_cpu_usage: 2000, online_cpus: 1 },
       precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 1000 },
@@ -789,6 +789,20 @@ describe('ContainerService', () => {
       releases[0]()
       await new Promise((r) => setTimeout(r, 10))
       expect(releases.length).toBe(1)
+    })
+
+    it('a rejected loop is cleared so polling restarts', async () => {
+      let n = 0
+      const t = setup({
+        sleep: () => (n++ === 0 ? Promise.reject(new Error('sleep boom')) : never())
+      })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) => (path === LIST_PATH ? [raw(ID1)] : goodStats))
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(2))
     })
 
     it('watchStats on an unopened host is a no-op', async () => {

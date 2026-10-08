@@ -122,7 +122,7 @@ export function ContainerItem({
         <span>{c.status}</span>
         {c.state === 'running' && (
           <>
-            <span className="container-cpu">CPU {stats ? formatCpu(stats.cpu) : '—'}</span>
+            <span className="container-cpu">CPU {stats && stats.cpu !== null ? formatCpu(stats.cpu) : '—'}</span>
             <span className="container-mem">RAM {stats ? formatMem(stats.memBytes) : '—'}</span>
           </>
         )}

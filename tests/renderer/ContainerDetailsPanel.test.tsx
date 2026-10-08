@@ -56,7 +56,8 @@ describe('ContainerDetailsPanel', () => {
     expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
     await screen.findByText('nginx:1')
     expect(api.containers.inspect).toHaveBeenCalledWith('h1', 'web000000000')
-    expect(screen.getByText('2026-01-02T03:04:05Z')).toBeInTheDocument()
+    const created = screen.getByText(new Date('2026-01-02T03:04:05Z').toLocaleString())
+    expect(created).toHaveAttribute('title', '2026-01-02T03:04:05Z')
     expect(screen.getByText('running (exit 0)')).toBeInTheDocument()
     expect(screen.getByText('always')).toBeInTheDocument()
     expect(screen.getByText('8080→80/tcp')).toBeInTheDocument()
@@ -111,7 +112,7 @@ describe('ContainerDetailsPanel', () => {
     expect(pre.textContent).not.toContain('hunter2')
   })
 
-  it('refetches when container status changes; ignores a stale response', async () => {
+  it('refetches when container state changes; ignores a stale response', async () => {
     let resolveFirst: (v: unknown) => void = () => {}
     vi.mocked(api.containers.inspect)
       .mockReturnValueOnce(new Promise((r) => (resolveFirst = r)))
@@ -133,6 +134,65 @@ describe('ContainerDetailsPanel', () => {
     await Promise.resolve()
     expect(screen.queryByText('stale')).toBeNull()
     expect(screen.getByText('fresh')).toBeInTheDocument()
+  })
+
+  it('does not refetch when only the status text changes', async () => {
+    const { rerender } = render(
+      <ContainerDetailsPanel host={host} container={web} onClose={() => {}} />
+    )
+    await screen.findByText('nginx:1')
+    rerender(
+      <ContainerDetailsPanel
+        host={host}
+        container={{ ...web, status: 'Up 2 hours (healthy)' }}
+        onClose={() => {}}
+      />
+    )
+    await Promise.resolve()
+    expect(api.containers.inspect).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the raw string for an invalid created date', async () => {
+    vi.mocked(api.containers.inspect).mockResolvedValue({
+      Created: 'not-a-date',
+      Config: { Image: 'x' }
+    })
+    render(<ContainerDetailsPanel host={host} container={web} onClose={() => {}} />)
+    expect(await screen.findByText('not-a-date')).toBeInTheDocument()
+  })
+
+  it('retry shows the loading state instead of stale details', async () => {
+    let reject: (e: Error) => void = () => {}
+    vi.mocked(api.containers.inspect)
+      .mockResolvedValueOnce(RAW)
+      .mockReturnValueOnce(new Promise((_r, j) => (reject = j)))
+      .mockReturnValueOnce(new Promise(() => {}))
+    const { rerender } = render(
+      <ContainerDetailsPanel host={host} container={web} onClose={() => {}} />
+    )
+    await screen.findByText('nginx:1')
+    rerender(
+      <ContainerDetailsPanel
+        host={host}
+        container={{ ...web, state: 'exited' }}
+        onClose={() => {}}
+      />
+    )
+    reject(new Error('boom'))
+    fireEvent.click(await screen.findByRole('button', { name: 'ลองอีกครั้ง' }))
+    expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
+    expect(screen.queryByText('nginx:1')).toBeNull()
+  })
+
+  it('scrolls itself into view on mount when supported', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      await openPanel()
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    }
   })
 
   it('inspect error shows message and ลองอีกครั้ง retries', async () => {

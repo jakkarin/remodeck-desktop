@@ -153,7 +153,7 @@ export class ContainerService extends EventEmitter {
       sleep: this.sleep
     })
     st.stats = loop
-    void loop.done.then(() => {
+    void loop.done.catch(() => {}).then(() => {
       if (st.stats === loop) st.stats = undefined
       if (st.statsOn && !st.disposed && !st.stats) this.startStats(hostId, st)
     })

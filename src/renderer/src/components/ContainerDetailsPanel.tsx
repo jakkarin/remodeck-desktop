@@ -1,5 +1,5 @@
 import { Eye, EyeOff, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toContainerDetails, type ContainerDetails } from '../../../shared/containerDetails'
 import type { ContainerInfo } from '../../../shared/containers'
 import type { Host } from '../../../shared/types'
@@ -26,6 +26,11 @@ function List({ items }: { items: string[] }): React.JSX.Element {
   )
 }
 
+function formatCreated(iso: string): string {
+  const t = new Date(iso)
+  return Number.isNaN(t.getTime()) ? iso : t.toLocaleString()
+}
+
 function Overview({ d }: { d: ContainerDetails['overview'] }): React.JSX.Element {
   const state = d.exitCode === null ? d.state : `${d.state} (exit ${d.exitCode})`
   const field = (label: string, value: React.ReactNode): React.JSX.Element => (
@@ -37,7 +42,10 @@ function Overview({ d }: { d: ContainerDetails['overview'] }): React.JSX.Element
   return (
     <dl className="details-fields">
       {field('Image', <span className="mono">{d.image || DASH}</span>)}
-      {field('Created', d.created || DASH)}
+      {field(
+        'Created',
+        d.created ? <span title={d.created}>{formatCreated(d.created)}</span> : DASH
+      )}
       {field('State', state || DASH)}
       {field('Restart policy', d.restartPolicy)}
       {field('Ports', <List items={d.ports} />)}
@@ -97,6 +105,13 @@ export function ContainerDetailsPanel({
   const [details, setDetails] = useState<ContainerDetails | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const ref = useRef<HTMLElement>(null)
+
+  // In the stacked layout the panel opens below a long list; bring it into view.
+  useEffect(() => {
+    const el = ref.current
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+  }, [])
 
   useEffect(() => {
     // `stale` guards against a late result after unmount or a newer fetch.
@@ -115,10 +130,10 @@ export function ContainerDetailsPanel({
     return () => {
       stale = true
     }
-  }, [host.id, host.protected, container.id, container.state, container.status, attempt])
+  }, [host.id, host.protected, container.id, container.state, attempt])
 
   return (
-    <aside className="details-panel" aria-label={`รายละเอียด ${container.name}`}>
+    <aside ref={ref} className="details-panel" aria-label={`รายละเอียด ${container.name}`}>
       <div className="details-header">
         <span className="container-name mono">{container.name}</span>
         <IconButton aria-label="ปิดรายละเอียด" onClick={onClose}>
@@ -153,6 +168,7 @@ export function ContainerDetailsPanel({
             <Button
               onClick={() => {
                 setError(null)
+                setDetails(null)
                 setAttempt((n) => n + 1)
               }}
             >
