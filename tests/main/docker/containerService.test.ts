@@ -741,6 +741,56 @@ describe('ContainerService', () => {
       expect(got).toHaveBeenCalledTimes(2)
     })
 
+    it('watchStats(true) after stop waits for the in-flight request (one at a time)', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      let pending = 0
+      let maxPending = 0
+      const releases: Array<() => void> = []
+      t.json.mockImplementation(async (_m, path) => {
+        if (path === LIST_PATH) return [raw(ID1)]
+        maxPending = Math.max(maxPending, ++pending)
+        await new Promise<void>((r) => releases.push(r))
+        pending--
+        return goodStats
+      })
+      const got = vi.fn()
+      t.svc.on('stats', got)
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(releases.length).toBe(1))
+      t.svc.watchStats('h', false)
+      t.svc.watchStats('h', true)
+      t.svc.watchStats('h', true)
+      await new Promise((r) => setTimeout(r, 10))
+      expect(releases.length).toBe(1)
+      releases[0]()
+      await vi.waitFor(() => expect(releases.length).toBe(2))
+      expect(maxPending).toBe(1)
+      releases[1]()
+      await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1))
+    })
+
+    it('watchStats(false) while waiting for the old loop does not restart', async () => {
+      const t = setup({ sleep: never })
+      t.list([raw(ID1)])
+      await t.svc.open('h')
+      const releases: Array<() => void> = []
+      t.json.mockImplementation(async (_m, path) => {
+        if (path === LIST_PATH) return [raw(ID1)]
+        await new Promise<void>((r) => releases.push(r))
+        return goodStats
+      })
+      t.svc.watchStats('h', true)
+      await vi.waitFor(() => expect(releases.length).toBe(1))
+      t.svc.watchStats('h', false)
+      t.svc.watchStats('h', true)
+      t.svc.watchStats('h', false)
+      releases[0]()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(releases.length).toBe(1)
+    })
+
     it('watchStats on an unopened host is a no-op', async () => {
       const t = setup({ sleep: never })
       expect(() => t.svc.watchStats('h', true)).not.toThrow()

@@ -50,7 +50,8 @@ type HostState = {
   relisting?: { owner: { close(): void } | undefined; promise: Promise<boolean> }
   relistSeq: number
   syncing?: Set<string>
-  stats?: { stop(): void }
+  statsOn?: boolean
+  stats?: { stop(): void; done: Promise<void> }
 }
 
 function eventId(ev: unknown): string | undefined {
@@ -133,13 +134,14 @@ export class ContainerService extends EventEmitter {
   watchStats(hostId: string, on: boolean): void {
     const st = this.hosts.get(hostId)
     if (!st || st.disposed) return
-    if (!on) {
-      st.stats?.stop()
-      st.stats = undefined
-      return
-    }
-    if (st.stats) return
-    st.stats = startStatsLoop({
+    st.statsOn = on
+    if (!on) st.stats?.stop()
+    // A stopped loop may still have a request in flight; its `done` restarts polling if wanted.
+    else if (!st.stats) this.startStats(hostId, st)
+  }
+
+  private startStats(hostId: string, st: HostState): void {
+    const loop = startStatsLoop({
       client: st.client,
       runningIds: () =>
         this.snapshot(st)
@@ -149,6 +151,11 @@ export class ContainerService extends EventEmitter {
         if (!st.disposed) this.emit('stats', hostId, map)
       },
       sleep: this.sleep
+    })
+    st.stats = loop
+    void loop.done.then(() => {
+      if (st.stats === loop) st.stats = undefined
+      if (st.statsOn && !st.disposed && !st.stats) this.startStats(hostId, st)
     })
   }
 
@@ -186,6 +193,7 @@ export class ContainerService extends EventEmitter {
     if (!st) return
     this.hosts.delete(hostId)
     st.disposed = true
+    st.statsOn = false
     st.stats?.stop()
     st.stats = undefined
     st.list.clear()

@@ -12,9 +12,11 @@ export interface StatsLoopOptions {
 }
 
 /** Polls one-shot stats for running containers sequentially (the agent has few sockets). */
-export function startStatsLoop(o: StatsLoopOptions): { stop(): void } {
+export function startStatsLoop(o: StatsLoopOptions): { stop(): void; done: Promise<void> } {
   let stopped = false
-  void (async () => {
+  let wake: () => void = () => {}
+  const woken = new Promise<void>((r) => (wake = r))
+  const done = (async () => {
     while (!stopped) {
       const map: Record<string, ContainerStats> = {}
       for (const id of o.runningIds()) {
@@ -36,12 +38,14 @@ export function startStatsLoop(o: StatsLoopOptions): { stop(): void } {
       }
       if (stopped) return
       o.emit(map)
-      await o.sleep(CYCLE_MS)
+      await Promise.race([o.sleep(CYCLE_MS), woken])
     }
   })()
   return {
     stop: () => {
       stopped = true
-    }
+      wake()
+    },
+    done
   }
 }
