@@ -7,10 +7,13 @@ export type ContainerInfo = {
   id: string
   name: string
   image: string
+  imageId: string
   state: ContainerState
   status: string
   created: number
   ports: string[]
+  volumes: string[]
+  networks: string[]
   compose: { project: string; service: string; workingDir: string; configFiles: string[] } | null
 }
 
@@ -57,6 +60,16 @@ function formatPorts(raw: unknown): string[] {
     .map(([text]) => text)
 }
 
+function volumeNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const names = new Set<string>()
+  for (const entry of raw) {
+    const m = asRecord(entry)
+    if (m.Type === 'volume' && str(m.Name)) names.add(str(m.Name))
+  }
+  return [...names].sort()
+}
+
 export function toContainerInfo(raw: unknown): ContainerInfo {
   const r = asRecord(raw)
   const id = str(r.Id)
@@ -80,10 +93,13 @@ export function toContainerInfo(raw: unknown): ContainerInfo {
     id,
     name,
     image: str(r.Image),
+    imageId: str(r.ImageID),
     state,
     status: str(r.Status),
     created: typeof r.Created === 'number' ? r.Created : 0,
     ports: formatPorts(r.Ports),
+    volumes: volumeNames(r.Mounts),
+    networks: Object.keys(asRecord(asRecord(r.NetworkSettings).Networks)).sort(),
     compose
   }
 }

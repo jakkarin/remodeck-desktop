@@ -19,6 +19,14 @@ const raw = {
     { PrivatePort: 443, Type: 'tcp' },
     { PrivatePort: 53, PublicPort: 5353, Type: 'udp' }
   ],
+  ImageID: 'sha256:' + 'b'.repeat(64),
+  Mounts: [
+    { Type: 'volume', Name: 'db_data', Source: '/v/db_data', Destination: '/data' },
+    { Type: 'bind', Source: '/srv/shop', Destination: '/app' },
+    { Type: 'volume', Name: 'cache', Source: '/v/cache', Destination: '/cache' },
+    { Type: 'volume', Name: 'db_data', Source: '/v/db_data', Destination: '/data2' }
+  ],
+  NetworkSettings: { Networks: { shop_default: {}, bridge: {} } },
   Labels: {
     'com.docker.compose.project': 'shop',
     'com.docker.compose.service': 'web',
@@ -42,6 +50,15 @@ const mk = (name: string, project?: string): ContainerInfo => ({
 })
 
 describe('toContainerInfo', () => {
+  it('reads imageId, volume mounts (not bind mounts) and network names', () => {
+    const c = toContainerInfo(raw)
+    expect(c.imageId).toBe('sha256:' + 'b'.repeat(64))
+    expect(c.volumes).toEqual(['cache', 'db_data'])
+    expect(c.networks).toEqual(['bridge', 'shop_default'])
+    const e = toContainerInfo({ Id: raw.Id })
+    expect([e.imageId, e.volumes, e.networks]).toEqual(['', [], []])
+  })
+
   it('maps a realistic entry', () => {
     const c = toContainerInfo(raw)
     expect(c.id).toBe(raw.Id)
