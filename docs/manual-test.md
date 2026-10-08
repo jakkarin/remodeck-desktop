@@ -1,128 +1,128 @@
 # Manual End-to-End Test Checklist
 
-วันที่: 2026-10-03  
-เวอร์ชัน: Task 19 Manual verification
+Date: 2026-10-03  
+Version: Task 19 Manual verification
 
 ## Setup
 
-ผู้ใช้ต้องมีสิ่งต่อไปนี้พร้อมก่อนเริ่มทดสอบ:
+Have the following ready before testing:
 
-- **SSH access** : `ssh <alias>` ใช้งานได้จาก Windows terminal โดยมี SSH key ใน ssh-agent
-- **Git ติดตั้ง** : บน Windows และ sandbox ทั้งคู่
-- **GitHub Credential Manager** : ติดตั้งแล้ว และเข้าสู่ระบบผ่าน `git credential-manager github login` บน Windows
-- **Node.js และ npm** : ติดตั้งแล้ว
-- **Electron binary** : ถ้าหายไป รัน `npm install && node node_modules/electron/install.js`
-- **Development server** : รัน `npm run dev` เพื่อเริ่มแอป
+- **SSH access**: `ssh <alias>` works from a Windows terminal, with the SSH key loaded in ssh-agent
+- **Git installed**: on both Windows and the sandbox
+- **GitHub Credential Manager**: installed, and logged in with `git credential-manager github login` on Windows
+- **Node.js and npm**: installed
+- **Electron binary**: if missing, run `npm install && node node_modules/electron/install.js`
+- **Development server**: run `npm run dev` to start the app
 
 ## Test Cases
 
 ### 1. Spec §9 Main Flow — Add Host → Connect → Clone → Commit → Sync → Review → Push → PR → Merge → Sync
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 1.1 | เปิดแอป → Sidebar แสดง hosts ว่าง (disconnected) | ☐ |
-| 1.2 | กด Add Host → ป้อนชื่อ SSH alias, label, save | ☐ |
-| 1.3 | เลือก host → กด Connect → Preflight ตรวจ `git` บน sandbox | ☐ |
-| 1.4 | ถ้า git ไม่มี → แสดงข้อความติดตั้ง + ปุ่ม Reload | ☐ |
-| 1.5 | Host เข้าสถานะ `connected` | ☐ |
-| 1.6 | กด Clone → เลือก repo จาก GitHub (search หรือ paste URL) | ☐ |
-| 1.7 | ป้อน sandbox path (default `~/repos/<repo>`) → Clone | ☐ |
-| 1.8 | Mirror สร้างและ fetch origin; sandbox init และ checkout default branch | ☐ |
-| 1.9 | ใน plain SSH session (`ssh <host>` จาก terminal ระบบ) → `cd ~/repos/<repo>` และ `git checkout -b feat-a` | ☐ |
-| 1.10 | สร้างไฟล์ใหม่ + commit (ข้อความ commit อิสระ) | ☐ |
-| 1.11 | กด Refresh / Sync → branch `feat-a` ปรากฏใน Workspace view พร้อม ahead count | ☐ |
-| 1.12 | คลิกเลือก `feat-a` → Review panel แสดง log + diff | ☐ |
-| 1.13 | กด Push to GitHub → push สำเร็จ | ☐ |
-| 1.14 | ไปที่ GitHub.com → PR draft จากปุ่ม "Open PR" ของแอป | ☐ |
-| 1.15 | เพิ่มข้อมูล PR และ merge (เลือก "Squash and merge" หรือ "Create a merge commit") | ☐ |
-| 1.16 | กลับแอป → กด Sync | ☐ |
-| 1.17 | `origin/main` ของ sandbox ได้ commit ใหม่จาก PR ที่เพิ่งmerge | ☐ |
-| 1.18 | Local main branch ยังอยู่ commit เดิม (ไม่เปลี่ยน) | ☐ |
+| 1.1 | Open the app → the sidebar shows no hosts (disconnected) | ☐ |
+| 1.2 | Click Add Host → enter the SSH alias and label, save | ☐ |
+| 1.3 | Select the host → click Connect → preflight checks for `git` on the sandbox | ☐ |
+| 1.4 | If git is missing → an install message and a Reload button are shown | ☐ |
+| 1.5 | The host reaches the `connected` state | ☐ |
+| 1.6 | Click Clone → pick a repo from GitHub (search or paste a URL) | ☐ |
+| 1.7 | Enter the sandbox path (default `~/repos/<repo>`) → Clone | ☐ |
+| 1.8 | The mirror is created and fetches origin; the sandbox is initialised and checks out the default branch | ☐ |
+| 1.9 | In a plain SSH session (`ssh <host>` from the system terminal) → `cd ~/repos/<repo>` and `git checkout -b feat-a` | ☐ |
+| 1.10 | Create a new file + commit (any message) | ☐ |
+| 1.11 | Click Refresh / Sync → branch `feat-a` appears in the Workspace view with its ahead count | ☐ |
+| 1.12 | Select `feat-a` → the review panel shows the log + diff | ☐ |
+| 1.13 | Click Push to GitHub → the push succeeds | ☐ |
+| 1.14 | On GitHub.com → open the draft PR from the app's "Open PR" button | ☐ |
+| 1.15 | Fill in the PR and merge it ("Squash and merge" or "Create a merge commit") | ☐ |
+| 1.16 | Back in the app → click Sync | ☐ |
+| 1.17 | The sandbox's `origin/main` has the new commit from the merged PR | ☐ |
+| 1.18 | The local main branch is still at its old commit (unchanged) | ☐ |
 
 ### 2. Terminal from App — Git Push with Popup Authentication
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 2.1 | Workspace → กด Open Terminal → xterm.js tab เปิด, prompt หลัง `<path>` | ☐ |
-| 2.2 | ใน terminal: `git checkout -b feat-b` | ☐ |
-| 2.3 | สร้างไฟล์ใหม่ + `git add` + `git commit -m "feat-b"` | ☐ |
+| 2.1 | Workspace → click Open Terminal → an xterm.js tab opens with the prompt in `<path>` | ☐ |
+| 2.2 | In the terminal: `git checkout -b feat-b` | ☐ |
+| 2.3 | Create a new file + `git add` + `git commit -m "feat-b"` | ☐ |
 | 2.4 | `git push origin feat-b` | ☐ |
-| 2.5 | Popup ปรากฏบนเครื่อง host | ☐ |
-| 2.6 | Content: repo name, ref (`feat-b`), old→new sha (short), terminal tab ต้นทาง | ☐ |
-| 2.7 | ปุ่ม "Allow once" → push ผ่าน, terminal รับข้อความ success | ☐ |
-| 2.8 | ปิด popup → ใน plain SSH session (`git push origin feat-b`) ล้มเหลวบ่อกว่าไม่มี credential | ☐ |
-| 2.9 | GitHub token ไม่เขียนลงไฟล์ใดๆ ใน sandbox → (ก) ค้นหาค่า token จริงที่ได้จาก `git credential fill` บน Windows โดยส่งผ่าน stdin (token ไม่ลง disk/argv/history ของ sandbox) — ใน Git Bash บน Windows: `printf 'protocol=https\nhost=github.com\n\n' \| git credential fill \| sed -n 's/^password=//p' \| ssh <alias> 'grep -rlF -f - ~/ 2>/dev/null'` ต้องไม่พิมพ์ชื่อไฟล์ใดๆ (ข) ใน sandbox: `grep -rlE "gho_\|ghp_\|github_pat_" ~/ 2>/dev/null` ต้องว่าง | ☐ |
+| 2.5 | An approval popup appears in the app | ☐ |
+| 2.6 | It shows the repo name, ref (`feat-b`), old→new sha (short) and the originating terminal tab | ☐ |
+| 2.7 | "Allow once" → the push goes through and the terminal prints success | ☐ |
+| 2.8 | Close the popup → in a plain SSH session, `git push origin feat-b` fails for lack of credentials | ☐ |
+| 2.9 | The GitHub token is never written to any file in the sandbox → (a) search for the real token from `git credential fill` on Windows, passed over stdin (so the token never reaches the sandbox's disk/argv/history) — in Git Bash on Windows: `printf 'protocol=https\nhost=github.com\n\n' \| git credential fill \| sed -n 's/^password=//p' \| ssh <alias> 'grep -rlF -f - ~/ 2>/dev/null'` must print no file names (b) in the sandbox: `grep -rlE "gho_\|ghp_\|github_pat_" ~/ 2>/dev/null` must be empty | ☐ |
 
 ### 3. Protected Branch Blocking
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 3.1 | ใน terminal from app: `git checkout main` (หรือ default branch) | ☐ |
-| 3.2 | ทำการเปลี่ยนแปลง + commit | ☐ |
-| 3.3 | `git push origin main` → Preflight ของ bridge ปฏิเสธ (403) | ☐ |
-| 3.4 | Terminal แสดง error ว่า push ถูกปฏิเสธ (protected branch) | ☐ |
-| 3.5 | Plain SSH session: `git push origin main` ล้มเหลวเหตุเดียวกัน (ไม่มี token) | ☐ |
+| 3.1 | In the app terminal: `git checkout main` (or the default branch) | ☐ |
+| 3.2 | Make a change + commit | ☐ |
+| 3.3 | `git push origin main` → the bridge's preflight rejects it (403) | ☐ |
+| 3.4 | The terminal shows that the push was rejected (protected branch) | ☐ |
+| 3.5 | Plain SSH session: `git push origin main` fails the same way (no token) | ☐ |
 
 ### 4. No-Git Host — Install Message and Reload
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 4.1 | เพิ่ม host ที่ไม่มี git ติดตั้ง (หรือเครื่องสมมติ, หรือแก้ไข PATH ชั่วคราว) | ☐ |
-| 4.2 | กด Connect → Preflight บอก "git not found" + แสดงคำสั่งติดตั้ง | ☐ |
-| 4.3 | Host button สถานะแดง (error) | ☐ |
-| 4.4 | ติดตั้ง git บน sandbox: `apt install git` (หรือ `dnf install git`) | ☐ |
-| 4.5 | ในแอป → กด Reload (Preflight อีกครั้ง) | ☐ |
-| 4.6 | git detect สำเร็จ → Host เข้าสถานะ connected | ☐ |
-| 4.7 | workspace ของ host นั้นสามารถใช้งาน (Clone, Sync) ได้ | ☐ |
+| 4.1 | Add a host without git installed (or a test machine, or temporarily alter PATH) | ☐ |
+| 4.2 | Click Connect → preflight reports "git not found" and shows the install command | ☐ |
+| 4.3 | The host button shows a red (error) state | ☐ |
+| 4.4 | Install git on the sandbox: `apt install git` (or `dnf install git`) | ☐ |
+| 4.5 | In the app → click Reload (preflight again) | ☐ |
+| 4.6 | git is detected → the host becomes connected | ☐ |
+| 4.7 | That host's workspaces are usable (Clone, Sync) | ☐ |
 
 ### 5. Disconnect Closes Terminals
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 5.1 | Host เข้าสถานะ connected มี terminal 2 tab เปิด | ☐ |
-| 5.2 | กด Disconnect | ☐ |
-| 5.3 | ทั้ง 2 terminal tab ปิด (หรือแสดง "disconnected" message) | ☐ |
-| 5.4 | Host สถานะเป็น disconnected | ☐ |
+| 5.1 | A connected host with 2 terminal tabs open | ☐ |
+| 5.2 | Click Disconnect | ☐ |
+| 5.3 | Both terminal tabs close (or show a "disconnected" message) | ☐ |
+| 5.4 | The host is disconnected | ☐ |
 
 ### 6. Two Workspaces Same Branch Name
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 6.1 | สร้าง workspace ที่ 2 ของ repo เดียวกัน บนเครื่อง host อื่น (หรือ path อื่น) | ☐ |
-| 6.2 | Clone เสร็จ; workspace 2 สร้าง branch ชื่อเดียวกับ workspace 1 (`feat-a`) | ☐ |
-| 6.3 | Sync ทั้ง 2 workspace → refs ใน mirror แยกกันอย่างถูกต้อง (`ws-<id1>/feat-a`, `ws-<id2>/feat-a`) | ☐ |
-| 6.4 | หน้า Review แสดงชื่อ workspace ต้นทาง (เพื่อไม่เสับสนว่า push ของเครื่องไหน) | ☐ |
+| 6.1 | Create a second workspace of the same repo on another host (or another path) | ☐ |
+| 6.2 | Clone finishes; workspace 2 creates a branch with the same name as workspace 1 (`feat-a`) | ☐ |
+| 6.3 | Sync both workspaces → their refs stay separate in the mirror (`ws-<id1>/feat-a`, `ws-<id2>/feat-a`) | ☐ |
+| 6.4 | The review screen shows the originating workspace (so it is clear which machine a push came from) | ☐ |
 
 ### 7. Rebuild Mirror
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 7.1 | Settings → ปุ่ม Rebuild Mirror ต่อ repo | ☐ |
-| 7.2 | ลบ mirror ตัวเดิมและสร้างใหม่ | ☐ |
-| 7.3 | Mirror rebuild สำเร็จ; workspace ยังสามารถ Sync ได้ | ☐ |
+| 7.1 | Settings → the Rebuild Mirror button for a repo | ☐ |
+| 7.2 | The old mirror is deleted and recreated | ☐ |
+| 7.3 | The rebuild succeeds; the workspace can still Sync | ☐ |
 
 ### 8. Add Existing Repo
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 8.1 | ใน sandbox มี repo ที่ clone มาเองอยู่แล้ว (origin ชี้ไป GitHub) พร้อม branch ที่ยังไม่ push และไฟล์ที่ยังไม่ commit; จด `git rev-parse HEAD`, `git status --porcelain` และ `cat .git/config` ไว้ | ☐ |
-| 8.2 | Host connected → เปิด Switcher → กด "＋ Add existing repo…" → ใส่ path (เช่น `~/work/my-app`) → Check → ต้องเห็น "จะผูก workspace นี้กับ github.com/<owner>/<name>" (ยังไม่มีการ fetch/เพิ่มอะไร) → ตรวจว่าเป็น repo ที่ตั้งใจ แล้วกด Confirm & Add | ☐ |
-| 8.2a | Check repo ที่ยังไม่เคยใช้ใน remodeck → เห็นคำเตือน "repo นี้ยังไม่เคยใช้ใน remodeck"; Check repo ที่ตั้ง Always allow push ไว้ → เห็นคำเตือน "repo นี้ตั้ง Always allow push ไว้"; กด Back หรือแก้ path/host → กลับไปขั้น Check | ☐ |
-| 8.2b | หลัง Check แล้ว ใน sandbox รัน `git remote set-url origin https://github.com/other/repo.git` → กด Confirm & Add → error "origin ของ repo เปลี่ยนไปจากที่ยืนยัน (ตอนนี้ชี้ไป other/repo) — กรุณาตรวจสอบใหม่" ไม่มี workspace/repo/mirror ถูกเพิ่ม | ☐ |
-| 8.3 | Workspace ใหม่ถูกเลือกอัตโนมัติ; branch ที่มีเฉพาะใน sandbox แสดงในรายการ branch และ review ได้ | ☐ |
-| 8.4 | ใน sandbox: `git rev-parse HEAD`, `git status --porcelain` และ `.git/config` เหมือนที่จดไว้ทุกไบต์ (ไม่มี checkout, ไม่เปลี่ยน origin) | ☐ |
-| 8.5 | เพิ่ม path เดิมซ้ำ → ข้อความ "มี workspace นี้อยู่แล้ว" | ☐ |
-| 8.6 | path ที่ไม่มี / ไม่ใช่ git repo / bare repo / subdirectory ของ repo / repo ที่ไม่มี origin / origin ที่ไม่ใช่ GitHub → แสดงข้อความ error ภาษาไทยที่ตรงกรณี และไม่มี workspace เพิ่ม | ☐ |
-| 8.7 | origin แบบ `git@github.com:o/r.git` หรือ `ssh://git@github.com/o/r.git` ก็เพิ่มได้ และ `git fetch`/`git push` ใน Open Terminal ของแอปผ่าน bridge (popup อนุมัติ push ปรากฏ) | ☐ |
+| 8.1 | The sandbox has a repo you cloned yourself (origin pointing to GitHub) with an unpushed branch and uncommitted files; note `git rev-parse HEAD`, `git status --porcelain` and `cat .git/config` | ☐ |
+| 8.2 | Host connected → open the Switcher → click "＋ Add existing repo…" → enter the path (e.g. `~/work/my-app`) → Check → you see "This workspace will be linked to github.com/<owner>/<name>" (nothing fetched or added yet) → confirm it is the intended repo, then click Confirm & Add | ☐ |
+| 8.2a | Check a repo never used in remodeck → warning "This repo has not been used in remodeck before"; Check a repo with Always allow push → warning "This repo has Always allow push on"; click Back or change the path/host → returns to the Check step | ☐ |
+| 8.2b | After Check, in the sandbox run `git remote set-url origin https://github.com/other/repo.git` → click Confirm & Add → error "The repo origin changed since confirmation (now points to other/repo) — please check again"; no workspace/repo/mirror is added | ☐ |
+| 8.3 | The new workspace is selected automatically; sandbox-only branches appear in the branch list and can be reviewed | ☐ |
+| 8.4 | In the sandbox: `git rev-parse HEAD`, `git status --porcelain` and `.git/config` match your notes byte for byte (no checkout, origin unchanged) | ☐ |
+| 8.5 | Add the same path again → "This workspace already exists" | ☐ |
+| 8.6 | A missing path / not a git repo / bare repo / repo subdirectory / repo without origin / non-GitHub origin → the matching error message is shown and no workspace is added | ☐ |
+| 8.7 | An origin of the form `git@github.com:o/r.git` or `ssh://git@github.com/o/r.git` can be added too, and `git fetch`/`git push` in the app's Open Terminal go through the bridge (the push approval popup appears) | ☐ |
 
 ### 9. Host Context
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| 9.1 | เพิ่ม host ที่ไม่มี git แล้ว Connect → โมดูล Git แสดงข้อความว่าไม่พบ git บน host นั้น (ไม่ error ค้าง) | ☐ |
-| 9.2 | เปิด terminal หลายแท็บบน host A แล้วสลับไป host B และกลับมา → terminal ของ host A ยังอยู่และไม่ถูกปิด | ☐ |
-| 9.3 | Host settings → ติ๊ก Protected host → Save → เห็นแถบสีแดงบางๆ ด้านบนหน้าต่าง และ badge protected (ไอคอนกุญแจ) ข้างชื่อ host ใน HostSelector (ปุ่มและรายการ); สลับไป host ปกติแล้วแถบหาย | ☐ |
-| 9.4 | ปิดแล้วเปิดแอปใหม่ → host และ workspace ที่เลือกไว้ถูกคืนค่า (รวมสถานะ protected) | ☐ |
+| 9.1 | Add a host without git and Connect → the Git module says git was not found on that host (no stuck error) | ☐ |
+| 9.2 | Open several terminal tabs on host A, switch to host B and back → host A's terminals are still there, not closed | ☐ |
+| 9.3 | Host settings → tick Protected host → Save → a thin red bar appears at the top of the window and a protected badge (lock icon) next to the host name in the HostSelector (button and list); switch to a normal host and the bar disappears | ☐ |
+| 9.4 | Quit and reopen the app → the selected host and workspace are restored (including protected state) | ☐ |
 
 ## Automated Results
 
@@ -149,9 +149,9 @@ Renderer: 1,088.53 kB + 13.18 kB CSS
 
 ---
 
-**วันที่ทดสอบ:** [แจ้งวันที่เมื่อเริ่มทดสอบ]  
-**ผลลัพธ์รวม:** [ระบุจำนวนข้อที่ pass / total]  
-**ความเห็น:** 
+**Test date:** [fill in when testing starts]  
+**Overall result:** [passed / total]  
+**Notes:** 
 
 
 ### npm run test:e2e (Docker)
@@ -174,33 +174,36 @@ Still manual:
 
 ### UI redesign (manual)
 
-ตรวจบน Electron จริง หลังเปลี่ยนเป็น workspace แบบสามช่อง:
-- สีธีมสว่าง/มืดตาม OS (รวมถึง terminal) — สลับธีม OS แล้วหน้าจอและ terminal เปลี่ยนตาม
-- ลากแถบแบ่งช่อง (divider) ปรับขนาด แล้วปิดและเปิดแอปใหม่ ขนาดที่ปรับไว้ยังคงเดิม
-- เมื่อ AI commit ใน terminal โดยไม่กดปุ่ม Sync จุด ● ปรากฏที่ branch ภายในไม่กี่วินาที (light sync หลัง terminal นิ่ง 3 วินาที)
-- ปุ่ม Sync เปลี่ยนเป็นสีเหลืองเมื่อ host หลุดการเชื่อมต่อ
+Check in real Electron, after the move to the three-column workspace:
+- Light/dark theme follows the OS (including the terminal) — switch the OS theme and the screen and terminal follow
+- Drag the dividers to resize, then quit and reopen the app; the sizes are kept
+- When the AI commits in the terminal without pressing Sync, a ● dot appears on the branch within a few seconds (light sync after the terminal is idle for 3 seconds)
+- The Sync button turns yellow when the host loses its connection
 
 
 ### Containers (manual)
 
-| ลำดับ | ขั้นตอน | ผล |
+| Step | Action | Result |
 |---|---|---|
-| C.1 | host ที่ไม่มี docker → แท็บ Containers แสดงข้อความว่าไม่พบ docker | ☐ |
-| C.2 | user ที่ไม่อยู่ใน group docker → แสดงข้อความอธิบายสิทธิ์ที่ขาด | ☐ |
-| C.3 | start container จาก shell บน sandbox → รายการอัปเดตเองภายในไม่กี่วินาที | ☐ |
-| C.4 | Remove บน host ที่เป็น protected → ต้องพิมพ์ชื่อ host ให้ตรงก่อนปุ่ม Remove จะกดได้ | ☐ |
-| C.5 | กด Logs ที่ container → แท็บ terminal ใหม่ของ host นั้นเปิดและแสดง log สด; กด Shell ที่ container ที่หยุดอยู่ → ปุ่มกดไม่ได้ | ☐ |
-| C.6 | กด Shell ที่ container ที่รันอยู่ → ได้ shell ใน container (ลอง `ls`, `exit`) | ☐ |
-| C.7 | compose Up / Pull / Restart บน host ปกติ → รันทันทีใน terminal; Down → มี dialog ให้กดยืนยัน | ☐ |
-| C.8 | compose Up / Down บน host ที่เป็น protected → Up ต้องกดยืนยัน, Down ต้องพิมพ์ชื่อ host ให้ตรงก่อน | ☐ |
-| C.9 | เมื่อคำสั่งใน terminal จบ → มีบรรทัดแสดง exit code; compose project ที่ไม่มี path → tooltip แสดงข้อความ "ไม่พบ path ของ compose project" | ☐ |
-| C.10 | เปิดหน้า Containers → container ที่รันอยู่แสดง CPU / RAM และตัวเลขอัปเดตทุก ~5 วินาที; สลับไปหน้าอื่นแล้ว CPU / RAM หยุดอัปเดต (และกลับมาอัปเดตเมื่อเปิดหน้านี้อีก) | ☐ |
-| C.11 | กดชื่อ container → แผงรายละเอียดเปิดด้านขวา (Overview / Env / JSON); กดชื่อเดิมอีกครั้ง หรือกดปุ่มปิด → แผงปิด; เมื่อความกว้างน้อยกว่า 720px แผงย้ายลงใต้รายการ | ☐ |
-| C.12 | แท็บ Env → ทุกค่าแสดง `••••••`; กดปุ่มรูปตาของแถวใดแถวหนึ่ง → เฉพาะแถวนั้นแสดงค่า (ไม่มีปุ่มแสดงทั้งหมด); เปลี่ยนไปเลือก container อื่น → ค่าที่เปิดไว้กลับเป็นซ่อน | ☐ |
-| C.13 | แท็บ JSON → เห็น inspect ดิบแบบอ่านอย่างเดียว และ `Env` แสดงเป็น `<hidden: N vars>` ไม่มีค่า env จริง | ☐ |
-| C.14 | รายการ container ยาวเกินหนึ่งหน้าจอ → เลื่อนลงล่าง แล้วกดชื่อ container → แผงรายละเอียดมองเห็นได้ทันที (ไม่ตกอยู่นอกจอ) ทั้งแบบกว้างและแบบ <720px | ☐ |
-| C.15 | แท็บ Images → เห็นรายการ image (tag, ขนาด, วันที่สร้าง) และ badge `in use` ที่ image ที่มี container ใช้อยู่; แท็บ Volumes และ Networks แสดงรายการและ badge เช่นกัน; สลับแท็บแล้ว filter ถูกล้าง; แถบ Containers | Images | Volumes | Networks อยู่เหนือ toolbar และยังแสดงตอนกำลังโหลดและตอน error | ☐ |
-| C.16 | กด Remove ที่ image ที่ container ใช้อยู่ → dialog ยืนยัน (host ปกติกดยืนยันได้เลย) → แถบ error แสดงข้อความไทย "image นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน" และรายการโหลดใหม่; ทำซ้ำกับ volume และ network ที่ถูกใช้อยู่ | ☐ |
-| C.17 | กด Prune ที่แท็บ Images บน host ปกติ → dialog แบบกดยืนยัน; บน host ที่เป็น protected → ต้องพิมพ์ชื่อ host ให้ตรงก่อน; สำเร็จแล้วมีบรรทัด "ลบแล้ว N รายการ · คืนพื้นที่ …" และรายการโหลดใหม่ (Networks ไม่แสดงขนาดที่คืน) | ☐ |
-| C.18 | Remove volume และ Prune volumes → ต้องพิมพ์ชื่อ host ให้ตรงก่อนทุกครั้ง แม้เป็น host ปกติ | ☐ |
-| C.19 | แท็บ Networks → network พื้นฐาน (bridge / host / none) ไม่มีปุ่ม Remove แต่ปุ่ม Remove ของ network อื่นอยู่ตำแหน่งเดิม | ☐ |
+| C.1 | Host without docker → the Containers module says docker was not found | ☐ |
+| C.2 | User not in the docker group → a message explains the missing permission | ☐ |
+| C.3 | Start a container from a shell on the sandbox → the list updates by itself within a few seconds | ☐ |
+| C.4 | Remove on a protected host → you must type the host name exactly before the Remove button is enabled | ☐ |
+| C.5 | Click Logs on a container → a new terminal tab for that host opens and streams the log; Shell on a stopped container → the button is disabled | ☐ |
+| C.6 | Click Shell on a running container → you get a shell inside the container (try `ls`, `exit`) | ☐ |
+| C.7 | Compose Up / Pull / Restart on a normal host → runs immediately in a terminal; Down → a confirm dialog asks for a click | ☐ |
+| C.8 | Compose Up / Down on a protected host → Up needs a click confirm, Down needs the host name typed exactly | ☐ |
+| C.9 | When a terminal command ends → a line shows the exit code; a compose project without a path → the tooltip says "Compose project path unknown" | ☐ |
+| C.10 | Open the Containers page → running containers show CPU / RAM, updating every ~5 seconds; switch to another page and CPU / RAM stop updating (and resume when you come back) | ☐ |
+| C.11 | Click a container name → the details panel opens on the right (Overview / Env / JSON); click the same name again or the close button → the panel closes; below 720px wide the panel moves under the list | ☐ |
+| C.12 | Env tab → every value shows `••••••`; click the eye button on one row → only that row is revealed (no reveal-all button); select another container → revealed values are hidden again | ☐ |
+| C.13 | JSON tab → read-only raw inspect output, with `Env` shown as `<hidden: N vars>` and no real env values | ☐ |
+| C.14 | A container list taller than the window → scroll down and click a container name → the details panel is visible straight away (not off-screen), both wide and below 720px | ☐ |
+| C.15 | Images tab → image list (tag, size, created) with an `in use` badge on images a container uses; the Volumes and Networks tabs show lists and badges too; switching tabs clears the filter; the Containers \| Images \| Volumes \| Networks bar sits above the toolbar, styled like the Terminal tab bar, and stays visible while loading and on error | ☐ |
+| C.16 | Click Remove on an image a container uses → confirm dialog (a click is enough on a normal host) → the error banner says "This image is in use by a container — remove that container first" and the list reloads; repeat with an in-use volume and network | ☐ |
+| C.17 | Click Prune on the Images tab on a normal host → click-confirm dialog; on a protected host → the host name must be typed exactly; on success a line reads "Removed N items · reclaimed …" and the list reloads (Networks shows no reclaimed size) | ☐ |
+| C.18 | Remove volume and Prune volumes → always require typing the host name, even on a normal host | ☐ |
+| C.19 | Networks tab → built-in networks (bridge / host / none) have no Remove button, and the Remove buttons of other networks stay in place | ☐ |
+| C.20 | A list taller than the window scrolls under the tab bar (Containers, Images, Volumes and Networks); compose project names sit at the left edge | ☐ |
+| C.21 | Click the terminal collapse button → the terminal folds down to its tab bar at the bottom of the window and expands again; drag the bar above the terminal to resize it → switch to the Git page and back → both pages keep the same terminal height, also after restarting the app | ☐ |
+| C.22 | Open a container's details → drag the bar between the list and the panel → the panel resizes (no narrower than 280px, and the list keeps at least 320px); close and reopen the panel or restart the app → the width is kept; below 720px wide the bar disappears | ☐ |
