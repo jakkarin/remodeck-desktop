@@ -169,7 +169,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     return (
       <div className="containers-view">
         {tabStrip}
-        <ResourcesView host={host} kind={tab} containers={list ?? []} />
+        <ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />
       </div>
     )
   }

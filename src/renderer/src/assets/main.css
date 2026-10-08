@@ -1216,7 +1216,20 @@ textarea::placeholder {
   border-color: var(--border-strong);
   background: var(--bg-hover);
 }
-.container-actions .container-remove {
+.resource-actions {
+  display: grid;
+  grid-template-columns: 30px;
+}
+.resource-actions .icon-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-control);
+}
+.resource-actions .icon-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+.container-actions .container-remove,
+.resource-actions .container-remove {
   color: var(--danger);
 }
 @container (max-width: 480px) {

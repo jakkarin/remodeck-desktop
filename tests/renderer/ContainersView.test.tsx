@@ -513,6 +513,18 @@ describe('ContainersView', () => {
     expect(await screen.findByText('web')).toBeInTheDocument()
   })
 
+  it('switching resource tabs resets the filter', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('tab', { name: 'Images' }))
+    const input = await screen.findByLabelText('Filter Images')
+    fireEvent.change(input, { target: { value: 'abc' } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Volumes' }))
+    expect(await screen.findByLabelText('Filter Volumes')).toHaveValue('')
+    fireEvent.click(screen.getByRole('tab', { name: 'Images' }))
+    expect(await screen.findByLabelText('Filter Images')).toHaveValue('')
+  })
+
   it('stats watching is off while a resource tab is shown', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
