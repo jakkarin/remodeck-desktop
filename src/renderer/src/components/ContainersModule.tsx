@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Container } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
@@ -6,7 +6,9 @@ import { useProbeOnce } from '../useProbeOnce'
 import { Button } from './ui'
 import { EmptyState } from './EmptyState'
 import { ContainersView } from './ContainersView'
-import { readLayout } from '../layout'
+import { LAYOUT_KEY, MIN_BOTTOM, MIN_COL, readLayout } from '../layout'
+import { startDragResize } from '../dragResize'
+import { writeJson } from '../storage'
 
 export function ContainersModule({
   bottom,
@@ -24,6 +26,8 @@ export function ContainersModule({
 
   const { probe, probing, probeError } = useProbeOnce(hostId, needsProbe, probeDocker)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [bottomSize, setBottomSize] = useState(() => readLayout().bottom)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   if (!host || hostId === null) return <EmptyState />
 
@@ -76,12 +80,40 @@ export function ContainersModule({
     )
   }
 
+  const resizeBottom = (e: React.PointerEvent<HTMLDivElement>): void => {
+    // A 0 height (no layout, e.g. jsdom) means no maximum.
+    const h = rootRef.current?.getBoundingClientRect().height ?? 0
+    startDragResize(e, {
+      axis: 'y',
+      start: bottomSize,
+      min: MIN_BOTTOM,
+      max: h > 0 ? h - MIN_COL : Infinity,
+      invert: true,
+      onChange: setBottomSize,
+      // Shared with the Git module's layout so both keep the same terminal height.
+      onEnd: (bottom) => writeJson(LAYOUT_KEY, { ...readLayout(), bottom })
+    })
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <div
+      ref={rootRef}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+    >
       <div style={{ flex: 1, minHeight: 0 }}>
         <ContainersView key={host.id} host={host} />
       </div>
-      <div style={bottomCollapsed ? undefined : { height: readLayout().bottom, flexShrink: 0 }}>
+      {!bottomCollapsed && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize terminal"
+          className="split-sep split-sep-h"
+          style={{ height: 6, flexShrink: 0 }}
+          onPointerDown={resizeBottom}
+        />
+      )}
+      <div style={bottomCollapsed ? undefined : { height: bottomSize, flexShrink: 0 }}>
         {bottom}
       </div>
     </div>

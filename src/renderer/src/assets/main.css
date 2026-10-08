@@ -1278,7 +1278,14 @@ textarea::placeholder {
   align-items: start;
 }
 .containers-split.has-details {
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 38%, 480px);
+  /* The list keeps 320px even if the window shrinks below the saved width. */
+  grid-template-columns:
+    minmax(0, 1fr) 6px
+    min(var(--details-width, 400px), max(280px, calc(100% - 320px)));
+}
+.containers-details-sep {
+  align-self: stretch;
+  border-radius: 3px;
 }
 .containers-main {
   min-width: 0;
@@ -1383,6 +1390,9 @@ textarea::placeholder {
 @container (max-width: 720px) {
   .containers-split.has-details {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .containers-details-sep {
+    display: none;
   }
   .details-panel {
     position: static;

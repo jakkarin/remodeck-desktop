@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type {
   ComposeAction,
   ContainerAction,
@@ -12,6 +12,7 @@ import { api, errorMessage } from '../api'
 import { capitalise, isActiveContainer } from '../containerPresentation'
 import { dangerLevel } from '../danger'
 import { readJson, writeJson } from '../storage'
+import { startDragResize } from '../dragResize'
 import { openHostTerminal } from '../terminalEvents'
 import { useContainers } from '../useContainers'
 import { useContainerStats } from '../useContainerStats'
@@ -33,6 +34,16 @@ const TABS: [Tab, string][] = [
 ]
 
 const COLLAPSED_KEY = 'remodeck.composeCollapsed'
+const DETAILS_WIDTH_KEY = 'remodeck.containerDetailsWidth'
+const DETAILS_MIN = 280
+const DETAILS_DEFAULT = 400
+// Room the container list keeps when the details panel is dragged wider.
+const LIST_MIN = 320
+
+function readDetailsWidth(): number {
+  const v = readJson<unknown>(DETAILS_WIDTH_KEY, null)
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(DETAILS_MIN, v) : DETAILS_DEFAULT
+}
 
 type Pending = {
   hostId: string
@@ -69,6 +80,8 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detailsWidth, setDetailsWidth] = useState(readDetailsWidth)
+  const splitRef = useRef<HTMLDivElement>(null)
 
   const collapsed = collapsedAll[host.id] ?? []
   const toggleProject = (name: string): void => {
@@ -233,11 +246,28 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       onTerminal={(kind) => terminal(c, kind)}
     />
   )
+  const resizeDetails = (e: React.PointerEvent<HTMLDivElement>): void => {
+    // A 0 width (no layout, e.g. jsdom) means no maximum.
+    const w = splitRef.current?.getBoundingClientRect().width ?? 0
+    startDragResize(e, {
+      axis: 'x',
+      start: detailsWidth,
+      min: DETAILS_MIN,
+      max: w > 0 ? Math.max(DETAILS_MIN, w - LIST_MIN) : Infinity,
+      invert: true,
+      onChange: setDetailsWidth,
+      onEnd: (width) => writeJson(DETAILS_WIDTH_KEY, width)
+    })
+  }
   return (
     <div className="containers-view">
       {tabStrip}
       <div className="containers-body">
-        <div className={`containers-split${selected ? ' has-details' : ''}`}>
+        <div
+          ref={splitRef}
+          className={`containers-split${selected ? ' has-details' : ''}`}
+          style={{ '--details-width': `${detailsWidth}px` } as React.CSSProperties}
+        >
           <div className="containers-main">
             <div className="containers-toolbar">
               <TextInput
@@ -286,6 +316,15 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
               <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>
             )}
           </div>
+          {selected && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize details"
+              className="split-sep split-sep-v containers-details-sep"
+              onPointerDown={resizeDetails}
+            />
+          )}
           {selected && (
             <ContainerDetailsPanel
               key={selected.id}

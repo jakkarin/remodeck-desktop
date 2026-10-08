@@ -106,4 +106,34 @@ describe('ContainersModule', () => {
     expect(screen.getByText('term-slot')).toBeInTheDocument()
     expect(v.probeDocker).not.toHaveBeenCalled()
   })
+
+  it('dragging the terminal separator resizes the terminal and saves it to the shared layout', async () => {
+    localStorage.clear()
+    const v = makeState({
+      dockerCaps: { h1: { state: 'ok', version: '27', apiVersion: '1.47' } }
+    })
+    render(ui(v))
+    await screen.findByText('No containers on Box')
+    const slot = screen.getByText('term-slot').parentElement!
+    expect(slot).toHaveStyle({ height: '260px' })
+    const sep = screen.getByRole('separator', { name: 'Resize terminal' })
+    fireEvent.pointerDown(sep, { clientY: 500 })
+    fireEvent.pointerMove(window, { clientY: 400 })
+    fireEvent.pointerUp(window, { clientY: 400 })
+    expect(slot).toHaveStyle({ height: '360px' })
+    expect(JSON.parse(localStorage.getItem('remodeck.layout')!)).toMatchObject({ bottom: 360 })
+  })
+
+  it('hides the terminal separator when the terminal is collapsed', async () => {
+    const v = makeState({
+      dockerCaps: { h1: { state: 'ok', version: '27', apiVersion: '1.47' } }
+    })
+    render(
+      <AppStateContext.Provider value={v}>
+        <ContainersModule bottom={<div>term-slot</div>} bottomCollapsed={true} />
+      </AppStateContext.Provider>
+    )
+    await screen.findByText('No containers on Box')
+    expect(screen.queryByRole('separator', { name: 'Resize terminal' })).toBeNull()
+  })
 })

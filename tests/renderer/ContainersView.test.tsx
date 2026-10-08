@@ -576,4 +576,33 @@ describe('ContainersView', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Containers' }))
     expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
   })
+
+  it('dragging the details separator resizes the panel and remembers the width', async () => {
+    const { container, unmount } = render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    expect(screen.queryByRole('separator', { name: 'Resize details' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    const sep = await screen.findByRole('separator', { name: 'Resize details' })
+    const split = container.querySelector<HTMLElement>('.containers-split')!
+    expect(split.style.getPropertyValue('--details-width')).toBe('400px')
+    fireEvent.pointerDown(sep, { clientX: 600 })
+    fireEvent.pointerMove(window, { clientX: 500 })
+    fireEvent.pointerUp(window, { clientX: 500 })
+    expect(split.style.getPropertyValue('--details-width')).toBe('500px')
+    // Narrower than the minimum clamps to 280.
+    fireEvent.pointerDown(sep, { clientX: 500 })
+    fireEvent.pointerMove(window, { clientX: 900 })
+    fireEvent.pointerUp(window, { clientX: 900 })
+    expect(split.style.getPropertyValue('--details-width')).toBe('280px')
+    unmount()
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    await screen.findByRole('separator', { name: 'Resize details' })
+    expect(
+      document
+        .querySelector<HTMLElement>('.containers-split')!
+        .style.getPropertyValue('--details-width')
+    ).toBe('280px')
+  })
 })
