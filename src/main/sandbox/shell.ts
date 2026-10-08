@@ -14,6 +14,6 @@ export function shPath(p: string): string {
 export function validateSandboxPath(p: string): void {
   const rest = p.startsWith('~/') ? p.slice(2) : p.startsWith('/') ? p.slice(1) : null
   if (rest === null || rest.replace(/\//g, '') === '') {
-    throw new Error('path ต้องขึ้นต้นด้วย / หรือ ~/')
+    throw new Error('Path must start with / or ~/')
   }
 }

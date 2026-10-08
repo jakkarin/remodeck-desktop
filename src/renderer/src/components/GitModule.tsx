@@ -7,9 +7,11 @@ import { EmptyState } from './EmptyState'
 import { WorkspaceScreen } from './WorkspaceScreen'
 
 const NO_GIT =
-  'ไม่พบ git บนเครื่องนี้ — ติดตั้งก่อน เช่น sudo apt install git หรือ sudo dnf install git แล้วกด Reload'
-const NO_HTTP = 'git บนเครื่องนี้ไม่รองรับ HTTP — push/pull จาก terminal ของแอปจะใช้ไม่ได้'
-const NO_FORWARD = 'sshd ปิด AllowTcpForwarding — push/pull จาก terminal ของแอปจะใช้ไม่ได้'
+  'Git was not found on this host — install it first, e.g. sudo apt install git or sudo dnf install git, then press Reload'
+const NO_HTTP =
+  'Git on this host does not support HTTP — push/pull from the app terminal will not work'
+const NO_FORWARD =
+  'sshd has AllowTcpForwarding disabled — push/pull from the app terminal will not work'
 
 export function GitModule({
   bottom,
@@ -50,7 +52,7 @@ export function GitModule({
     }
     return (
       <div className="empty-state">
-        <h2>{`${host.label} ยังไม่ได้ connect`}</h2>
+        <h2>{`${host.label} is not connected`}</h2>
         <Button variant="primary" onClick={() => void connect()}>
           Connect
         </Button>
@@ -65,11 +67,11 @@ export function GitModule({
       <div className="empty-state">
         <div className="error">{err}</div>
         <Button disabled={probing} onClick={() => probe(hostId, true)}>
-          ตรวจอีกครั้ง
+          Check again
         </Button>
       </div>
     ) : (
-      <div className="empty-state muted">กำลังตรวจ git…</div>
+      <div className="empty-state muted">Checking git…</div>
     )
   }
 
@@ -81,7 +83,7 @@ export function GitModule({
           <div className="error">{probeError.message}</div>
         )}
         <Button disabled={probing} onClick={() => probe(hostId, true)}>
-          ตรวจอีกครั้ง
+          Check again
         </Button>
       </div>
     )

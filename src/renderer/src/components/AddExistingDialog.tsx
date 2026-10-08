@@ -104,20 +104,20 @@ export function AddExistingDialog({
         {info && (
           <div className="confirm-existing">
             <p className="confirm-target">
-              {`จะผูก workspace นี้กับ github.com/${info.owner}/${info.name}`}
+              {`This workspace will be linked to github.com/${info.owner}/${info.name}`}
             </p>
             <p>
-              remodeck จะ fetch repo นี้ด้วย GitHub credential ของคุณ แล้ว push branch/tag ทั้งหมดของ
-              repo นี้เข้า sandbox
+              remodeck will fetch this repo with your GitHub credentials, then push all of its branches/tags
+              into the sandbox
             </p>
             {!info.known && (
               <div className="warning">
-                repo นี้ยังไม่เคยใช้ใน remodeck — ตรวจสอบให้แน่ใจว่าเป็น repo ที่ตั้งใจ
+                This repo has not been used in remodeck before — make sure it is the one you intend
               </div>
             )}
             {info.alwaysAllowPush && (
               <div className="warning">
-                repo นี้ตั้ง Always allow push ไว้ — agent ใน sandbox จะ push ได้โดยไม่ต้องขออนุมัติ
+                This repo has Always allow push on — agents in the sandbox can push without approval
               </div>
             )}
           </div>

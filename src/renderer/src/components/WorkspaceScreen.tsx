@@ -66,7 +66,7 @@ export function WorkspaceScreen({
     <div className="screen">
       {!connected && (
         <div className="disconnected-banner">
-          <span>{host?.label ?? 'Host'} ไม่ได้เชื่อมต่อ</span>
+          <span>{host?.label ?? 'Host'} is not connected</span>
           {hostStatus?.state === 'error' && hostStatus.error && (
             <span className="error">{hostStatus.error}</span>
           )}
@@ -120,7 +120,7 @@ export function WorkspaceScreen({
             ) : (
               <>
                 <PaneHeader>Diff</PaneHeader>
-                <div className="muted pad">เลือกไฟล์เพื่อดู diff</div>
+                <div className="muted pad">Select a file to view its diff</div>
               </>
             )}
           </div>

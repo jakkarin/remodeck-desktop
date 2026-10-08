@@ -6,11 +6,11 @@ out=$(docker version --format '{{json .}}' 2>&1); echo "probe-exit=$?"; printf '
 docker system dial-stdio --help >/dev/null 2>&1 && echo "dialstdio=1" || echo "dialstdio=0"
 `
 
-const MISSING = 'ไม่พบ docker บนเครื่องนี้'
+const MISSING = 'Docker was not found on this host'
 const NO_PERMISSION =
-  'user นี้ไม่มีสิทธิ์ใช้ docker — รัน sudo usermod -aG docker $USER แล้ว disconnect / connect ใหม่'
-const NO_DAEMON = 'docker daemon ไม่ทำงาน — เช่น sudo systemctl start docker'
-const TOO_OLD = 'docker บนเครื่องนี้เก่าเกินไป (ต้อง 18.09 ขึ้นไป)'
+  'This user has no permission to use docker — run sudo usermod -aG docker $USER, then disconnect and connect again'
+const NO_DAEMON = 'The docker daemon is not running — e.g. sudo systemctl start docker'
+const TOO_OLD = 'Docker on this host is too old (18.09 or newer required)'
 
 export function parseDockerProbe(stdout: string): DockerCapability {
   const lines = stdout.split(/\r?\n/)

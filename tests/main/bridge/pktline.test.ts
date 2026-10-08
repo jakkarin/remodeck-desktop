@@ -132,7 +132,7 @@ describe('parseReceivePackCommands', () => {
     expect(r?.commands[0].ref).toBe('refs/heads/ทดสอบ')
     expect(evaluateRules(r!.commands, { enforceRules: true, protectedBranches: ['ทดสอบ'] })).toEqual({
       allowed: false,
-      reason: 'branch ทดสอบ ถูกป้องกัน'
+      reason: 'branch ทดสอบ is protected'
     })
   })
 

@@ -320,12 +320,12 @@ describe('ContainerService', () => {
     await t.svc.open('h')
     await t.ready()
     t.json.mockRejectedValueOnce(new DockerError(404, 'No such container'))
-    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('This container no longer exists')
     t.json.mockRejectedValueOnce(
       new DockerError(409, 'You cannot remove a running container abc. Stop it first')
     )
     await expect(t.svc.action('h', ID1, 'remove')).rejects.toThrow(
-      'ต้อง stop container ก่อนจึงจะ remove ได้'
+      'Stop the container before removing it'
     )
     t.json.mockRejectedValueOnce(new DockerError(500, 'daemon exploded'))
     await expect(t.svc.action('h', ID1, 'restart')).rejects.toThrow('daemon exploded')
@@ -660,7 +660,7 @@ describe('ContainerService', () => {
     t.json.mockClear()
     t.json.mockRejectedValueOnce(new DockerError(404, 'No such container'))
     t.json.mockResolvedValueOnce([])
-    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+    await expect(t.svc.action('h', ID1, 'stop')).rejects.toThrow('This container no longer exists')
     expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
     expect((changed.mock.calls.at(-1)![1] as ContainerInfo[]).length).toBe(0)
   })
@@ -821,13 +821,13 @@ describe('ContainerService', () => {
         path === `/containers/${ID1}/json` ? body : []
       )
       await expect(t.svc.inspect('h', ID1)).resolves.toBe(body)
-      await expect(t.svc.inspect('h', 'bad/../id')).rejects.toThrow('container id ไม่ถูกต้อง')
-      await expect(t.svc.inspect('nope', ID1)).rejects.toThrow('ยังไม่ได้เปิด host นี้')
+      await expect(t.svc.inspect('h', 'bad/../id')).rejects.toThrow('Invalid container id')
+      await expect(t.svc.inspect('nope', ID1)).rejects.toThrow('This host is not open')
       t.json.mockImplementation(async (_m, path) => {
         if (path === `/containers/${ID1}/json`) throw new DockerError(404, 'no such container')
         return []
       })
-      await expect(t.svc.inspect('h', ID1)).rejects.toThrow('container นี้ถูกลบไปแล้ว')
+      await expect(t.svc.inspect('h', ID1)).rejects.toThrow('This container no longer exists')
       expect(t.json).toHaveBeenLastCalledWith('GET', refetchPath(ID1))
       t.json.mockImplementation(async () => {
         throw new DockerError(500, 'daemon exploded')
@@ -842,11 +842,11 @@ describe('ContainerService', () => {
 
     it('service methods require an open host', async () => {
       const t = setup({ sleep: never })
-      await expect(t.svc.resources('nope', 'image')).rejects.toThrow('ยังไม่ได้เปิด host นี้')
+      await expect(t.svc.resources('nope', 'image')).rejects.toThrow('This host is not open')
       await expect(t.svc.removeResource('nope', 'volume', 'v')).rejects.toThrow(
-        'ยังไม่ได้เปิด host นี้'
+        'This host is not open'
       )
-      await expect(t.svc.prune('nope', 'network')).rejects.toThrow('ยังไม่ได้เปิด host นี้')
+      await expect(t.svc.prune('nope', 'network')).rejects.toThrow('This host is not open')
       expect(t.json).not.toHaveBeenCalled()
     })
 
@@ -863,7 +863,7 @@ describe('ContainerService', () => {
         return []
       })
       await expect(t.svc.removeResource('h', 'volume', 'data')).rejects.toThrow(
-        'volume นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน'
+        'This volume is in use by a container — remove that container first'
       )
     })
 
@@ -874,7 +874,7 @@ describe('ContainerService', () => {
         path === '/networks' ? [{ Id: NET, Name: 'bridge', Driver: 'bridge' }] : []
       )
       await expect(t.svc.removeResource('h', 'network', NET)).rejects.toThrow(
-        'ลบ network พื้นฐาน (bridge/host/none) ไม่ได้'
+        'Built-in networks (bridge/host/none) cannot be removed'
       )
       expect(t.json.mock.calls.some((c) => c[0] === 'DELETE')).toBe(false)
       // unknown ref: Docker decides

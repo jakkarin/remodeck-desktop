@@ -49,7 +49,7 @@ describe('ResourcesView', () => {
       row({ name: 'redis:7', id: 'sha256:b' })
     ])
     render(<ResourcesView host={host} kind="image" containers={[ctr({ imageId: 'sha256:a' })]} />)
-    expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(await screen.findByText('nginx:latest')).toBeInTheDocument()
     expect(api.containers.resources).toHaveBeenCalledWith('h1', 'image')
     const region = screen.getByRole('region', { name: 'Images' })
@@ -76,15 +76,15 @@ describe('ResourcesView', () => {
       .mockResolvedValueOnce([])
     const { rerender } = render(<ResourcesView host={host} kind="image" containers={[]} />)
     expect(await screen.findByText('boom')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'ลองอีกครั้ง' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByText('Alpha')
     fireEvent.change(screen.getByLabelText('Filter Images'), { target: { value: 'ALP' } })
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.queryByText('beta')).toBeNull()
     fireEvent.change(screen.getByLabelText('Filter Images'), { target: { value: 'zzz' } })
-    expect(screen.getByText('ไม่มีรายการที่ตรงกับตัวกรอง')).toBeInTheDocument()
+    expect(screen.getByText('Nothing matches the filter')).toBeInTheDocument()
     rerender(<ResourcesView host={host} kind="volume" containers={[]} />)
-    expect(await screen.findByText('ยังไม่มี volume บน Box')).toBeInTheDocument()
+    expect(await screen.findByText('No volumes on Box')).toBeInTheDocument()
   })
 
   it('ignores a late response after switching kind', async () => {
@@ -107,7 +107,7 @@ describe('ResourcesView', () => {
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     await screen.findByText('Alpha')
     fireEvent.change(screen.getByLabelText('Filter Images'), { target: { value: 'zzz' } })
-    expect(screen.getByText('ไม่มีรายการที่ตรงกับตัวกรอง')).toBeInTheDocument()
+    expect(screen.getByText('Nothing matches the filter')).toBeInTheDocument()
     expect(screen.queryByRole('region')).toBeNull()
   })
 })
@@ -115,7 +115,7 @@ describe('ResourcesView', () => {
 describe('ResourcesView actions', () => {
   const prot: Host = { ...host, protected: true }
   const img = row({ name: 'nginx:latest', ref: 'nginx:latest' })
-  const TYPE_LABEL = 'พิมพ์ชื่อ host เพื่อยืนยัน'
+  const TYPE_LABEL = 'Type the host name to confirm'
 
   beforeEach(() => {
     vi.mocked(api.containers.resources).mockResolvedValue([img])
@@ -158,7 +158,7 @@ describe('ResourcesView actions', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     const dialog = screen.getByRole('dialog')
     expect(
-      within(dialog).getByText('prune images — ลบเฉพาะ image ที่ไม่มี tag (dangling)')
+      within(dialog).getByText('prune images — removes only untagged (dangling) images')
     ).toBeInTheDocument()
     const confirm = within(dialog).getByRole('button', { name: 'Prune' })
     expect(confirm).toBeDisabled()
@@ -188,7 +188,7 @@ describe('ResourcesView actions', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Prune' }))
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'ลบแล้ว 3 รายการ · คืนพื้นที่ 40 MB'
+      'Removed 3 items · reclaimed 40 MB'
     )
     await waitFor(() => expect(api.containers.resources).toHaveBeenCalledTimes(2))
   })
@@ -196,8 +196,8 @@ describe('ResourcesView actions', () => {
   it('prune confirm states the scope per kind', async () => {
     const want = {
       volume:
-        'prune volumes — ลบ volume ที่ไม่มี container ใช้ (Docker ≥ 23 ลบเฉพาะ volume ไม่มีชื่อ)',
-      network: 'prune networks — ลบ network ที่ไม่มี container ใช้'
+        'prune volumes — removes volumes no container uses (Docker ≥ 23 removes only anonymous volumes)',
+      network: 'prune networks — removes networks no container uses'
     } as const
     for (const kind of ['volume', 'network'] as const) {
       const { unmount } = render(<ResourcesView host={host} kind={kind} containers={[]} />)
@@ -225,11 +225,11 @@ describe('ResourcesView actions', () => {
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Prune' }))
-    expect(await screen.findByText('ลบแล้ว 2 รายการ')).toBeInTheDocument()
+    expect(await screen.findByText('Removed 2 items')).toBeInTheDocument()
   })
 
   it('remove error (in use) shows the Thai message in the banner and reloads', async () => {
-    const msg = 'image นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน'
+    const msg = 'This image is in use by a container — remove that container first'
     vi.mocked(api.containers.removeResource).mockRejectedValue(new Error(msg))
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Remove nginx:latest' }))

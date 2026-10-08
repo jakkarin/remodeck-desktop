@@ -30,14 +30,14 @@ export function EmptyState(): React.JSX.Element {
     <div className="empty-state">
       {!host ? (
         <>
-          <h2>เพิ่ม sandbox แรก</h2>
+          <h2>Add your first sandbox</h2>
           <Button variant="primary" onClick={() => setAdding(true)}>
             Add host
           </Button>
         </>
       ) : (
         <>
-          <h2>ยังไม่มี workspace</h2>
+          <h2>No workspaces yet</h2>
           {connected ? (
             <Button variant="primary" onClick={() => setCloning(true)}>
               Clone repo

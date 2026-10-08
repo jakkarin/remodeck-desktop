@@ -94,7 +94,7 @@ describe('ContainersView', () => {
     })
     expect(screen.getAllByText('CPU —')).toHaveLength(2)
     expect(screen.getByText('RAM 40 MB')).toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    fireEvent.click(screen.getByLabelText('Show stopped'))
     expect(screen.getAllByText(/^CPU /)).toHaveLength(2)
   })
 
@@ -136,7 +136,7 @@ describe('ContainersView', () => {
   it('shows stopped containers with the checkbox', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    fireEvent.click(screen.getByLabelText('Show stopped'))
     expect(screen.getByText('db')).toBeInTheDocument()
     expect(screen.getByText('old')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start old' })).toBeInTheDocument()
@@ -172,7 +172,7 @@ describe('ContainersView', () => {
   it('offers Start only for stopped containers and Stop/Restart only for running ones', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    fireEvent.click(screen.getByLabelText('Show stopped'))
     expect(screen.getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Restart web' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start web' })).toBeNull()
@@ -201,7 +201,7 @@ describe('ContainersView', () => {
       live: true
     })
     render(<ContainersView host={host} />)
-    fireEvent.click(await screen.findByLabelText('แสดงตัวที่หยุด'))
+    fireEvent.click(await screen.findByLabelText('Show stopped'))
     expect(screen.getByRole('button', { name: 'Start gone' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Remove gone' })).toBeDisabled()
   })
@@ -233,7 +233,7 @@ describe('ContainersView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove web' }))
     const confirm = screen.getByRole('button', { name: 'Remove' })
     expect(confirm).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('พิมพ์ชื่อ host เพื่อยืนยัน'), {
+    fireEvent.change(screen.getByLabelText('Type the host name to confirm'), {
       target: { value: 'Box' }
     })
     expect(confirm).toBeEnabled()
@@ -256,18 +256,18 @@ describe('ContainersView', () => {
   it('shows the live-paused badge', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    expect(screen.queryByText('หยุดอัปเดตสด')).toBeNull()
+    expect(screen.queryByText('Live updates paused')).toBeNull()
     for (const cb of handlers['containers-live'] ?? []) {
       ;(cb as (...a: unknown[]) => void)('h1', false)
     }
-    expect(await screen.findByText('หยุดอัปเดตสด')).toBeInTheDocument()
+    expect(await screen.findByText('Live updates paused')).toBeInTheDocument()
   })
 
   it('shows the stale badge when open reports the stream is not live', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: false })
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    expect(screen.getByText('หยุดอัปเดตสด')).toBeInTheDocument()
+    expect(screen.getByText('Live updates paused')).toBeInTheDocument()
   })
 
   it('disables the buttons of a container while its action runs, so a double click sends once', async () => {
@@ -289,7 +289,7 @@ describe('ContainersView', () => {
   it('shows the connection error with Retry', async () => {
     vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('no socket'))
     render(<ContainersView host={host} />)
-    expect(await screen.findByText('เชื่อมต่อ docker บน Box ไม่ได้')).toBeInTheDocument()
+    expect(await screen.findByText('Cannot connect to docker on Box')).toBeInTheDocument()
     expect(screen.getByText('no socket')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('web')).toBeInTheDocument()
@@ -298,11 +298,11 @@ describe('ContainersView', () => {
   it('disables the resource tabs while the containers list is in error', async () => {
     vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('no socket'))
     render(<ContainersView host={host} />)
-    await screen.findByText('เชื่อมต่อ docker บน Box ไม่ได้')
+    await screen.findByText('Cannot connect to docker on Box')
     for (const name of ['Images', 'Volumes', 'Networks']) {
       const t = screen.getByRole('tab', { name })
       expect(t).toBeDisabled()
-      expect(t).toHaveAttribute('title', 'เปิดรายการ container ไม่สำเร็จ กด Retry ก่อน')
+      expect(t).toHaveAttribute('title', 'Failed to load containers — press Retry first')
     }
     expect(screen.getByRole('tab', { name: 'Containers' })).toBeEnabled()
   })
@@ -331,7 +331,7 @@ describe('ContainersView', () => {
   it('shows the empty message', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({ list: [], live: true })
     render(<ContainersView host={host} />)
-    expect(await screen.findByText('ยังไม่มี container บน Box')).toBeInTheDocument()
+    expect(await screen.findByText('No containers on Box')).toBeInTheDocument()
   })
 
   it('drops an open confirm when the host changes and never acts on the new host', async () => {
@@ -349,7 +349,7 @@ describe('ContainersView', () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
     fireEvent.change(screen.getByLabelText('Filter containers'), { target: { value: 'zzz' } })
-    expect(screen.getByText('ไม่มี container ที่ตรงกับตัวกรอง')).toBeInTheDocument()
+    expect(screen.getByText('No containers match the filter')).toBeInTheDocument()
   })
 
   it('Logs opens a logs terminal for that container', async () => {
@@ -367,7 +367,7 @@ describe('ContainersView', () => {
   it('Shell is disabled for a stopped container and opens shell for a running one', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    fireEvent.click(screen.getByLabelText('Show stopped'))
     expect(screen.getByRole('button', { name: 'Shell old' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Logs old' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Shell web' }))
@@ -437,7 +437,7 @@ describe('ContainersView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
     const typed = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
     expect(typed).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('พิมพ์ชื่อ host เพื่อยืนยัน'), {
+    fireEvent.change(screen.getByLabelText('Type the host name to confirm'), {
       target: { value: 'Box' }
     })
     fireEvent.click(typed)
@@ -467,7 +467,7 @@ describe('ContainersView', () => {
     const jobs = screen.getByRole('region', { name: 'jobs (compose)' })
     expect(within(jobs).getByRole('button', { name: /jobs \(compose\)/ })).toHaveAttribute(
       'title',
-      'ไม่พบ path ของ compose project (ผลจริงดูใน terminal)'
+      'Compose project path unknown (see the terminal for actual results)'
     )
   })
 
@@ -482,7 +482,7 @@ describe('ContainersView', () => {
   it('clicking a name opens details, clicking again closes', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    const name = screen.getByRole('button', { name: 'รายละเอียด web' })
+    const name = screen.getByRole('button', { name: 'Details for web' })
     expect(name).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(name)
     expect(await screen.findByRole('complementary')).toBeInTheDocument()
@@ -503,7 +503,7 @@ describe('ContainersView', () => {
   it('selected container removed from list closes the panel', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByRole('button', { name: 'รายละเอียด web' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
     await screen.findByRole('complementary')
     act(() => {
       for (const cb of handlers['containers-changed'] ?? [])
@@ -518,13 +518,13 @@ describe('ContainersView', () => {
   it('switching selection resets revealed env', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByRole('button', { name: 'รายละเอียด web' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
     fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'แสดงค่า K' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Show K' }))
     expect(screen.getByText('secret-value')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'รายละเอียด solo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Details for solo' }))
     fireEvent.click(await screen.findByRole('tab', { name: 'Env' }))
-    await screen.findByRole('button', { name: 'แสดงค่า K' })
+    await screen.findByRole('button', { name: 'Show K' })
     expect(screen.queryByText('secret-value')).toBeNull()
   })
 

@@ -59,18 +59,18 @@ describe('CloneDialog', () => {
   })
 
   it('renders the rejection message', async () => {
-    vi.mocked(api.workspaces.clone).mockRejectedValue(new Error('clone ล้มเหลว'))
+    vi.mocked(api.workspaces.clone).mockRejectedValue(new Error('clone failed'))
     renderDialog(['h1'], vi.fn())
     fireEvent.click(await screen.findByRole('button', { name: 'acme/api' }))
     fireEvent.click(screen.getByRole('button', { name: 'Clone' }))
-    expect(await screen.findByText('clone ล้มเหลว')).toBeInTheDocument()
+    expect(await screen.findByText('clone failed')).toBeInTheDocument()
   })
 
   it('shows the list error but still accepts free text', async () => {
-    vi.mocked(api.repos.listGitHub).mockRejectedValue(new Error('gh ไม่พร้อม'))
+    vi.mocked(api.repos.listGitHub).mockRejectedValue(new Error('gh unavailable'))
     vi.mocked(api.workspaces.clone).mockResolvedValue(ws('w2', '~/repos/web'))
     renderDialog(['h1'], vi.fn())
-    expect(await screen.findByText(/gh ไม่พร้อม/)).toBeInTheDocument()
+    expect(await screen.findByText(/gh unavailable/)).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Repository'), { target: { value: 'acme/web' } })
     fireEvent.change(screen.getByLabelText('Path'), { target: { value: '~/repos/web' } })
     fireEvent.click(screen.getByRole('button', { name: 'Clone' }))

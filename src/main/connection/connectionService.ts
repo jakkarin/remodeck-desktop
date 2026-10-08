@@ -44,7 +44,7 @@ export class ConnectionService extends EventEmitter {
   }
 
   requireConnected(hostId: string): void {
-    if (this.status(hostId).state !== 'connected') throw new Error('Host ยังไม่ได้ connect')
+    if (this.status(hostId).state !== 'connected') throw new Error('Host is not connected')
   }
 
   /** null = git is not installed on the host. Cached per connection; `force` re-probes. */
@@ -101,7 +101,7 @@ export class ConnectionService extends EventEmitter {
         ? this.status(hostId)
         : this.set(hostId, {
             state: 'error',
-            error: `${detail}\nลองรัน ssh ${this.deps.sshHostFor(hostId)} ใน terminal ของระบบก่อน`
+            error: `${detail}\nTry running ssh ${this.deps.sshHostFor(hostId)} in your system terminal first`
           })
 
     let r: ProcResult

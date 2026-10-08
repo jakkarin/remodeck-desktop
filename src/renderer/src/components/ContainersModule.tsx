@@ -38,7 +38,7 @@ export function ContainersModule({
     }
     return (
       <div className="empty-state">
-        <h2>{`${host.label} ยังไม่ได้ connect`}</h2>
+        <h2>{`${host.label} is not connected`}</h2>
         <Button variant="primary" onClick={() => void connect()}>
           Connect
         </Button>
@@ -53,11 +53,11 @@ export function ContainersModule({
       <div className="empty-state">
         <div className="error">{err}</div>
         <Button disabled={probing} onClick={() => probe(hostId, true)}>
-          ตรวจอีกครั้ง
+          Check again
         </Button>
       </div>
     ) : (
-      <div className="empty-state muted">กำลังตรวจ docker…</div>
+      <div className="empty-state muted">Checking docker…</div>
     )
   }
 
@@ -70,7 +70,7 @@ export function ContainersModule({
           <div className="error">{probeError.message}</div>
         )}
         <Button disabled={probing} onClick={() => probe(hostId, true)}>
-          ตรวจอีกครั้ง
+          Check again
         </Button>
       </div>
     )

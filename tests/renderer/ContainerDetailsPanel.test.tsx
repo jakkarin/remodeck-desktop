@@ -56,7 +56,7 @@ const openPanel = async (c: ContainerInfo = web): Promise<ReturnType<typeof rend
 describe('ContainerDetailsPanel', () => {
   it('panel loads inspect and shows overview fields', async () => {
     render(<ContainerDetailsPanel host={host} container={web} onClose={() => {}} />)
-    expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
     await screen.findByText('nginx:1')
     expect(api.containers.inspect).toHaveBeenCalledWith('h1', 'web000000000')
     const created = screen.getByText(new Date('2026-01-02T03:04:05Z').toLocaleString())
@@ -81,12 +81,12 @@ describe('ContainerDetailsPanel', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Env' }))
     expect(screen.queryByText('hunter2')).toBeNull()
     expect(screen.getAllByText('••••••')).toHaveLength(2)
-    const eye = screen.getByRole('button', { name: 'แสดงค่า SECRET' })
+    const eye = screen.getByRole('button', { name: 'Show SECRET' })
     expect(eye).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(eye)
     expect(screen.getByText('hunter2')).toBeInTheDocument()
     expect(screen.queryByText('prod')).toBeNull()
-    const hide = screen.getByRole('button', { name: 'ซ่อนค่า SECRET' })
+    const hide = screen.getByRole('button', { name: 'Hide SECRET' })
     expect(hide).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(hide)
     expect(screen.queryByText('hunter2')).toBeNull()
@@ -95,7 +95,7 @@ describe('ContainerDetailsPanel', () => {
   it('there is no reveal-all control', async () => {
     await openPanel()
     fireEvent.click(screen.getByRole('tab', { name: 'Env' }))
-    expect(screen.queryByRole('button', { name: /ทั้งหมด|all/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /all/i })).toBeNull()
   })
 
   it('shows a message when there are no env vars', async () => {
@@ -103,7 +103,7 @@ describe('ContainerDetailsPanel', () => {
     render(<ContainerDetailsPanel host={host} container={web} onClose={() => {}} />)
     await screen.findByText('x')
     fireEvent.click(screen.getByRole('tab', { name: 'Env' }))
-    expect(screen.getByText('ไม่มี environment variable')).toBeInTheDocument()
+    expect(screen.getByText('No environment variables')).toBeInTheDocument()
   })
 
   it('JSON tab shows <hidden: N vars> and no env values', async () => {
@@ -182,8 +182,8 @@ describe('ContainerDetailsPanel', () => {
       />
     )
     reject(new Error('boom'))
-    fireEvent.click(await screen.findByRole('button', { name: 'ลองอีกครั้ง' }))
-    expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(screen.queryByText('nginx:1')).toBeNull()
   })
 
@@ -198,13 +198,15 @@ describe('ContainerDetailsPanel', () => {
     }
   })
 
-  it('inspect error shows message and ลองอีกครั้ง retries', async () => {
-    vi.mocked(api.containers.inspect).mockRejectedValueOnce(new Error('container นี้ถูกลบไปแล้ว'))
+  it('inspect error shows message and Try again retries', async () => {
+    vi.mocked(api.containers.inspect).mockRejectedValueOnce(
+      new Error('This container no longer exists')
+    )
     render(<ContainerDetailsPanel host={host} container={web} onClose={() => {}} />)
-    expect(await screen.findByText('container นี้ถูกลบไปแล้ว')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'ลองอีกครั้ง' }))
+    expect(await screen.findByText('This container no longer exists')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('nginx:1')).toBeInTheDocument()
-    expect(screen.queryByText('container นี้ถูกลบไปแล้ว')).toBeNull()
+    expect(screen.queryByText('This container no longer exists')).toBeNull()
   })
 
   it('close button calls onClose', async () => {
@@ -212,7 +214,7 @@ describe('ContainerDetailsPanel', () => {
     render(<ContainerDetailsPanel host={host} container={web} onClose={onClose} />)
     await screen.findByText('nginx:1')
     fireEvent.click(
-      within(screen.getByRole('complementary')).getByRole('button', { name: 'ปิดรายละเอียด' })
+      within(screen.getByRole('complementary')).getByRole('button', { name: 'Close details' })
     )
     expect(onClose).toHaveBeenCalled()
     await waitFor(() => expect(api.containers.inspect).toHaveBeenCalled())

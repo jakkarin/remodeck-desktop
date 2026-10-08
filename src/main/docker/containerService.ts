@@ -116,9 +116,9 @@ export class ContainerService extends EventEmitter {
   }
 
   async action(hostId: string, id: string, action: ContainerAction): Promise<void> {
-    if (!CONTAINER_ID.test(id)) throw new Error('container id ไม่ถูกต้อง')
+    if (!CONTAINER_ID.test(id)) throw new Error('Invalid container id')
     const st = this.hosts.get(hostId)
-    if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
+    if (!st || st.disposed) throw new Error('This host is not open')
     try {
       const o = { timeoutMs: ACTION_TIMEOUT_MS }
       if (action === 'remove') await st.client.json('DELETE', `/containers/${id}`, undefined, o)
@@ -127,10 +127,10 @@ export class ContainerService extends EventEmitter {
       if (e instanceof DockerError) {
         if (e.status === 404) {
           await this.refetch(hostId, st, id).catch(() => {})
-          throw new Error('container นี้ถูกลบไปแล้ว')
+          throw new Error('This container no longer exists')
         }
         if (e.status === 409 && action === 'remove' && /running/i.test(e.message)) {
-          throw new Error('ต้อง stop container ก่อนจึงจะ remove ได้')
+          throw new Error('Stop the container before removing it')
         }
         throw new Error(e.message)
       }
@@ -168,16 +168,16 @@ export class ContainerService extends EventEmitter {
   }
 
   async inspect(hostId: string, id: string): Promise<unknown> {
-    if (!CONTAINER_ID.test(id)) throw new Error('container id ไม่ถูกต้อง')
+    if (!CONTAINER_ID.test(id)) throw new Error('Invalid container id')
     const st = this.hosts.get(hostId)
-    if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
+    if (!st || st.disposed) throw new Error('This host is not open')
     try {
       return await st.client.json('GET', `/containers/${id}/json`)
     } catch (e) {
       if (e instanceof DockerError) {
         if (e.status === 404) {
           await this.refetch(hostId, st, id).catch(() => {})
-          throw new Error('container นี้ถูกลบไปแล้ว')
+          throw new Error('This container no longer exists')
         }
         throw new Error(e.message)
       }
@@ -187,7 +187,7 @@ export class ContainerService extends EventEmitter {
 
   private openClient(hostId: string): DockerClient {
     const st = this.hosts.get(hostId)
-    if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
+    if (!st || st.disposed) throw new Error('This host is not open')
     return st.client
   }
 

@@ -34,7 +34,7 @@ export function ChangesPane({
     return (
       <div className="pane">
         <PaneHeader>Changes</PaneHeader>
-        <div className="muted pad">เลือก branch ทางซ้าย</div>
+        <div className="muted pad">Select a branch on the left</div>
       </div>
     )
   }
@@ -45,11 +45,11 @@ export function ChangesPane({
         {error && <ErrorBanner message={error} onRebuild={onRebuild} />}
         {branch.rewritten && (
           <div className="badge warn banner">
-            history rewritten — branch นี้ถูกเขียนประวัติใหม่ใน sandbox ตั้งแต่ Sync ครั้งก่อน
+            history rewritten — this branch was rewritten in the sandbox since the last Sync
           </div>
         )}
         {branch.ahead === 0 && commits.length === 0 ? (
-          <div className="muted pad">ไม่มี commit ใหม่เทียบกับ base</div>
+          <div className="muted pad">No new commits compared to base</div>
         ) : (
           <>
             <CommitList commits={commits} selected={commit} onSelect={onSelectCommit} />

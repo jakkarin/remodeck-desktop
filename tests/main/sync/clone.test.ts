@@ -57,7 +57,7 @@ describe('SyncService.cloneToSandbox', () => {
     const { ws, repo } = setup('~/busy')
     fs.mkdirSync(sb('busy'))
     fs.writeFileSync(sb('busy/x'), 'x')
-    await expect(svc.cloneToSandbox(ws)).rejects.toThrow('Path ไม่ว่าง: ~/busy')
+    await expect(svc.cloneToSandbox(ws)).rejects.toThrow('Path is not empty: ~/busy')
     expect(fs.existsSync(store.mirrorPath(repo))).toBe(false)
   })
 
@@ -91,7 +91,7 @@ describe('SyncService.cloneToSandbox', () => {
     await gh.seed({ 'a.txt': 'hi' })
     for (const bad of ['repos/api', './api', '~user/api', '~', '~/']) {
       const { ws, repo } = setup(bad)
-      await expect(svc.cloneToSandbox(ws)).rejects.toThrow('path ต้องขึ้นต้นด้วย / หรือ ~/')
+      await expect(svc.cloneToSandbox(ws)).rejects.toThrow('Path must start with / or ~/')
       expect(fs.existsSync(store.mirrorPath(repo))).toBe(false)
     }
   })
@@ -120,11 +120,11 @@ describe('SyncService.cloneToSandbox', () => {
     fs.mkdirSync(sb('withorigin'))
     await git(sb('withorigin'), 'init')
     await git(sb('withorigin'), 'remote', 'add', 'origin', 'https://example.invalid/x.git')
-    await expect(svc.cloneToSandbox(w1)).rejects.toThrow('Path ไม่ว่าง: ~/withorigin')
+    await expect(svc.cloneToSandbox(w1)).rejects.toThrow('Path is not empty: ~/withorigin')
     const { ws: w2 } = setup('~/withcommit')
     fs.mkdirSync(sb('withcommit'))
     await git(sb('withcommit'), 'init')
     await git(sb('withcommit'), '-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '--allow-empty', '-m', 'x')
-    await expect(svc.cloneToSandbox(w2)).rejects.toThrow('Path ไม่ว่าง: ~/withcommit')
+    await expect(svc.cloneToSandbox(w2)).rejects.toThrow('Path is not empty: ~/withcommit')
   })
 })

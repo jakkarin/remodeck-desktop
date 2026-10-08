@@ -26,7 +26,7 @@ const VALID: Record<ResourceKind, RegExp> = {
   network: NETWORK_ID
 }
 
-export const PREDEFINED_NETWORK_MESSAGE = 'ลบ network พื้นฐาน (bridge/host/none) ไม่ได้'
+export const PREDEFINED_NETWORK_MESSAGE = 'Built-in networks (bridge/host/none) cannot be removed'
 
 export async function listResources(client: Client, kind: ResourceKind): Promise<ResourceRow[]> {
   switch (kind) {
@@ -47,7 +47,7 @@ export async function removeResource(
   kind: ResourceKind,
   ref: string
 ): Promise<void> {
-  if (!VALID[kind].test(ref)) throw new Error(`ชื่อ ${kind} ไม่ถูกต้อง`)
+  if (!VALID[kind].test(ref)) throw new Error(`Invalid ${kind} name`)
   await client.json('DELETE', `${BASE[kind]}/${encodePath(ref)}`, undefined, TIMEOUT)
 }
 
@@ -58,13 +58,14 @@ export async function pruneResources(client: Client, kind: ResourceKind): Promis
 
 export function dockerErrorMessage(kind: ResourceKind, e: unknown): Error {
   if (!(e instanceof DockerError)) return e instanceof Error ? e : new Error(String(e))
-  if (e.status === 404) return new Error(`${kind} นี้ถูกลบไปแล้ว`)
+  if (e.status === 404) return new Error(`This ${kind} no longer exists`)
   if (e.status === 409 && kind === 'volume')
-    return new Error(`volume นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน`)
+    return new Error(`This volume is in use by a container — remove that container first`)
   if (e.status === 409 && kind === 'image' && /being used|is using|in use/i.test(e.message))
-    return new Error(`${kind} นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน`)
+    return new Error(`This ${kind} is in use by a container — remove that container first`)
   if (kind === 'network' && (e.status === 403 || e.status === 409)) {
-    if (/active endpoints/i.test(e.message)) return new Error('network นี้ยังมี container ต่ออยู่')
+    if (/active endpoints/i.test(e.message))
+      return new Error('This network still has containers attached')
     if (e.status === 403 && /pre-defined|predefined/i.test(e.message))
       return new Error(PREDEFINED_NETWORK_MESSAGE)
   }

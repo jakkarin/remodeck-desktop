@@ -61,7 +61,7 @@ function Overview({ d }: { d: ContainerDetails['overview'] }): React.JSX.Element
 
 function Env({ env }: { env: ContainerDetails['env'] }): React.JSX.Element {
   const [shown, setShown] = useState<ReadonlySet<number>>(new Set())
-  if (env.length === 0) return <div className="muted">ไม่มี environment variable</div>
+  if (env.length === 0) return <div className="muted">No environment variables</div>
   const toggle = (i: number): void =>
     setShown((s) => {
       const n = new Set(s)
@@ -79,7 +79,7 @@ function Env({ env }: { env: ContainerDetails['env'] }): React.JSX.Element {
               {e.key} = <span>{on ? e.value : '••••••'}</span>
             </span>
             <IconButton
-              aria-label={`${on ? 'ซ่อนค่า' : 'แสดงค่า'} ${e.key}`}
+              aria-label={`${on ? 'Hide' : 'Show'} ${e.key}`}
               aria-pressed={on}
               onClick={() => toggle(i)}
             >
@@ -133,10 +133,10 @@ export function ContainerDetailsPanel({
   }, [host.id, host.protected, container.id, container.state, attempt])
 
   return (
-    <aside ref={ref} className="details-panel" aria-label={`รายละเอียด ${container.name}`}>
+    <aside ref={ref} className="details-panel" aria-label={`Details for ${container.name}`}>
       <div className="details-header">
         <span className="container-name mono">{container.name}</span>
-        <IconButton aria-label="ปิดรายละเอียด" onClick={onClose}>
+        <IconButton aria-label="Close details" onClick={onClose}>
           <X size={14} />
         </IconButton>
       </div>
@@ -172,11 +172,11 @@ export function ContainerDetailsPanel({
                 setAttempt((n) => n + 1)
               }}
             >
-              ลองอีกครั้ง
+              Try again
             </Button>
           </div>
         )}
-        {error === null && details === null && <div className="muted">กำลังโหลด…</div>}
+        {error === null && details === null && <div className="muted">Loading…</div>}
         {error === null && details !== null && tab === 'overview' && (
           <Overview d={details.overview} />
         )}

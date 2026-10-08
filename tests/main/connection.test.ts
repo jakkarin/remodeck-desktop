@@ -93,13 +93,13 @@ describe('ConnectionService', () => {
     const { svc } = make({ connect: { code: 255, stdout: '', stderr: 'no route' } })
     const s = await svc.connect('h')
     expect(s.state).toBe('error')
-    expect(s.error).toBe('no route\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+    expect(s.error).toBe('no route\nTry running ssh ai-box in your system terminal first')
   })
 
   it('treats other non-zero exits as ssh failure', async () => {
     const { svc } = make({ connect: { code: 1, stdout: '', stderr: '' } })
     const s = await svc.connect('h')
-    expect(s.error).toBe('ssh exit 1\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+    expect(s.error).toBe('ssh exit 1\nTry running ssh ai-box in your system terminal first')
   })
 
   it('treats exec rejection as ssh failure', async () => {
@@ -107,13 +107,13 @@ describe('ConnectionService', () => {
     const s = await svc.connect('h')
     expect(s.state).toBe('error')
     expect(s.error).toContain('spawn ssh ENOENT')
-    expect(s.error).toContain('ลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+    expect(s.error).toContain('Try running ssh ai-box in your system terminal first')
   })
 
   it('255 with empty stderr reports ssh exit 255', async () => {
     const { svc } = make({ connect: { code: 255, stdout: '', stderr: '' } })
     const s = await svc.connect('h1')
-    expect(s.error).toBe('ssh exit 255\nลองรัน ssh ai-box ใน terminal ของระบบก่อน')
+    expect(s.error).toBe('ssh exit 255\nTry running ssh ai-box in your system terminal first')
   })
 
   it('returns the in-flight promise while connecting', async () => {
@@ -133,7 +133,7 @@ describe('ConnectionService', () => {
   })
 
   it('requireConnected throws when not connected', () => {
-    expect(() => make({}).svc.requireConnected('h')).toThrow('Host ยังไม่ได้ connect')
+    expect(() => make({}).svc.requireConnected('h')).toThrow('Host is not connected')
   })
 
   it('disconnect during in-flight connect is not overwritten', async () => {
@@ -261,7 +261,7 @@ describe('ConnectionService', () => {
     })
 
     it('throws on a disconnected host', async () => {
-      await expect(make({}).svc.probeGit('h')).rejects.toThrow('Host ยังไม่ได้ connect')
+      await expect(make({}).svc.probeGit('h')).rejects.toThrow('Host is not connected')
     })
   })
 
@@ -318,7 +318,7 @@ describe('ConnectionService', () => {
     })
 
     it('throws on a disconnected host', async () => {
-      await expect(make({}).svc.probeDocker('h')).rejects.toThrow('Host ยังไม่ได้ connect')
+      await expect(make({}).svc.probeDocker('h')).rejects.toThrow('Host is not connected')
     })
   })
 })

@@ -65,7 +65,7 @@ function setup(connected: (h: string) => boolean = () => true) {
   const approval = { revokeSession: vi.fn() }
   const connection = {
     requireConnected: vi.fn((h: string) => {
-      if (!connected(h)) throw new Error('Host ยังไม่ได้ connect')
+      if (!connected(h)) throw new Error('Host is not connected')
     })
   }
   const targetFor = vi.fn((h: string) => ({
@@ -251,7 +251,7 @@ describe('TerminalService', () => {
 
   it('throws on disconnected host or unknown workspace', async () => {
     const { svc, connection, spawn, bridge } = setup((h) => h !== 'h1')
-    await expect(svc.open('w1')).rejects.toThrow('ยังไม่ได้ connect')
+    await expect(svc.open('w1')).rejects.toThrow('is not connected')
     expect(connection.requireConnected).toHaveBeenCalledWith('h1')
     await expect(svc.open('zzz')).rejects.toThrow()
     expect(spawn).not.toHaveBeenCalled()
@@ -421,7 +421,7 @@ describe('TerminalService.uploadImage', () => {
     const { svc, targetFor } = setup()
     const { tabId } = svc.openHost('h1', 'docker ps', 'logs')
     await expect(svc.uploadImage(tabId, new Uint8Array([1]), 'png')).rejects.toThrow(
-      'วางรูปได้เฉพาะ terminal ของ workspace'
+      'Images can only be pasted into workspace terminals'
     )
     expect(targetFor).not.toHaveBeenCalled()
   })
@@ -482,13 +482,13 @@ describe('TerminalService.uploadImage', () => {
 
     it('openHost throws on disconnected host', () => {
       const { svc, spawn } = setup(() => false)
-      expect(() => svc.openHost('h1', 'docker ps', 'logs')).toThrow('Host ยังไม่ได้ connect')
+      expect(() => svc.openHost('h1', 'docker ps', 'logs')).toThrow('Host is not connected')
       expect(spawn).not.toHaveBeenCalled()
     })
 
     it('openHost throws on unknown host', () => {
       const { svc } = setup()
-      expect(() => svc.openHost('nope', 'docker ps', 'logs')).toThrow('ไม่พบ host')
+      expect(() => svc.openHost('nope', 'docker ps', 'logs')).toThrow('Host not found')
     })
 
     it('spawn failure on openHost throws and leaves no tab', () => {

@@ -18,9 +18,10 @@ const TITLES: Record<ResourceKind, string> = {
 }
 
 const PRUNE_SUMMARY: Record<ResourceKind, string> = {
-  image: 'prune images — ลบเฉพาะ image ที่ไม่มี tag (dangling)',
-  volume: 'prune volumes — ลบ volume ที่ไม่มี container ใช้ (Docker ≥ 23 ลบเฉพาะ volume ไม่มีชื่อ)',
-  network: 'prune networks — ลบ network ที่ไม่มี container ใช้'
+  image: 'prune images — removes only untagged (dangling) images',
+  volume:
+    'prune volumes — removes volumes no container uses (Docker ≥ 23 removes only anonymous volumes)',
+  network: 'prune networks — removes networks no container uses'
 }
 
 type Pending = {
@@ -100,8 +101,8 @@ export function ResourcesView({
         const res = await api.containers.prune(host.id, kind)
         setActionError(null)
         setInfo(
-          `ลบแล้ว ${res.deleted} รายการ` +
-            (res.reclaimed !== null ? ` · คืนพื้นที่ ${formatMem(res.reclaimed)}` : '')
+          `Removed ${res.deleted} items` +
+            (res.reclaimed !== null ? ` · reclaimed ${formatMem(res.reclaimed)}` : '')
         )
       } catch (e) {
         setActionError(errorMessage(e))
@@ -128,11 +129,11 @@ export function ResourcesView({
   }, [host.id, kind, attempt])
 
   const current = loaded && loaded.hostId === host.id && loaded.kind === kind ? loaded : null
-  if (current === null) return <div className="muted">กำลังโหลด…</div>
+  if (current === null) return <div className="muted">Loading…</div>
   if (current.error !== null) {
     return (
       <div>
-        <ErrorBanner message={`โหลด ${title} บน ${host.label} ไม่ได้`} />
+        <ErrorBanner message={`Cannot load ${title} on ${host.label}`} />
         <div className="error">{current.error}</div>
         <Button
           onClick={() => {
@@ -140,7 +141,7 @@ export function ResourcesView({
             setAttempt((n) => n + 1)
           }}
         >
-          ลองอีกครั้ง
+          Try again
         </Button>
       </div>
     )
@@ -165,9 +166,9 @@ export function ResourcesView({
           {info}
         </div>
       )}
-      {rows.length === 0 && <div className="muted">{`ยังไม่มี ${kind} บน ${host.label}`}</div>}
+      {rows.length === 0 && <div className="muted">{`No ${kind}s on ${host.label}`}</div>}
       {rows.length > 0 && visible.length === 0 && (
-        <div className="muted">ไม่มีรายการที่ตรงกับตัวกรอง</div>
+        <div className="muted">Nothing matches the filter</div>
       )}
       {visible.length > 0 && (
         <GroupPanel

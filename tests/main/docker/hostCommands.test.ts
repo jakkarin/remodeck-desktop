@@ -12,7 +12,7 @@ describe('hostCommands', () => {
   })
   it('rejects ids that are not container ids', () => {
     for (const bad of ['abc', 'A'.repeat(12), 'a'.repeat(12) + ';rm', '--help'])
-      expect(() => logsCommand(bad)).toThrow('container id ไม่ถูกต้อง')
+      expect(() => logsCommand(bad)).toThrow('Invalid container id')
   })
   it('compose command with dir and files, up adds -d', () => {
     expect(
@@ -23,15 +23,15 @@ describe('hostCommands', () => {
   })
   it('compose up/pull/restart without dir or files throws the Thai path error', () => {
     expect(() => composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'up')).toThrow(
-      'ไม่พบ path ของ compose project นี้ จึงสั่ง up ไม่ได้'
+      'Cannot run up: the compose project path is unknown'
     )
-    expect(() => composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'pull')).toThrow('จึงสั่ง pull ไม่ได้')
+    expect(() => composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'pull')).toThrow('Cannot run pull')
   })
   it('compose omits missing dir and files', () => {
     expect(composeCommand({ name: 'shop', workingDir: '', configFiles: [] }, 'down')).toBe(`docker compose -p 'shop' down`)
   })
   it('compose rejects bad project names and relative paths', () => {
-    expect(() => composeCommand({ name: 'My.App', workingDir: '', configFiles: [] }, 'pull')).toThrow('ชื่อ compose project ไม่ถูกต้อง')
+    expect(() => composeCommand({ name: 'My.App', workingDir: '', configFiles: [] }, 'pull')).toThrow('Invalid compose project name')
     expect(() => composeCommand({ name: 'ok', workingDir: 'rel/dir', configFiles: [] }, 'pull')).toThrow()
     expect(() => composeCommand({ name: 'ok', workingDir: '/srv', configFiles: ['x.yml'] }, 'pull')).toThrow()
   })

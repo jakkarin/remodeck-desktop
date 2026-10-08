@@ -163,7 +163,7 @@ describe('WorkspaceScreen selection', () => {
     await screen.findByText('b.ts')
     vi.mocked(api.workspaces.branches).mockResolvedValue([branch({ name: 'fix/b' })])
     await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 1 }))
-    expect(await screen.findByText('เลือก branch ทางซ้าย')).toBeInTheDocument()
+    expect(await screen.findByText('Select a branch on the left')).toBeInTheDocument()
     expect(screen.queryByText('b.ts')).toBeNull()
     expect(document.querySelector('.error')).toBeNull()
   })
@@ -199,19 +199,19 @@ describe('WorkspaceScreen branch list', () => {
   it('shows ahead/behind and badges, and the new marker clears once seen', async () => {
     renderScreen()
     await screen.findByText('feat/a')
-    expect(screen.queryByLabelText('ใหม่')).toBeNull()
+    expect(screen.queryByLabelText('New')).toBeNull()
     vi.mocked(api.workspaces.branches).mockResolvedValue([
       branch({ sha: 'changed', behind: 1, rewritten: true }),
       branch({ name: 'fix/b', merged: true, ahead: 0 })
     ])
     await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 1 }))
-    expect(await screen.findByLabelText('ใหม่')).toBeInTheDocument()
+    expect(await screen.findByLabelText('New')).toBeInTheDocument()
     expect(screen.getByText('↑2')).toBeInTheDocument()
     expect(screen.getByText('↓1')).toBeInTheDocument()
     expect(screen.getByText('merged')).toBeInTheDocument()
     expect(screen.getByText('⚠ rewritten')).toBeInTheDocument()
     fireEvent.click(screen.getByText('feat/a'))
-    await waitFor(() => expect(screen.queryByLabelText('ใหม่')).toBeNull())
+    await waitFor(() => expect(screen.queryByLabelText('New')).toBeNull())
   })
 
   it('lists worktrees and opens a terminal at that path', async () => {
@@ -232,7 +232,7 @@ describe('WorkspaceScreen branch list', () => {
     vi.mocked(api.workspaces.files).mockResolvedValue([])
     renderScreen()
     fireEvent.click(await screen.findByText('feat/a'))
-    expect(await screen.findByText('ไม่มี commit ใหม่เทียบกับ base')).toBeInTheDocument()
+    expect(await screen.findByText('No new commits compared to base')).toBeInTheDocument()
   })
 })
 
@@ -240,7 +240,7 @@ describe('WorkspaceScreen disconnected', () => {
   it('shows the banner, disables Push and worktree-free branch list stays', async () => {
     renderScreen({ state: 'disconnected' })
     expect(await screen.findByText('feat/a')).toBeInTheDocument()
-    expect(screen.getByText(/ไม่ได้เชื่อมต่อ/)).toBeInTheDocument()
+    expect(screen.getByText(/is not connected/)).toBeInTheDocument()
     expect(api.workspaces.worktrees).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('feat/a'))
     const push = await screen.findByRole('button', { name: 'Push to GitHub' })
@@ -275,7 +275,7 @@ describe('WorkspaceScreen push bar (moved from ReviewView)', () => {
   })
 
   it('shows a non-fast-forward message verbatim and keeps Open PR disabled', async () => {
-    const message = 'ถูกปฏิเสธ: non-fast-forward'
+    const message = 'rejected: non-fast-forward'
     vi.mocked(api.workspaces.push).mockResolvedValue({
       ok: false,
       reason: 'non-fast-forward',

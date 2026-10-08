@@ -52,15 +52,11 @@ describe('resources', () => {
 
   it('remove rejects bad refs before any request', async () => {
     const t = fake()
-    await expect(removeResource(t.client, 'image', '../x')).rejects.toThrow('ชื่อ image ไม่ถูกต้อง')
-    await expect(removeResource(t.client, 'volume', 'a?b')).rejects.toThrow(
-      'ชื่อ volume ไม่ถูกต้อง'
-    )
-    await expect(removeResource(t.client, 'volume', 'a b')).rejects.toThrow(
-      'ชื่อ volume ไม่ถูกต้อง'
-    )
+    await expect(removeResource(t.client, 'image', '../x')).rejects.toThrow('Invalid image name')
+    await expect(removeResource(t.client, 'volume', 'a?b')).rejects.toThrow('Invalid volume name')
+    await expect(removeResource(t.client, 'volume', 'a b')).rejects.toThrow('Invalid volume name')
     await expect(removeResource(t.client, 'network', 'bridge')).rejects.toThrow(
-      'ชื่อ network ไม่ถูกต้อง'
+      'Invalid network name'
     )
     expect(t.json).not.toHaveBeenCalled()
   })
@@ -86,10 +82,10 @@ describe('resources', () => {
   it('dockerErrorMessage maps 404/409/403 cases to the Thai copy and passes others through', () => {
     const m = (k: 'image' | 'volume' | 'network', s: number, msg = 'x'): string =>
       dockerErrorMessage(k, new DockerError(s, msg)).message
-    expect(m('image', 404)).toBe('image นี้ถูกลบไปแล้ว')
-    expect(m('volume', 404)).toBe('volume นี้ถูกลบไปแล้ว')
-    expect(m('network', 404)).toBe('network นี้ถูกลบไปแล้ว')
-    const inUse = 'image นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน'
+    expect(m('image', 404)).toBe('This image no longer exists')
+    expect(m('volume', 404)).toBe('This volume no longer exists')
+    expect(m('network', 404)).toBe('This network no longer exists')
+    const inUse = 'This image is in use by a container — remove that container first'
     expect(
       m('image', 409, 'unable to delete abc - image is being used by running container x')
     ).toBe(inUse)
@@ -100,15 +96,17 @@ describe('resources', () => {
     expect(m('image', 409, 'image has dependent child images')).toBe(
       'image has dependent child images'
     )
-    expect(m('volume', 409)).toBe('volume นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน')
+    expect(m('volume', 409)).toBe(
+      'This volume is in use by a container — remove that container first'
+    )
     expect(m('network', 403, 'error while removing network: has active endpoints')).toBe(
-      'network นี้ยังมี container ต่ออยู่'
+      'This network still has containers attached'
     )
     expect(m('network', 409, 'network has Active Endpoints')).toBe(
-      'network นี้ยังมี container ต่ออยู่'
+      'This network still has containers attached'
     )
     expect(m('network', 403, 'bridge is a pre-defined network and cannot be removed')).toBe(
-      'ลบ network พื้นฐาน (bridge/host/none) ไม่ได้'
+      'Built-in networks (bridge/host/none) cannot be removed'
     )
     expect(m('network', 403, 'something else')).toBe('something else')
     expect(m('image', 500, 'boom')).toBe('boom')

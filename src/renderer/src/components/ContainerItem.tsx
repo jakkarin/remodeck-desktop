@@ -98,7 +98,7 @@ export function ContainerItem({
         <button
           type="button"
           className="container-name container-select mono"
-          aria-label={`รายละเอียด ${c.name}`}
+          aria-label={`Details for ${c.name}`}
           aria-pressed={selected}
           onClick={onSelect}
         >

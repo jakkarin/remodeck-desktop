@@ -12,7 +12,7 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
   let connected = opts.connected ?? true
   const connection = {
     requireConnected: vi.fn(() => {
-      if (!connected) throw new Error('Host ยังไม่ได้ connect')
+      if (!connected) throw new Error('Host is not connected')
     }),
     probeDocker: vi.fn(async (): Promise<DockerCapability> => {
       opts.onProbe?.()
@@ -50,7 +50,7 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
     }))
   }
   const hostOf = vi.fn((id: string) => {
-    if (id !== 'h1') throw new Error('ไม่พบ host')
+    if (id !== 'h1') throw new Error('Host not found')
     return host
   })
   return {
@@ -66,13 +66,13 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
 describe('containersApi', () => {
   it('open on a disconnected host throws and never touches the service', async () => {
     const t = setup({ connected: false })
-    await expect(t.api.open('h1')).rejects.toThrow('Host ยังไม่ได้ connect')
+    await expect(t.api.open('h1')).rejects.toThrow('Host is not connected')
     expect(t.service.open).not.toHaveBeenCalled()
   })
 
   it('open rejects an unknown host', async () => {
     const t = setup()
-    await expect(t.api.open('nope')).rejects.toThrow('ไม่พบ host')
+    await expect(t.api.open('nope')).rejects.toThrow('Host not found')
   })
 
   it('open throws the probe detail when docker is not ok', async () => {
@@ -91,7 +91,7 @@ describe('containersApi', () => {
     const ref: { disconnect?: () => void } = {}
     const t = setup({ onProbe: () => ref.disconnect?.() })
     ref.disconnect = t.disconnect
-    await expect(t.api.open('h1')).rejects.toThrow('Host ยังไม่ได้ connect')
+    await expect(t.api.open('h1')).rejects.toThrow('Host is not connected')
     expect(t.service.open).not.toHaveBeenCalled()
   })
 
@@ -104,7 +104,7 @@ describe('containersApi', () => {
   it('action requires a connected host', async () => {
     const t = setup({ connected: false })
     await expect(t.api.action('h1', 'abc123abc123', 'stop')).rejects.toThrow(
-      'Host ยังไม่ได้ connect'
+      'Host is not connected'
     )
     expect(t.service.action).not.toHaveBeenCalled()
   })
@@ -119,7 +119,7 @@ describe('containersApi', () => {
 describe('containersApi stats and inspect', () => {
   it('inspect requires a connected host', async () => {
     const t = setup({ connected: false })
-    await expect(t.api.inspect('h1', ID)).rejects.toThrow('Host ยังไม่ได้ connect')
+    await expect(t.api.inspect('h1', ID)).rejects.toThrow('Host is not connected')
     expect(t.service.inspect).not.toHaveBeenCalled()
   })
 
@@ -127,7 +127,7 @@ describe('containersApi stats and inspect', () => {
     const t = setup()
     await expect(t.api.inspect('h1', ID)).resolves.toEqual({ Id: ID })
     expect(t.service.inspect).toHaveBeenCalledWith('h1', ID)
-    await expect(t.api.inspect('nope', ID)).rejects.toThrow('ไม่พบ host')
+    await expect(t.api.inspect('nope', ID)).rejects.toThrow('Host not found')
   })
 
   it('watchStats ignores a disconnected host without throwing', () => {
@@ -203,14 +203,14 @@ describe('containersApi.openTerminal', () => {
     const t = setup()
     await expect(
       t.api.openTerminal('h1', { kind: 'compose', project: 'My.App', action: 'up' })
-    ).rejects.toThrow('ชื่อ compose project ไม่ถูกต้อง')
+    ).rejects.toThrow('Invalid compose project name')
     expect(t.terminal.openHost).not.toHaveBeenCalled()
   })
 
   it('rejects when the container is not in the list', async () => {
     const t = setup()
     await expect(t.api.openTerminal('h1', { kind: 'logs', id: 'c'.repeat(64) })).rejects.toThrow(
-      'ไม่พบ container นี้'
+      'Container not found'
     )
     expect(t.terminal.openHost).not.toHaveBeenCalled()
   })
@@ -219,7 +219,7 @@ describe('containersApi.openTerminal', () => {
     const t = setup()
     await expect(
       t.api.openTerminal('h1', { kind: 'compose', project: 'nope', action: 'up' })
-    ).rejects.toThrow('ไม่พบ compose project นี้')
+    ).rejects.toThrow('Compose project not found')
   })
 
   it('rejects malformed requests', async () => {
@@ -234,7 +234,7 @@ describe('containersApi.openTerminal', () => {
   it('requires a connected host', async () => {
     const t = setup({ connected: false })
     await expect(t.api.openTerminal('h1', { kind: 'logs', id: ID })).rejects.toThrow(
-      'Host ยังไม่ได้ connect'
+      'Host is not connected'
     )
     expect(t.terminal.openHost).not.toHaveBeenCalled()
   })
@@ -243,8 +243,8 @@ describe('containersApi.openTerminal', () => {
 describe('containersApi resources', () => {
   it('validates kind and connection', async () => {
     const t = setup({ connected: false })
-    await expect(t.api.resources('h1', 'image')).rejects.toThrow('Host ยังไม่ได้ connect')
-    await expect(t.api.resources('nope', 'image')).rejects.toThrow('ไม่พบ host')
+    await expect(t.api.resources('h1', 'image')).rejects.toThrow('Host is not connected')
+    await expect(t.api.resources('nope', 'image')).rejects.toThrow('Host not found')
     const c = setup()
     await expect(c.api.resources('h1', 'bogus' as never)).rejects.toThrow('Invalid resource kind')
     await expect(c.api.prune('h1', 'x' as never)).rejects.toThrow('Invalid resource kind')

@@ -5,7 +5,7 @@ describe('parseDockerProbe', () => {
   it('missing', () =>
     expect(parseDockerProbe('probe=missing\n')).toEqual({
       state: 'missing',
-      detail: 'ไม่พบ docker บนเครื่องนี้'
+      detail: 'Docker was not found on this host'
     }))
   it('no-permission', () => {
     const out =
@@ -13,7 +13,7 @@ describe('parseDockerProbe', () => {
     const r = parseDockerProbe(out)
     expect(r.state).toBe('no-permission')
     expect(r).toMatchObject({
-      detail: 'user นี้ไม่มีสิทธิ์ใช้ docker — รัน sudo usermod -aG docker $USER แล้ว disconnect / connect ใหม่'
+      detail: 'This user has no permission to use docker — run sudo usermod -aG docker $USER, then disconnect and connect again'
     })
   })
   it('no-daemon keeps the docker output', () => {
@@ -22,7 +22,7 @@ describe('parseDockerProbe', () => {
     expect(parseDockerProbe(out)).toEqual({
       state: 'no-daemon',
       detail:
-        'docker daemon ไม่ทำงาน — เช่น sudo systemctl start docker\nCannot connect to the Docker daemon at unix:///var/run/docker.sock'
+        'The docker daemon is not running — e.g. sudo systemctl start docker\nCannot connect to the Docker daemon at unix:///var/run/docker.sock'
     })
   })
   it('too-old', () =>
@@ -30,7 +30,7 @@ describe('parseDockerProbe', () => {
       parseDockerProbe(
         'probe-exit=0\n{"Server":{"Version":"18.06.0","ApiVersion":"1.38"}}\ndialstdio=0\n'
       )
-    ).toEqual({ state: 'too-old', detail: 'docker บนเครื่องนี้เก่าเกินไป (ต้อง 18.09 ขึ้นไป)' }))
+    ).toEqual({ state: 'too-old', detail: 'Docker on this host is too old (18.09 or newer required)' }))
   it('ok', () =>
     expect(
       parseDockerProbe(
@@ -39,7 +39,7 @@ describe('parseDockerProbe', () => {
     ).toEqual({ state: 'ok', version: '27.3.1', apiVersion: '1.47' }))
   it('ok output without Server is no-daemon', () => {
     const r = parseDockerProbe('probe-exit=0\n{"Client":{}}\ndialstdio=1\n')
-    expect(r).toEqual({ state: 'no-daemon', detail: 'docker daemon ไม่ทำงาน — เช่น sudo systemctl start docker' })
+    expect(r).toEqual({ state: 'no-daemon', detail: 'The docker daemon is not running — e.g. sudo systemctl start docker' })
   })
   it('unparsable JSON is no-daemon; CRLF tolerated', () => {
     expect(parseDockerProbe('probe-exit=0\r\n{oops\r\ndialstdio=1\r\n').state).toBe('no-daemon')

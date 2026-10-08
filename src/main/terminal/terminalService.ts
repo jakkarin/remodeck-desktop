@@ -87,11 +87,11 @@ export class TerminalService extends EventEmitter {
   async open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string; hostId: string }> {
     const { store, connection, bridge } = this.deps
     const ws = store.config.workspaces.find((w) => w.id === workspaceId)
-    if (!ws) throw new Error('ไม่พบ workspace')
+    if (!ws) throw new Error('Workspace not found')
     connection.requireConnected(ws.hostId)
     const host = store.config.hosts.find((h) => h.id === ws.hostId)
     const repo = store.config.repos.find((r) => r.id === ws.repoId)
-    if (!host || !repo) throw new Error('ไม่พบ host หรือ repo ของ workspace')
+    if (!host || !repo) throw new Error('Workspace host or repo not found')
 
     const cwd = path ?? ws.sandboxPath
     const label = `${host.label}:${basename(cwd)}`
@@ -120,7 +120,7 @@ export class TerminalService extends EventEmitter {
     const { store, connection, spawn, sshPath } = this.deps
     connection.requireConnected(hostId)
     const host = store.config.hosts.find((h) => h.id === hostId)
-    if (!host) throw new Error('ไม่พบ host')
+    if (!host) throw new Error('Host not found')
 
     const pty = spawn(sshPath, buildHostSshArgs(host.sshHost, remoteCmd), DEFAULT_SIZE)
     const tabId = crypto.randomUUID()
@@ -163,8 +163,8 @@ export class TerminalService extends EventEmitter {
   /** Uploads an image to the tab's host and returns its remote path. */
   async uploadImage(tabId: string, bytes: Uint8Array, ext: ImageExt): Promise<string> {
     const tab = this.tabs.get(tabId)
-    if (!tab) throw new Error('ไม่พบ terminal tab')
-    if (tab.kind === 'host') throw new Error('วางรูปได้เฉพาะ terminal ของ workspace')
+    if (!tab) throw new Error('Terminal tab not found')
+    if (tab.kind === 'host') throw new Error('Images can only be pasted into workspace terminals')
     return uploadImage(this.deps.targetFor(tab.hostId), bytes, ext)
   }
 

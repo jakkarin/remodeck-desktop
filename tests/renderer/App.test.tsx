@@ -103,7 +103,7 @@ describe('App empty states', () => {
   it('no hosts: invites adding the first sandbox, top bar stays', async () => {
     setup([], [], { state: 'disconnected' })
     render(<App />)
-    expect(await screen.findByText('เพิ่ม sandbox แรก')).toBeInTheDocument()
+    expect(await screen.findByText('Add your first sandbox')).toBeInTheDocument()
     expect(screen.getByRole('banner')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Add host' }))
     expect(await screen.findByRole('button', { name: 'Add' })).toBeInTheDocument()

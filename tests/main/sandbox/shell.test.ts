@@ -20,7 +20,7 @@ describe('validateSandboxPath', () => {
   })
   it('rejects relative, bare ~, ~/ and ~user paths', () => {
     for (const bad of ['', 'repos/api', './api', '../api', '~', '~/', '~user/api', '/']) {
-      expect(() => validateSandboxPath(bad), bad).toThrow('path ต้องขึ้นต้นด้วย / หรือ ~/')
+      expect(() => validateSandboxPath(bad), bad).toThrow('Path must start with / or ~/')
     }
   })
 })

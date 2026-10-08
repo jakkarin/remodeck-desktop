@@ -7,7 +7,7 @@ import {
 } from '../../shared/containers'
 
 function checkId(id: string): void {
-  if (!CONTAINER_ID.test(id)) throw new Error('container id ไม่ถูกต้อง')
+  if (!CONTAINER_ID.test(id)) throw new Error('Invalid container id')
 }
 
 export function logsCommand(id: string): string {
@@ -24,10 +24,10 @@ export function composeCommand(
   p: { name: string; workingDir: string; configFiles: string[] },
   action: ComposeAction
 ): string {
-  if (!COMPOSE_PROJECT.test(p.name)) throw new Error('ชื่อ compose project ไม่ถูกต้อง')
-  if (!COMPOSE_ACTIONS.includes(action)) throw new Error('compose action ไม่ถูกต้อง')
+  if (!COMPOSE_PROJECT.test(p.name)) throw new Error('Invalid compose project name')
+  if (!COMPOSE_ACTIONS.includes(action)) throw new Error('Invalid compose action')
   if (action !== 'down' && !p.workingDir && p.configFiles.length === 0)
-    throw new Error(`ไม่พบ path ของ compose project นี้ จึงสั่ง ${action} ไม่ได้`)
+    throw new Error(`Cannot run ${action}: the compose project path is unknown`)
   const parts = ['docker compose', '-p', shQuote(p.name)]
   if (p.workingDir) {
     validateSandboxPath(p.workingDir)

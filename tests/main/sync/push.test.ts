@@ -78,11 +78,11 @@ describe('SyncService.pushToGitHub', () => {
     await svc.sync(ws)
     const before = await ghSha('main')
     const res = await svc.pushToGitHub(ws, 'feat/a', 'main')
-    expect(res).toEqual({ ok: false, reason: 'protected', message: 'branch main ถูกป้องกัน — แก้ได้ใน Settings' })
+    expect(res).toEqual({ ok: false, reason: 'protected', message: 'branch main is protected — change this in Settings' })
     expect(await ghSha('main')).toBe(before)
     const log = store.readPushLog(10)
     expect(log).toHaveLength(1)
-    expect(log[0]).toMatchObject({ result: 'blocked', detail: 'branch main ถูกป้องกัน — แก้ได้ใน Settings' })
+    expect(log[0]).toMatchObject({ result: 'blocked', detail: 'branch main is protected — change this in Settings' })
     expect(log[0].updates[0]).toMatchObject({ oldSha: before, ref: 'refs/heads/main' })
   })
 
@@ -99,7 +99,7 @@ describe('SyncService.pushToGitHub', () => {
     expect(res).toEqual({
       ok: false,
       reason: 'non-fast-forward',
-      message: 'GitHub มี commit ใหม่กว่า — กด Sync แล้วให้ AI rebase บน origin/feat-x'
+      message: 'GitHub has newer commits — press Sync, then have the AI rebase onto origin/feat-x'
     })
     expect(await ghSha('feat-x')).toBe(ghTip)
     expect(store.readPushLog(10).map((e) => e.result)).toEqual(['rejected', 'ok'])

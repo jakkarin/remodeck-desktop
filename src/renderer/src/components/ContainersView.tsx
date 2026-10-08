@@ -48,7 +48,7 @@ const COMPOSE_LABELS: [ComposeAction, string][] = [
   ['restart', 'Restart'],
   ['down', 'Down']
 ]
-const NO_PATH_HINT = 'ไม่พบ path ของ compose project (ผลจริงดูใน terminal)'
+const NO_PATH_HINT = 'Compose project path unknown (see the terminal for actual results)'
 
 function projectHint(p: ContainerProject): string {
   return p.workingDir && p.configFiles.length > 0
@@ -163,7 +163,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
           disabled={error !== null && id !== 'containers'}
           title={
             error !== null && id !== 'containers'
-              ? 'เปิดรายการ container ไม่สำเร็จ กด Retry ก่อน'
+              ? 'Failed to load containers — press Retry first'
               : undefined
           }
           onClick={() => setTab(id)}
@@ -189,7 +189,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       <div className="containers-view">
         {tabStrip}
         <div className="containers-body">
-          <ErrorBanner message={`เชื่อมต่อ docker บน ${host.label} ไม่ได้`} />
+          <ErrorBanner message={`Cannot connect to docker on ${host.label}`} />
           <div className="error">{error}</div>
           <Button onClick={retry}>Retry</Button>
         </div>
@@ -201,7 +201,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       <div className="containers-view">
         {tabStrip}
         <div className="containers-body">
-          <div className="muted">กำลังโหลด…</div>
+          <div className="muted">Loading…</div>
         </div>
       </div>
     )
@@ -252,16 +252,14 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
                   checked={showStopped}
                   onChange={(e) => setShowStopped(e.target.checked)}
                 />
-                แสดงตัวที่หยุด
+                Show stopped
               </label>
-              {!live && <Badge tone="warning">หยุดอัปเดตสด</Badge>}
+              {!live && <Badge tone="warning">Live updates paused</Badge>}
             </div>
             {actionError && <ErrorBanner message={actionError} />}
-            {list.length === 0 && (
-              <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>
-            )}
+            {list.length === 0 && <div className="muted">{`No containers on ${host.label}`}</div>}
             {list.length > 0 && visible.length === 0 && (
-              <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
+              <div className="muted">No containers match the filter</div>
             )}
             {projects.map((p) => (
               <GroupPanel

@@ -25,18 +25,18 @@ describe('DiffPane', () => {
     expect(screen.getByText('a.ts → b.ts')).toBeInTheDocument()
   })
 
-  it('truncates at 5000 lines until "แสดงทั้งหมด" is clicked', () => {
+  it('truncates at 5000 lines until "Show all" is clicked', () => {
     render(<DiffPane text={lines(5001)} path="big.ts" />)
     expect(screen.getByText('+line5000')).toBeInTheDocument()
     expect(screen.queryByText('+line5001')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'แสดงทั้งหมด' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }))
     expect(screen.getByText('+line5001')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'แสดงทั้งหมด' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Show all' })).toBeNull()
   })
 
   it('exactly 5000 lines has no show-all button', () => {
     render(<DiffPane text={lines(5000)} path="big.ts" />)
-    expect(screen.queryByRole('button', { name: 'แสดงทั้งหมด' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Show all' })).toBeNull()
   })
 
   it('binary files show a message instead of a diff', () => {

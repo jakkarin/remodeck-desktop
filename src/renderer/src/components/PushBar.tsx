@@ -55,7 +55,7 @@ export function PushBar({
           variant="primary"
           aria-label="Push to GitHub"
           disabled={!connected || busy || !target}
-          title={connected ? undefined : 'Host ยังไม่ได้ connect'}
+          title={connected ? undefined : 'Host is not connected'}
           onClick={() => void push()}
         >
           ↑ Push

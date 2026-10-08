@@ -3,7 +3,7 @@ import type { SyncInfo } from '../../shared/types'
 export const LIGHT_MS = 30_000
 export const FULL_MS = 300_000
 
-const NOT_CONNECTED = 'Host ยังไม่ได้ connect'
+const NOT_CONNECTED = 'Host is not connected'
 
 export type AutoSyncDeps = {
   light(wsId: string): Promise<unknown>

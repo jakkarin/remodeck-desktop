@@ -125,7 +125,7 @@ describe('SyncService.sync', () => {
     await git(sb('w1'), 'tag', 'v1')
     const ghMain = await gh.seed({ 'b.txt': 'gh side' })
     await git(gh.url, 'tag', 'v1', ghMain)
-    await expect(svc.sync(ws)).rejects.toThrow('tag ชนกับใน sandbox: v1')
+    await expect(svc.sync(ws)).rejects.toThrow('Tags conflict with the sandbox: v1')
     expect(await rev(sb('w1'), 'refs/remotes/origin/main')).toBe(ghMain)
     expect(await rev(sb('w1'), 'refs/tags/v1')).not.toBe(ghMain)
   })

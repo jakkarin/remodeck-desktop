@@ -146,7 +146,7 @@ export function containersApi(deps: {
       if (!isTerminalRequest(req)) throw new Error('Invalid terminal request')
       if (req.kind === 'compose') {
         const p = deps.service.project(hostId, req.project)
-        if (!p) throw new Error('ไม่พบ compose project นี้')
+        if (!p) throw new Error('Compose project not found')
         return deps.terminal.openHost(
           hostId,
           composeCommand(p, req.action),
@@ -154,7 +154,7 @@ export function containersApi(deps: {
         )
       }
       const c = deps.service.find(hostId, req.id)
-      if (!c) throw new Error('ไม่พบ container นี้')
+      if (!c) throw new Error('Container not found')
       return req.kind === 'logs'
         ? deps.terminal.openHost(hostId, logsCommand(c.id), `logs · ${c.name}`)
         : deps.terminal.openHost(hostId, shellCommand(c.id), `sh · ${c.name}`)
@@ -201,17 +201,17 @@ export async function createApp(opts: {
 
   const hostOf = (id: string): Host => {
     const h = store.config.hosts.find((x) => x.id === id)
-    if (!h) throw new Error('ไม่พบ host')
+    if (!h) throw new Error('Host not found')
     return h
   }
   const wsOf = (id: string): Workspace => {
     const w = store.config.workspaces.find((x) => x.id === id)
-    if (!w) throw new Error('ไม่พบ workspace')
+    if (!w) throw new Error('Workspace not found')
     return w
   }
   const repoOf = (id: string): Repo => {
     const r = store.config.repos.find((x) => x.id === id)
-    if (!r) throw new Error('ไม่พบ repo')
+    if (!r) throw new Error('Repo not found')
     return r
   }
   const targetFor = (hostId: string): SshTarget => new SshTarget(hostOf(hostId).sshHost, sshPath)
@@ -293,7 +293,7 @@ export async function createApp(opts: {
       sync.rewrittenBranches(ws.id)
     )
     const b = list.find((x) => x.name === branch)
-    if (!b) throw new Error(`ไม่พบ branch ${branch}`)
+    if (!b) throw new Error(`Branch not found: ${branch}`)
     return { base: `refs/remotes/${b.base}`, ref: `refs/remotes/ws-${ws.id}/${branch}` }
   }
 
@@ -350,7 +350,7 @@ export async function createApp(opts: {
       list: async () => store.config.workspaces,
       clone: async (hostId, repoInput, sandboxPath) => {
         const parsed = parseRepoInput(repoInput)
-        if (!parsed) throw new Error('รูปแบบ repo ไม่ถูกต้อง')
+        if (!parsed) throw new Error('Invalid repo format')
         validateSandboxPath(sandboxPath)
         hostOf(hostId)
         connection.requireConnected(hostId)
@@ -464,12 +464,12 @@ export async function createApp(opts: {
         return term.uploadImage(tabId, new Uint8Array(img.toPNG()), 'png')
       },
       uploadImage: async (tabId, bytes, ext) => {
-        if (!(bytes instanceof Uint8Array)) throw new Error('ข้อมูลรูปภาพไม่ถูกต้อง')
+        if (!(bytes instanceof Uint8Array)) throw new Error('Invalid image data')
         const e = ext.toLowerCase() === 'jpeg' ? 'jpg' : ext.toLowerCase()
         if (!(IMAGE_EXTS as readonly string[]).includes(e))
-          throw new Error('ไม่รองรับไฟล์รูปประเภทนี้')
-        if (bytes.length === 0) throw new Error('รูปภาพว่างเปล่า')
-        if (bytes.length > MAX_IMAGE_BYTES) throw new Error('รูปภาพใหญ่เกิน 10MB')
+          throw new Error('Unsupported image type')
+        if (bytes.length === 0) throw new Error('Image is empty')
+        if (bytes.length > MAX_IMAGE_BYTES) throw new Error('Image exceeds 10MB')
         return term.uploadImage(tabId, bytes, e as ImageExt)
       }
     },

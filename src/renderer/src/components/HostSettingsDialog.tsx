@@ -52,7 +52,7 @@ export function HostSettingsDialog({
           Protected host
         </label>
         <div id="host-protected-hint" className="muted">
-          ต้องพิมพ์ชื่อ host ก่อนสั่งคำสั่งอันตราย
+          Require typing the host name before dangerous commands
         </div>
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
