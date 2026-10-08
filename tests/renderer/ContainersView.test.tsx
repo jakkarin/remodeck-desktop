@@ -75,7 +75,7 @@ describe('ContainersView', () => {
     })
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    expect(api.containers.watchStats).toHaveBeenCalledWith('h1', true)
+    await waitFor(() => expect(api.containers.watchStats).toHaveBeenCalledWith('h1', true))
     act(() => {
       for (const cb of handlers['containers-stats'] ?? [])
         (cb as (...a: unknown[]) => void)('h1', {
@@ -295,6 +295,39 @@ describe('ContainersView', () => {
     expect(await screen.findByText('web')).toBeInTheDocument()
   })
 
+  it('disables the resource tabs while the containers list is in error', async () => {
+    vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('no socket'))
+    render(<ContainersView host={host} />)
+    await screen.findByText('เชื่อมต่อ docker บน Box ไม่ได้')
+    for (const name of ['Images', 'Volumes', 'Networks']) {
+      const t = screen.getByRole('tab', { name })
+      expect(t).toBeDisabled()
+      expect(t).toHaveAttribute('title', 'เปิดรายการ container ไม่สำเร็จ กด Retry ก่อน')
+    }
+    expect(screen.getByRole('tab', { name: 'Containers' })).toBeEnabled()
+  })
+
+  it('switches back to Containers when the list errors while a resource tab is shown', async () => {
+    vi.mocked(api.containers.open).mockRejectedValueOnce(new Error('first'))
+    render(<ContainersView host={host} />)
+    await screen.findByText('first')
+    let fail!: (e: Error) => void
+    vi.mocked(api.containers.open).mockReturnValueOnce(
+      new Promise((_, reject) => {
+        fail = reject
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Images' }))
+    expect(await screen.findByLabelText('Filter Images')).toBeInTheDocument()
+    await act(async () => {
+      fail(new Error('second'))
+    })
+    expect(await screen.findByText('second')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Containers' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Images' })).toBeDisabled()
+  })
+
   it('shows the empty message', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({ list: [], live: true })
     render(<ContainersView host={host} />)
@@ -503,7 +536,16 @@ describe('ContainersView', () => {
     expect(tabs.map((t) => t.textContent)).toEqual(['Containers', 'Images', 'Volumes', 'Networks'])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     vi.mocked(api.containers.resources).mockResolvedValue([
-      { kind: 'image', ref: 'nginx:1', name: 'nginx:1', id: 'i', size: null, created: null, driver: '', builtIn: false }
+      {
+        kind: 'image',
+        ref: 'nginx:1',
+        name: 'nginx:1',
+        id: 'i',
+        size: null,
+        created: null,
+        driver: '',
+        builtIn: false
+      }
     ])
     fireEvent.click(tabs[1])
     expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
@@ -528,7 +570,7 @@ describe('ContainersView', () => {
   it('stats watching is off while a resource tab is shown', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
-    expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true)
+    await waitFor(() => expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', true))
     fireEvent.click(screen.getByRole('tab', { name: 'Volumes' }))
     expect(api.containers.watchStats).toHaveBeenLastCalledWith('h1', false)
     fireEvent.click(screen.getByRole('tab', { name: 'Containers' }))

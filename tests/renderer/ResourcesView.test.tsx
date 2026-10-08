@@ -157,7 +157,9 @@ describe('ResourcesView actions', () => {
     render(<ResourcesView host={prot} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('prune images')).toBeInTheDocument()
+    expect(
+      within(dialog).getByText('prune images — ลบเฉพาะ image ที่ไม่มี tag (dangling)')
+    ).toBeInTheDocument()
     const confirm = within(dialog).getByRole('button', { name: 'Prune' })
     expect(confirm).toBeDisabled()
     fireEvent.change(within(dialog).getByLabelText(TYPE_LABEL), { target: { value: 'Box' } })
@@ -185,8 +187,37 @@ describe('ResourcesView actions', () => {
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Prune' }))
-    expect(await screen.findByText('ลบแล้ว 3 รายการ · คืนพื้นที่ 40 MB')).toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'ลบแล้ว 3 รายการ · คืนพื้นที่ 40 MB'
+    )
     await waitFor(() => expect(api.containers.resources).toHaveBeenCalledTimes(2))
+  })
+
+  it('prune confirm states the scope per kind', async () => {
+    const want = {
+      volume:
+        'prune volumes — ลบ volume ที่ไม่มี container ใช้ (Docker ≥ 23 ลบเฉพาะ volume ไม่มีชื่อ)',
+      network: 'prune networks — ลบ network ที่ไม่มี container ใช้'
+    } as const
+    for (const kind of ['volume', 'network'] as const) {
+      const { unmount } = render(<ResourcesView host={host} kind={kind} containers={[]} />)
+      fireEvent.click(await screen.findByRole('button', { name: `Prune ${kind}s` }))
+      expect(within(screen.getByRole('dialog')).getByText(want[kind])).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('a row tagged prune:image does not mark the Prune button busy', async () => {
+    vi.mocked(api.containers.resources).mockResolvedValue([
+      row({ name: 'prune:image', ref: 'prune:image' }),
+      row({ name: 'other:1', ref: 'other:1' })
+    ])
+    vi.mocked(api.containers.removeResource).mockReturnValue(new Promise<void>(() => {}))
+    render(<ResourcesView host={host} kind="image" containers={[]} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove prune:image' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(api.containers.removeResource).toHaveBeenCalled())
+    expect(screen.getByRole('button', { name: 'Prune images' })).toBeEnabled()
   })
 
   it('prune without reclaimed omits the space part', async () => {

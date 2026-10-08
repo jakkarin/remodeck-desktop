@@ -149,6 +149,8 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       { kind: 'compose', project, action }
     )
 
+  // The resource tabs need the host the failed list left disposed.
+  if (error !== null && tab !== 'containers') setTab('containers')
   const tabStrip = (
     <div role="tablist" aria-label="Docker resources" className="details-tabs">
       {TABS.map(([id, label]) => (
@@ -158,6 +160,12 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
           role="tab"
           aria-selected={tab === id}
           className="details-tab"
+          disabled={error !== null && id !== 'containers'}
+          title={
+            error !== null && id !== 'containers'
+              ? 'เปิดรายการ container ไม่สำเร็จ กด Retry ก่อน'
+              : undefined
+          }
           onClick={() => setTab(id)}
         >
           {label}

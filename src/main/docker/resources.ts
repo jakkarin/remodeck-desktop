@@ -59,7 +59,9 @@ export async function pruneResources(client: Client, kind: ResourceKind): Promis
 export function dockerErrorMessage(kind: ResourceKind, e: unknown): Error {
   if (!(e instanceof DockerError)) return e instanceof Error ? e : new Error(String(e))
   if (e.status === 404) return new Error(`${kind} นี้ถูกลบไปแล้ว`)
-  if (e.status === 409 && (kind === 'image' || kind === 'volume'))
+  if (e.status === 409 && kind === 'volume')
+    return new Error(`volume นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน`)
+  if (e.status === 409 && kind === 'image' && /being used|is using|in use/i.test(e.message))
     return new Error(`${kind} นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน`)
   if (kind === 'network' && (e.status === 403 || e.status === 409)) {
     if (/active endpoints/i.test(e.message)) return new Error('network นี้ยังมี container ต่ออยู่')

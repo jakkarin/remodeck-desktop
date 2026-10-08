@@ -17,6 +17,12 @@ const TITLES: Record<ResourceKind, string> = {
   network: 'Networks'
 }
 
+const PRUNE_SUMMARY: Record<ResourceKind, string> = {
+  image: 'prune images — ลบเฉพาะ image ที่ไม่มี tag (dangling)',
+  volume: 'prune volumes — ลบ volume ที่ไม่มี container ใช้ (Docker ≥ 23 ลบเฉพาะ volume ไม่มีชื่อ)',
+  network: 'prune networks — ลบ network ที่ไม่มี container ใช้'
+}
+
 type Pending = {
   hostId: string
   summary: string
@@ -73,7 +79,7 @@ export function ResourcesView({
   }
   const remove = (r: ResourceRow): void =>
     confirmFirst(`${kind}-rm`, `remove ${kind} · ${r.name}`, 'Remove', async () => {
-      mark(r.ref, true)
+      mark(`rm:${r.ref}`, true)
       try {
         await api.containers.removeResource(host.id, kind, r.ref)
         setActionError(null)
@@ -82,12 +88,12 @@ export function ResourcesView({
         setActionError(errorMessage(e))
         setInfo(null)
       } finally {
-        mark(r.ref, false)
+        mark(`rm:${r.ref}`, false)
         reload()
       }
     })
   const prune = (): void =>
-    confirmFirst(`${kind}-prune`, `prune ${kind}s`, 'Prune', async () => {
+    confirmFirst(`${kind}-prune`, PRUNE_SUMMARY[kind], 'Prune', async () => {
       const key = `prune:${kind}`
       mark(key, true)
       try {
@@ -154,7 +160,11 @@ export function ResourcesView({
         />
       </div>
       {actionError && <ErrorBanner message={actionError} />}
-      {info && <div className="muted">{info}</div>}
+      {info && (
+        <div className="muted" role="status">
+          {info}
+        </div>
+      )}
       {rows.length === 0 && <div className="muted">{`ยังไม่มี ${kind} บน ${host.label}`}</div>}
       {rows.length > 0 && visible.length === 0 && (
         <div className="muted">ไม่มีรายการที่ตรงกับตัวกรอง</div>
@@ -174,7 +184,7 @@ export function ResourcesView({
         >
           {visible.map((r) => (
             <ItemRow
-              key={`${r.ref}`}
+              key={r.ref}
               actions={
                 <div className="resource-actions">
                   {r.builtIn ? (
@@ -184,7 +194,7 @@ export function ResourcesView({
                       aria-label={`Remove ${r.name}`}
                       title="Remove"
                       className="container-remove"
-                      disabled={busy.has(r.ref)}
+                      disabled={busy.has(`rm:${r.ref}`)}
                       onClick={() => remove(r)}
                     >
                       <Trash2 size={14} />

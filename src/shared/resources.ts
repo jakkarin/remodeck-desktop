@@ -29,7 +29,7 @@ export const IMAGE_REF = new RegExp(
   String.raw`^(?:sha256:[a-f0-9]{64}|${NAME}(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[a-f0-9]{64})?)$`
 )
 export const VOLUME_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/
-export const NETWORK_ID = /^[a-f0-9]{12,64}$/
+export const NETWORK_ID = /^[a-z0-9]{12,64}$/
 
 const asRecord = (v: unknown): Record<string, unknown> =>
   v !== null && typeof v === 'object' ? (v as Record<string, unknown>) : {}
@@ -47,6 +47,7 @@ const parseDate = (v: unknown): number | null => {
 
 export function toImageRows(raw: unknown): ResourceRow[] {
   const rows: ResourceRow[] = []
+  const dangling: ResourceRow[] = []
   for (const entry of list(raw)) {
     const r = asRecord(entry)
     const id = str(r.Id)
@@ -57,7 +58,7 @@ export function toImageRows(raw: unknown): ResourceRow[] {
       (t): t is string => typeof t === 'string' && t !== '' && t !== '<none>:<none>'
     )
     if (tags.length === 0) {
-      rows.push({
+      dangling.push({
         kind: 'image',
         ref: id,
         name: id.replace(/^sha256:/, '').slice(0, 12),
@@ -82,7 +83,8 @@ export function toImageRows(raw: unknown): ResourceRow[] {
       })
     }
   }
-  return rows.sort(byName)
+  // Untagged images sort after tagged ones.
+  return [...rows.sort(byName), ...dangling.sort(byName)]
 }
 
 export function toVolumeRows(raw: unknown): ResourceRow[] {
@@ -143,7 +145,10 @@ export function parsePrune(kind: ResourceKind, raw: unknown): PruneResult {
   const r = asRecord(raw)
   switch (kind) {
     case 'image':
-      return { deleted: list(r.ImagesDeleted).length, reclaimed: num(r.SpaceReclaimed) }
+      return {
+        deleted: list(r.ImagesDeleted).filter((e) => 'Deleted' in asRecord(e)).length,
+        reclaimed: num(r.SpaceReclaimed)
+      }
     case 'volume':
       return { deleted: list(r.VolumesDeleted).length, reclaimed: num(r.SpaceReclaimed) }
     case 'network':

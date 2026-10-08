@@ -36,7 +36,7 @@ describe('toImageRows', () => {
       { Id: 'sha256:111111111111aaaa', RepoTags: ['b:2', 'a:1'], Size: 7, Created: 20 },
       { Id: 'sha256:fedcba9876543210', RepoTags: null, Size: 1, Created: 30 }
     ])
-    expect(rows.map((r) => r.name)).toEqual(['a:1', 'abcdef012345', 'b:2', 'fedcba987654'])
+    expect(rows.map((r) => r.name)).toEqual(['a:1', 'b:2', 'abcdef012345', 'fedcba987654'])
     const a = rows.find((r) => r.name === 'a:1')!
     expect(a).toEqual({
       kind: 'image',
@@ -133,10 +133,12 @@ describe('isInUse', () => {
 
 describe('parsePrune', () => {
   it('per kind; null lists count 0', () => {
-    expect(parsePrune('image', { ImagesDeleted: [{}, {}], SpaceReclaimed: 99 })).toEqual({
-      deleted: 2,
-      reclaimed: 99
-    })
+    expect(
+      parsePrune('image', {
+        ImagesDeleted: [{ Untagged: 'a:1' }, { Deleted: 'sha256:1' }, { Deleted: 'sha256:2' }],
+        SpaceReclaimed: 99
+      })
+    ).toEqual({ deleted: 2, reclaimed: 99 })
     expect(parsePrune('image', { ImagesDeleted: null, SpaceReclaimed: 0 })).toEqual({
       deleted: 0,
       reclaimed: 0
@@ -193,5 +195,9 @@ describe('validators', () => {
     expect(NETWORK_ID.test('a'.repeat(12))).toBe(true)
     expect(NETWORK_ID.test('a'.repeat(65))).toBe(false)
     expect(NETWORK_ID.test('bridge')).toBe(false)
+    expect(NETWORK_ID.test('x9k2mzq81abc')).toBe(true)
+    expect(NETWORK_ID.test('A'.repeat(12))).toBe(false)
+    expect(NETWORK_ID.test('../etc/passwd')).toBe(false)
+    expect(NETWORK_ID.test('a'.repeat(11))).toBe(false)
   })
 })

@@ -66,7 +66,10 @@ describe('resources', () => {
   })
 
   it('prune posts to the right path and parses the result', async () => {
-    const i = fake({ ImagesDeleted: [{}, {}], SpaceReclaimed: 10 })
+    const i = fake({
+      ImagesDeleted: [{ Deleted: 'a' }, { Deleted: 'b' }, { Untagged: 'c' }],
+      SpaceReclaimed: 10
+    })
     await expect(pruneResources(i.client, 'image')).resolves.toEqual({ deleted: 2, reclaimed: 10 })
     expect(i.json).toHaveBeenCalledWith('POST', '/images/prune', undefined, { timeoutMs: 120000 })
     const v = fake({ VolumesDeleted: ['a'], SpaceReclaimed: 3 })
@@ -86,7 +89,17 @@ describe('resources', () => {
     expect(m('image', 404)).toBe('image นี้ถูกลบไปแล้ว')
     expect(m('volume', 404)).toBe('volume นี้ถูกลบไปแล้ว')
     expect(m('network', 404)).toBe('network นี้ถูกลบไปแล้ว')
-    expect(m('image', 409)).toBe('image นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน')
+    const inUse = 'image นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน'
+    expect(
+      m('image', 409, 'unable to delete abc - image is being used by running container x')
+    ).toBe(inUse)
+    expect(m('image', 409, 'image is in use by a stopped container')).toBe(inUse)
+    expect(m('image', 409, 'image is referenced in multiple repositories')).toBe(
+      'image is referenced in multiple repositories'
+    )
+    expect(m('image', 409, 'image has dependent child images')).toBe(
+      'image has dependent child images'
+    )
     expect(m('volume', 409)).toBe('volume นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน')
     expect(m('network', 403, 'error while removing network: has active endpoints')).toBe(
       'network นี้ยังมี container ต่ออยู่'
