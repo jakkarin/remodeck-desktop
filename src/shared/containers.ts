@@ -118,3 +118,11 @@ export function groupContainers(list: ContainerInfo[]): {
   for (const p of out) p.containers.sort(byName)
   return { projects: out, standalone: standalone.sort(byName) }
 }
+
+export type ComposeAction = 'up' | 'pull' | 'restart' | 'down'
+export const COMPOSE_ACTIONS: readonly ComposeAction[] = ['up', 'pull', 'restart', 'down']
+export const COMPOSE_PROJECT = /^[a-z0-9][a-z0-9_-]*$/
+
+export type HostTerminalRequest =
+  | { kind: 'logs' | 'shell'; id: string }
+  | { kind: 'compose'; project: string; action: ComposeAction }
