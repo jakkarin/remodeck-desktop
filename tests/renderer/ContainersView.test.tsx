@@ -17,7 +17,10 @@ vi.mock('../../src/renderer/src/api', () => ({
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
+vi.mock('../../src/renderer/src/terminalEvents', () => ({ openHostTerminal: vi.fn() }))
+
 import { api } from '../../src/renderer/src/api'
+import { openHostTerminal } from '../../src/renderer/src/terminalEvents'
 import { ContainersView } from '../../src/renderer/src/components/ContainersView'
 
 const host: Host = { id: 'h1', sshHost: 'a', label: 'Box', protected: false }
@@ -48,6 +51,7 @@ beforeEach(() => {
   for (const k of Object.keys(handlers)) delete handlers[k]
   vi.mocked(api.containers.open).mockResolvedValue({ list: LIST, live: true })
   vi.mocked(api.containers.action).mockResolvedValue(undefined)
+  vi.mocked(openHostTerminal).mockResolvedValue({} as never)
 })
 
 describe('ContainersView', () => {
@@ -270,5 +274,118 @@ describe('ContainersView', () => {
     await screen.findByText('web')
     fireEvent.change(screen.getByLabelText('Filter containers'), { target: { value: 'zzz' } })
     expect(screen.getByText('ไม่มี container ที่ตรงกับตัวกรอง')).toBeInTheDocument()
+  })
+
+  it('Logs opens a logs terminal for that container', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Logs web' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'logs',
+        id: 'web'.padEnd(12, '0')
+      })
+    )
+  })
+
+  it('Shell is disabled for a stopped container and opens shell for a running one', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    expect(screen.getByRole('button', { name: 'Shell old' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Logs old' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Shell web' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'shell',
+        id: 'web'.padEnd(12, '0')
+      })
+    )
+  })
+
+  it('compose Up runs immediately on a normal host', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Up shop' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'compose',
+        project: 'shop',
+        action: 'up'
+      })
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('compose Up asks for click confirm on a protected host', async () => {
+    render(<ContainersView host={prot} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Up shop' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('up · shop')).toBeInTheDocument()
+    expect(openHostTerminal).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Up' }))
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'compose',
+        project: 'shop',
+        action: 'up'
+      })
+    )
+  })
+
+  it('compose Down asks click on normal and typed host label on protected', async () => {
+    const first = render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
+    const click = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    expect(click).toBeEnabled()
+    expect(openHostTerminal).not.toHaveBeenCalled()
+    first.unmount()
+    render(<ContainersView host={prot} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
+    const typed = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    expect(typed).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('พิมพ์ชื่อ host เพื่อยืนยัน'), {
+      target: { value: 'Box' }
+    })
+    fireEvent.click(typed)
+    await waitFor(() =>
+      expect(openHostTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'compose',
+        project: 'shop',
+        action: 'down'
+      })
+    )
+  })
+
+  it('compose group tooltip shows the path, or the missing-path hint', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [
+        mk('web', { compose: { ...comp, configFiles: ['a.yml', 'b.yml'] } }),
+        mk('worker', { compose: { ...comp, project: 'jobs', workingDir: '', configFiles: [] } })
+      ],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    expect(within(shop).getByRole('button', { name: /shop \(compose\)/ })).toHaveAttribute(
+      'title',
+      '/w · a.yml, b.yml'
+    )
+    const jobs = screen.getByRole('region', { name: 'jobs (compose)' })
+    expect(within(jobs).getByRole('button', { name: /jobs \(compose\)/ })).toHaveAttribute(
+      'title',
+      'ไม่พบ path ของ compose project (ผลจริงดูใน terminal)'
+    )
+  })
+
+  it('openHostTerminal rejection shows the error banner', async () => {
+    vi.mocked(openHostTerminal).mockRejectedValueOnce(new Error('no pty'))
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Logs web' }))
+    expect(await screen.findByText('no pty')).toBeInTheDocument()
   })
 })

@@ -189,3 +189,8 @@ Still manual:
 | C.2 | user ที่ไม่อยู่ใน group docker → แสดงข้อความอธิบายสิทธิ์ที่ขาด | ☐ |
 | C.3 | start container จาก shell บน sandbox → รายการอัปเดตเองภายในไม่กี่วินาที | ☐ |
 | C.4 | Remove บน host ที่เป็น protected → ต้องพิมพ์ชื่อ host ให้ตรงก่อนปุ่ม Remove จะกดได้ | ☐ |
+| C.5 | กด Logs ที่ container → แท็บ terminal ใหม่ของ host นั้นเปิดและแสดง log สด; กด Shell ที่ container ที่หยุดอยู่ → ปุ่มกดไม่ได้ | ☐ |
+| C.6 | กด Shell ที่ container ที่รันอยู่ → ได้ shell ใน container (ลอง `ls`, `exit`) | ☐ |
+| C.7 | compose Up / Pull / Restart บน host ปกติ → รันทันทีใน terminal; Down → มี dialog ให้กดยืนยัน | ☐ |
+| C.8 | compose Up / Down บน host ที่เป็น protected → Up ต้องกดยืนยัน, Down ต้องพิมพ์ชื่อ host ให้ตรงก่อน | ☐ |
+| C.9 | เมื่อคำสั่งใน terminal จบ → มีบรรทัดแสดง exit code; compose project ที่ไม่มี path → tooltip แสดงข้อความ "ไม่พบ path ของ compose project" | ☐ |

@@ -1112,6 +1112,17 @@ textarea::placeholder {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+.ui-list-heading:has(.ui-list-heading-actions) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.ui-list-heading-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  font-weight: 400;
+}
 .ui-list-toggle {
   display: flex;
   align-items: center;
@@ -1189,7 +1200,7 @@ textarea::placeholder {
 }
 .container-actions {
   display: grid;
-  grid-template-columns: repeat(3, 30px);
+  grid-template-columns: repeat(5, 30px);
   gap: var(--space-1);
 }
 .container-actions .icon-btn {

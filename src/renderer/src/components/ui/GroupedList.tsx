@@ -4,6 +4,10 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 type GroupPanelProps = {
   title: string
   headingLevel?: 2 | 3 | 4
+  /** Controls shown beside the title, outside the toggle button. */
+  actions?: ReactNode
+  /** Tooltip for the toggle. */
+  titleHint?: string
   children: ReactNode
 } & ({ collapsed: boolean; onToggle: () => void } | { collapsed?: never; onToggle?: never })
 
@@ -11,6 +15,8 @@ type GroupPanelProps = {
 export function GroupPanel({
   title,
   headingLevel = 3,
+  actions,
+  titleHint,
   children,
   collapsed,
   onToggle
@@ -28,14 +34,18 @@ export function GroupPanel({
             className="ui-list-toggle"
             aria-expanded={!collapsed}
             aria-controls={listId}
+            title={titleHint}
             onClick={onToggle}
           >
             {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             <span>{title}</span>
           </button>
         ) : (
-          <span id={`${id}-title`}>{title}</span>
+          <span id={`${id}-title`} title={titleHint}>
+            {title}
+          </span>
         )}
+        {actions && <span className="ui-list-heading-actions">{actions}</span>}
       </Heading>
       <ul id={listId} className="ui-group-panel" hidden={collapsed}>
         {children}

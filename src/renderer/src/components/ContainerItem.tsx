@@ -1,4 +1,4 @@
-import { Play, RotateCw, Square, Trash2 } from 'lucide-react'
+import { Play, RotateCw, ScrollText, Square, SquareTerminal, Trash2 } from 'lucide-react'
 import type { ContainerAction, ContainerInfo } from '../../../shared/containers'
 import { capitalise, isActiveContainer, stateTone } from '../containerPresentation'
 import { Badge, IconButton } from './ui'
@@ -7,11 +7,13 @@ import { ItemRow } from './ui/GroupedList'
 export function ContainerItem({
   container: c,
   busy,
-  onAction
+  onAction,
+  onTerminal
 }: {
   container: ContainerInfo
   busy: boolean
   onAction: (action: ContainerAction) => void
+  onTerminal: (kind: 'logs' | 'shell') => void
 }): React.JSX.Element {
   const active = isActiveContainer(c)
   const removing = c.state === 'removing'
@@ -20,6 +22,17 @@ export function ContainerItem({
     <ItemRow
       actions={
         <div className="container-actions">
+          <IconButton aria-label={`Logs ${c.name}`} title="Logs" onClick={() => onTerminal('logs')}>
+            <ScrollText size={14} />
+          </IconButton>
+          <IconButton
+            aria-label={`Shell ${c.name}`}
+            title="Shell"
+            disabled={c.state !== 'running'}
+            onClick={() => onTerminal('shell')}
+          >
+            <SquareTerminal size={14} />
+          </IconButton>
           {active ? (
             <IconButton
               aria-label={`Stop ${c.name}`}

@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import type { ContainerAction, ContainerInfo } from '../../../shared/containers'
+import type {
+  ComposeAction,
+  ContainerAction,
+  ContainerInfo,
+  ContainerProject,
+  HostTerminalRequest
+} from '../../../shared/containers'
 import { groupContainers } from '../../../shared/containers'
 import type { Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { capitalise, isActiveContainer } from '../containerPresentation'
 import { dangerLevel } from '../danger'
 import { readJson, writeJson } from '../storage'
+import { openHostTerminal } from '../terminalEvents'
 import { useContainers } from '../useContainers'
 import { ConfirmDanger } from './ConfirmDanger'
 import { ErrorBanner } from './ErrorBanner'
@@ -17,9 +24,24 @@ const COLLAPSED_KEY = 'remodeck.composeCollapsed'
 
 type Pending = {
   hostId: string
-  container: ContainerInfo
-  action: ContainerAction
+  summary: string
+  confirmLabel: string
   mode: 'click' | 'type'
+  run: () => Promise<void>
+}
+
+const COMPOSE_LABELS: [ComposeAction, string][] = [
+  ['up', 'Up'],
+  ['pull', 'Pull'],
+  ['restart', 'Restart'],
+  ['down', 'Down']
+]
+const NO_PATH_HINT = 'ไม่พบ path ของ compose project (ผลจริงดูใน terminal)'
+
+function projectHint(p: ContainerProject): string {
+  return p.workingDir && p.configFiles.length > 0
+    ? `${p.workingDir} · ${p.configFiles.join(', ')}`
+    : NO_PATH_HINT
 }
 
 export function ContainersView({ host }: { host: Host }): React.JSX.Element {
@@ -51,22 +73,50 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     await api.containers.action(host.id, c.id, action)
     setActionError(null)
   }
+  const mark = (id: string, on: boolean): void =>
+    setBusy((s) => {
+      const n = new Set(s)
+      if (on) n.add(id)
+      else n.delete(id)
+      return n
+    })
   const request = (c: ContainerInfo, action: ContainerAction): void => {
     const level = dangerLevel(action, host.protected)
     if (level === 'none') {
-      const mark = (on: boolean): void =>
-        setBusy((s) => {
-          const n = new Set(s)
-          if (on) n.add(c.id)
-          else n.delete(c.id)
-          return n
-        })
-      mark(true)
+      mark(c.id, true)
       run(c, action)
         .catch((e) => setActionError(errorMessage(e)))
-        .finally(() => mark(false))
+        .finally(() => mark(c.id, false))
     } else {
-      setPending({ hostId: host.id, container: c, action, mode: level })
+      setPending({
+        hostId: host.id,
+        summary: `${action} · ${c.name}`,
+        confirmLabel: capitalise(action),
+        mode: level,
+        run: () => run(c, action)
+      })
+    }
+  }
+  const openTerminal = async (req: HostTerminalRequest): Promise<void> => {
+    await openHostTerminal(host.id, req)
+    setActionError(null)
+  }
+  const terminal = (c: ContainerInfo, kind: 'logs' | 'shell'): void => {
+    openTerminal({ kind, id: c.id }).catch((e) => setActionError(errorMessage(e)))
+  }
+  const compose = (project: string, action: ComposeAction): void => {
+    const level = dangerLevel(`compose-${action}`, host.protected)
+    const go = (): Promise<void> => openTerminal({ kind: 'compose', project, action })
+    if (level === 'none') {
+      go().catch((e) => setActionError(errorMessage(e)))
+    } else {
+      setPending({
+        hostId: host.id,
+        summary: `${action} · ${project}`,
+        confirmLabel: capitalise(action),
+        mode: level,
+        run: go
+      })
     }
   }
 
@@ -97,6 +147,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       container={c}
       busy={busy.has(c.id)}
       onAction={(action) => request(c, action)}
+      onTerminal={(kind) => terminal(c, kind)}
     />
   )
   return (
@@ -129,6 +180,16 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
           title={`${p.name} (compose)`}
           collapsed={collapsed.includes(p.name)}
           onToggle={() => toggleProject(p.name)}
+          titleHint={projectHint(p)}
+          actions={COMPOSE_LABELS.map(([action, label]) => (
+            <Button
+              key={action}
+              aria-label={`${label} ${p.name}`}
+              onClick={() => compose(p.name, action)}
+            >
+              {label}
+            </Button>
+          ))}
         >
           {p.containers.map(row)}
         </GroupPanel>
@@ -137,12 +198,12 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       {pending && !stale && (
         <ConfirmDanger
           host={host}
-          summary={`${pending.action} · ${pending.container.name}`}
-          confirmLabel={capitalise(pending.action)}
+          summary={pending.summary}
+          confirmLabel={pending.confirmLabel}
           mode={pending.mode}
           onConfirm={async () => {
             if (pending.hostId !== host.id) throw new Error('host changed')
-            await run(pending.container, pending.action)
+            await pending.run()
           }}
           onClose={() => setPending(null)}
         />
