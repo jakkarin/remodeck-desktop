@@ -1084,6 +1084,34 @@ textarea::placeholder {
 }
 
 .containers-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+/* Same look as the terminal tab bar. */
+.containers-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.containers-tab {
+  background: transparent;
+  border-color: transparent;
+}
+.containers-tab.active {
+  font-weight: 600;
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+}
+.containers-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: var(--space-3) var(--space-4);
   container-type: inline-size;
 }
@@ -1131,6 +1159,7 @@ textarea::placeholder {
 .ui-list-toggle {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-1);
   padding: 0;
   text-align: left;

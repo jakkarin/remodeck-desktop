@@ -152,14 +152,14 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   // The resource tabs need the host the failed list left disposed.
   if (error !== null && tab !== 'containers') setTab('containers')
   const tabStrip = (
-    <div role="tablist" aria-label="Docker resources" className="details-tabs">
+    <div role="tablist" aria-label="Docker resources" className="containers-tabbar">
       {TABS.map(([id, label]) => (
         <button
           key={id}
           type="button"
           role="tab"
           aria-selected={tab === id}
-          className="details-tab"
+          className={`containers-tab${tab === id ? ' active' : ''}`}
           disabled={error !== null && id !== 'containers'}
           title={
             error !== null && id !== 'containers'
@@ -177,7 +177,9 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     return (
       <div className="containers-view">
         {tabStrip}
-        <ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />
+        <div className="containers-body">
+          <ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />
+        </div>
       </div>
     )
   }
@@ -186,9 +188,11 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     return (
       <div className="containers-view">
         {tabStrip}
-        <ErrorBanner message={`เชื่อมต่อ docker บน ${host.label} ไม่ได้`} />
-        <div className="error">{error}</div>
-        <Button onClick={retry}>Retry</Button>
+        <div className="containers-body">
+          <ErrorBanner message={`เชื่อมต่อ docker บน ${host.label} ไม่ได้`} />
+          <div className="error">{error}</div>
+          <Button onClick={retry}>Retry</Button>
+        </div>
       </div>
     )
   }
@@ -196,7 +200,9 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     return (
       <div className="containers-view">
         {tabStrip}
-        <div className="muted">กำลังโหลด…</div>
+        <div className="containers-body">
+          <div className="muted">กำลังโหลด…</div>
+        </div>
       </div>
     )
   }
@@ -230,65 +236,67 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   return (
     <div className="containers-view">
       {tabStrip}
-      <div className={`containers-split${selected ? ' has-details' : ''}`}>
-        <div className="containers-main">
-          <div className="containers-toolbar">
-            <TextInput
-              aria-label="Filter containers"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <label>
-              <input
-                type="checkbox"
-                checked={showStopped}
-                onChange={(e) => setShowStopped(e.target.checked)}
+      <div className="containers-body">
+        <div className={`containers-split${selected ? ' has-details' : ''}`}>
+          <div className="containers-main">
+            <div className="containers-toolbar">
+              <TextInput
+                aria-label="Filter containers"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
               />
-              แสดงตัวที่หยุด
-            </label>
-            {!live && <Badge tone="warning">หยุดอัปเดตสด</Badge>}
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showStopped}
+                  onChange={(e) => setShowStopped(e.target.checked)}
+                />
+                แสดงตัวที่หยุด
+              </label>
+              {!live && <Badge tone="warning">หยุดอัปเดตสด</Badge>}
+            </div>
+            {actionError && <ErrorBanner message={actionError} />}
+            {list.length === 0 && (
+              <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>
+            )}
+            {list.length > 0 && visible.length === 0 && (
+              <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
+            )}
+            {projects.map((p) => (
+              <GroupPanel
+                key={p.name}
+                title={`${p.name} (compose)`}
+                collapsed={collapsed.includes(p.name)}
+                onToggle={() => toggleProject(p.name)}
+                titleHint={projectHint(p)}
+                actions={COMPOSE_LABELS.map(([action, label]) => (
+                  <Button
+                    key={action}
+                    aria-label={`${label} ${p.name}`}
+                    disabled={busy.has(`compose:${p.name}`)}
+                    onClick={() => compose(p.name, action)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              >
+                {p.containers.map(row)}
+              </GroupPanel>
+            ))}
+            {standalone.length > 0 && (
+              <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>
+            )}
           </div>
-          {actionError && <ErrorBanner message={actionError} />}
-          {list.length === 0 && (
-            <div className="muted">{`ยังไม่มี container บน ${host.label}`}</div>
-          )}
-          {list.length > 0 && visible.length === 0 && (
-            <div className="muted">ไม่มี container ที่ตรงกับตัวกรอง</div>
-          )}
-          {projects.map((p) => (
-            <GroupPanel
-              key={p.name}
-              title={`${p.name} (compose)`}
-              collapsed={collapsed.includes(p.name)}
-              onToggle={() => toggleProject(p.name)}
-              titleHint={projectHint(p)}
-              actions={COMPOSE_LABELS.map(([action, label]) => (
-                <Button
-                  key={action}
-                  aria-label={`${label} ${p.name}`}
-                  disabled={busy.has(`compose:${p.name}`)}
-                  onClick={() => compose(p.name, action)}
-                >
-                  {label}
-                </Button>
-              ))}
-            >
-              {p.containers.map(row)}
-            </GroupPanel>
-          ))}
-          {standalone.length > 0 && (
-            <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>
+          {selected && (
+            <ContainerDetailsPanel
+              key={selected.id}
+              host={host}
+              container={selected}
+              onClose={() => setSelectedId(null)}
+            />
           )}
         </div>
-        {selected && (
-          <ContainerDetailsPanel
-            key={selected.id}
-            host={host}
-            container={selected}
-            onClose={() => setSelectedId(null)}
-          />
-        )}
       </div>
       {pending && !stale && (
         <ConfirmDanger
