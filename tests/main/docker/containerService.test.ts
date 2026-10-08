@@ -835,4 +835,54 @@ describe('ContainerService', () => {
       await expect(t.svc.inspect('h', ID1)).rejects.toThrow('daemon exploded')
     })
   })
+
+  describe('resources', () => {
+    const NET = 'c'.repeat(64)
+    const never = (): Promise<void> => new Promise<void>(() => {})
+
+    it('service methods require an open host', async () => {
+      const t = setup({ sleep: never })
+      await expect(t.svc.resources('nope', 'image')).rejects.toThrow('ยังไม่ได้เปิด host นี้')
+      await expect(t.svc.removeResource('nope', 'volume', 'v')).rejects.toThrow(
+        'ยังไม่ได้เปิด host นี้'
+      )
+      await expect(t.svc.prune('nope', 'network')).rejects.toThrow('ยังไม่ได้เปิด host นี้')
+      expect(t.json).not.toHaveBeenCalled()
+    })
+
+    it('delegates with the host client and maps Docker errors', async () => {
+      const t = setup({ sleep: never })
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) =>
+        path === '/volumes' ? { Volumes: [{ Name: 'data' }] } : path === '/volumes/prune' ? {} : []
+      )
+      await expect(t.svc.resources('h', 'volume')).resolves.toHaveLength(1)
+      await expect(t.svc.prune('h', 'volume')).resolves.toEqual({ deleted: 0, reclaimed: null })
+      t.json.mockImplementation(async (m) => {
+        if (m === 'DELETE') throw new DockerError(409, 'volume is in use')
+        return []
+      })
+      await expect(t.svc.removeResource('h', 'volume', 'data')).rejects.toThrow(
+        'volume นี้ถูกใช้โดย container อยู่ ต้องลบ container นั้นก่อน'
+      )
+    })
+
+    it('removing a builtIn network throws the predefined message without DELETE', async () => {
+      const t = setup({ sleep: never })
+      await t.svc.open('h')
+      t.json.mockImplementation(async (_m, path) =>
+        path === '/networks' ? [{ Id: NET, Name: 'bridge', Driver: 'bridge' }] : []
+      )
+      await expect(t.svc.removeResource('h', 'network', NET)).rejects.toThrow(
+        'ลบ network พื้นฐาน (bridge/host/none) ไม่ได้'
+      )
+      expect(t.json.mock.calls.some((c) => c[0] === 'DELETE')).toBe(false)
+      // unknown ref: Docker decides
+      const other = 'd'.repeat(64)
+      await t.svc.removeResource('h', 'network', other)
+      expect(t.json).toHaveBeenLastCalledWith('DELETE', `/networks/${other}`, undefined, {
+        timeoutMs: 120000
+      })
+    })
+  })
 })

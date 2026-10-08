@@ -1,5 +1,6 @@
 // Typed IPC contract between main and renderer: types and channel names only, no node imports.
 import type { ContainerStats } from './containerDetails'
+import type { PruneResult, ResourceKind, ResourceRow } from './resources'
 import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './containers'
 import type {
   ApprovalDecision,
@@ -87,6 +88,10 @@ export interface RemodeckApi {
     action(hostId: string, id: string, action: ContainerAction): Promise<void>
     /** Raw `docker inspect` JSON for one container. */
     inspect(hostId: string, id: string): Promise<unknown>
+    /** Fresh list of images, volumes or networks (not cached). */
+    resources(hostId: string, kind: ResourceKind): Promise<ResourceRow[]>
+    removeResource(hostId: string, kind: ResourceKind, ref: string): Promise<void>
+    prune(hostId: string, kind: ResourceKind): Promise<PruneResult>
     /** Starts or stops the live CPU/RAM polling for the host's running containers (fire-and-forget). */
     watchStats(hostId: string, on: boolean): void
     /** Opens a logs, shell or compose terminal tab on the host over ssh. */
@@ -174,6 +179,9 @@ export const IPC_CHANNELS = {
     action: 'containers:action',
     openTerminal: 'containers:openTerminal',
     inspect: 'containers:inspect',
+    resources: 'containers:resources',
+    removeResource: 'containers:removeResource',
+    prune: 'containers:prune',
     watchStats: 'containers:watchStats'
   },
   approval: { respond: 'approval:respond' },

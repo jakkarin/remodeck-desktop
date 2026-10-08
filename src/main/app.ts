@@ -14,6 +14,7 @@ import {
   type ContainerAction,
   type HostTerminalRequest
 } from '../shared/containers'
+import { RESOURCE_KINDS, type ResourceKind } from '../shared/resources'
 import { composeCommand, logsCommand, shellCommand } from './docker/hostCommands'
 import { IPC_CHANNELS, type MainApi } from '../shared/ipc'
 import { ApprovalService } from './approval/approvalService'
@@ -69,10 +70,26 @@ function isTerminalRequest(r: unknown): r is HostTerminalRequest {
   return false
 }
 
+function checkKind(kind: unknown): ResourceKind {
+  if (!RESOURCE_KINDS.includes(kind as ResourceKind)) throw new Error('Invalid resource kind')
+  return kind as ResourceKind
+}
+
 export function containersApi(deps: {
   hostOf(id: string): Host
   connection: Pick<ConnectionService, 'requireConnected' | 'probeDocker'>
-  service: Pick<ContainerService, 'open' | 'action' | 'find' | 'project' | 'inspect' | 'watchStats'>
+  service: Pick<
+    ContainerService,
+    | 'open'
+    | 'action'
+    | 'find'
+    | 'project'
+    | 'inspect'
+    | 'watchStats'
+    | 'resources'
+    | 'removeResource'
+    | 'prune'
+  >
   terminal: Pick<TerminalService, 'openHost'>
 }): MainApi['containers'] {
   return {
@@ -95,6 +112,23 @@ export function containersApi(deps: {
       deps.hostOf(hostId)
       deps.connection.requireConnected(hostId)
       return deps.service.inspect(hostId, id)
+    },
+    resources: async (hostId, kind) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.service.resources(hostId, checkKind(kind))
+    },
+    removeResource: async (hostId, kind, ref) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      const k = checkKind(kind)
+      if (typeof ref !== 'string') throw new Error('Invalid resource ref')
+      return deps.service.removeResource(hostId, k, ref)
+    },
+    prune: async (hostId, kind) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.service.prune(hostId, checkKind(kind))
     },
     watchStats: (hostId, on) => {
       try {

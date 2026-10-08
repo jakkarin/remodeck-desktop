@@ -66,6 +66,9 @@ function fakeApi(): MainApi {
       action: fn(),
       openTerminal: fn(),
       inspect: fn(),
+      resources: fn(),
+      removeResource: fn(),
+      prune: fn(),
       watchStats: vi.fn()
     },
     approval: { respond: vi.fn() },

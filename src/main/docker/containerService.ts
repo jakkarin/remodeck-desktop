@@ -10,6 +10,14 @@ import {
 import type { ContainerStats } from '../../shared/containerDetails'
 import { DockerError, type DockerClient } from './dockerClient'
 import { startStatsLoop } from './statsLoop'
+import type { PruneResult, ResourceKind, ResourceRow } from '../../shared/resources'
+import {
+  PREDEFINED_NETWORK_MESSAGE,
+  dockerErrorMessage,
+  listResources,
+  pruneResources,
+  removeResource
+} from './resources'
 
 const EVENTS_PATH = '/events?filters=' + encodeURIComponent('{"type":["container"]}')
 const LIST_PATH = '/containers/json?all=1'
@@ -174,6 +182,43 @@ export class ContainerService extends EventEmitter {
         throw new Error(e.message)
       }
       throw e
+    }
+  }
+
+  private openClient(hostId: string): DockerClient {
+    const st = this.hosts.get(hostId)
+    if (!st || st.disposed) throw new Error('ยังไม่ได้เปิด host นี้')
+    return st.client
+  }
+
+  async resources(hostId: string, kind: ResourceKind): Promise<ResourceRow[]> {
+    const client = this.openClient(hostId)
+    try {
+      return await listResources(client, kind)
+    } catch (e) {
+      throw dockerErrorMessage(kind, e)
+    }
+  }
+
+  async removeResource(hostId: string, kind: ResourceKind, ref: string): Promise<void> {
+    const client = this.openClient(hostId)
+    try {
+      if (kind === 'network') {
+        const row = (await listResources(client, kind)).find((r) => r.ref === ref)
+        if (row?.builtIn) throw new Error(PREDEFINED_NETWORK_MESSAGE)
+      }
+      await removeResource(client, kind, ref)
+    } catch (e) {
+      throw dockerErrorMessage(kind, e)
+    }
+  }
+
+  async prune(hostId: string, kind: ResourceKind): Promise<PruneResult> {
+    const client = this.openClient(hostId)
+    try {
+      return await pruneResources(client, kind)
+    } catch (e) {
+      throw dockerErrorMessage(kind, e)
     }
   }
 

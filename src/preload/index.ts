@@ -58,6 +58,9 @@ const remodeck: RemodeckApi = {
     action: invoke(C.containers.action),
     openTerminal: invoke(C.containers.openTerminal),
     inspect: invoke(C.containers.inspect),
+    resources: invoke(C.containers.resources),
+    removeResource: invoke(C.containers.removeResource),
+    prune: invoke(C.containers.prune),
     watchStats: send(C.containers.watchStats)
   },
   approval: { respond: send(C.approval.respond) },
