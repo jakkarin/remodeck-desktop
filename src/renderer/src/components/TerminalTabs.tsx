@@ -156,6 +156,12 @@ export function TerminalTabs({
     },
     []
   )
+  const collapsedRef = useRef(collapsed)
+  const onToggleRef = useRef(onToggle)
+  useEffect(() => {
+    collapsedRef.current = collapsed
+    onToggleRef.current = onToggle
+  })
   const [tabs, setTabs] = useState<Tab[]>([])
   // Remembered active tab per host, so switching hosts back restores it.
   const [activeByHost, setActiveByHost] = useState<Record<string, string | null>>({})
@@ -193,6 +199,7 @@ export function TerminalTabs({
           : [...prev, { tabId, label, hostId, exited: false }]
       )
       setActiveByHost((prev) => ({ ...prev, [hostId]: tabId }))
+      if (collapsedRef.current) onToggleRef.current()
     })
     return () => {
       offData()
