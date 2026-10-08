@@ -1,17 +1,26 @@
 import { Play, RotateCw, ScrollText, Square, SquareTerminal, Trash2 } from 'lucide-react'
+import type { ContainerStats } from '../../../shared/containerDetails'
 import type { ContainerAction, ContainerInfo } from '../../../shared/containers'
-import { capitalise, isActiveContainer, stateTone } from '../containerPresentation'
+import {
+  capitalise,
+  formatCpu,
+  formatMem,
+  isActiveContainer,
+  stateTone
+} from '../containerPresentation'
 import { Badge, IconButton } from './ui'
 import { ItemRow } from './ui/GroupedList'
 
 export function ContainerItem({
   container: c,
   busy,
+  stats,
   onAction,
   onTerminal
 }: {
   container: ContainerInfo
   busy: boolean
+  stats?: ContainerStats
   onAction: (action: ContainerAction) => void
   onTerminal: (kind: 'logs' | 'shell') => void
 }): React.JSX.Element {
@@ -99,6 +108,12 @@ export function ContainerItem({
           )}
         </span>
         <span>{c.status}</span>
+        {c.state === 'running' && (
+          <>
+            <span className="container-cpu">CPU {stats ? formatCpu(stats.cpu) : '—'}</span>
+            <span className="container-mem">RAM {stats ? formatMem(stats.memBytes) : '—'}</span>
+          </>
+        )}
       </div>
     </ItemRow>
   )

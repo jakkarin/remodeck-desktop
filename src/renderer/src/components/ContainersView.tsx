@@ -14,6 +14,7 @@ import { dangerLevel } from '../danger'
 import { readJson, writeJson } from '../storage'
 import { openHostTerminal } from '../terminalEvents'
 import { useContainers } from '../useContainers'
+import { useContainerStats } from '../useContainerStats'
 import { ConfirmDanger } from './ConfirmDanger'
 import { ErrorBanner } from './ErrorBanner'
 import { Badge, Button, TextInput } from './ui'
@@ -46,6 +47,7 @@ function projectHint(p: ContainerProject): string {
 
 export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const { list, live, error, retry } = useContainers(host.id)
+  const stats = useContainerStats(host.id, list !== null)
   const [filter, setFilter] = useState('')
   const [showStopped, setShowStopped] = useState(false)
   const [collapsedAll, setCollapsedAll] = useState<Record<string, string[]>>(() =>
@@ -160,6 +162,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       key={c.id}
       container={c}
       busy={busy.has(c.id)}
+      stats={stats[c.id]}
       onAction={(action) => request(c, action)}
       onTerminal={(kind) => terminal(c, kind)}
     />

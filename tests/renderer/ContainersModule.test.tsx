@@ -5,7 +5,11 @@ import { DEFAULT_PREFS, type HostStatus } from '../../src/shared/types'
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
     hosts: { connect: vi.fn() },
-    containers: { open: vi.fn().mockResolvedValue({ list: [], live: true }), action: vi.fn() },
+    containers: {
+      open: vi.fn().mockResolvedValue({ list: [], live: true }),
+      action: vi.fn(),
+      watchStats: vi.fn()
+    },
     on: vi.fn(() => () => {})
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))

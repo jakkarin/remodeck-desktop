@@ -15,3 +15,8 @@ export const stateTone: Record<ContainerState, BadgeTone> = {
 }
 
 export const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
+
+export const formatCpu = (n: number): string => `${n.toFixed(1)}%`
+
+export const formatMem = (bytes: number): string =>
+  bytes < 1073741824 ? `${Math.round(bytes / 1048576)} MB` : `${(bytes / 1073741824).toFixed(1)} GB`

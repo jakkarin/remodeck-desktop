@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import type { ContainerInfo } from '../../src/shared/containers'
 import type { Host } from '../../src/shared/types'
 
@@ -8,7 +8,7 @@ const handlers: Record<string, Set<Handler>> = {}
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
-    containers: { open: vi.fn(), action: vi.fn() },
+    containers: { open: vi.fn(), action: vi.fn(), watchStats: vi.fn() },
     on: vi.fn((event: string, cb: Handler) => {
       ;(handlers[event] ??= new Set()).add(cb)
       return () => handlers[event].delete(cb)
@@ -55,6 +55,28 @@ beforeEach(() => {
 })
 
 describe('ContainersView', () => {
+  it('shows CPU/RAM for running containers and — when missing; none for stopped', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [mk('web'), mk('nostat'), mk('old', { state: 'exited', status: 'Exited' })],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    expect(api.containers.watchStats).toHaveBeenCalledWith('h1', true)
+    act(() => {
+      for (const cb of handlers['containers-stats'] ?? [])
+        (cb as (...a: unknown[]) => void)('h1', {
+          [mk('web').id]: { cpu: 2.1, memBytes: 41943040, memLimit: 1 }
+        })
+    })
+    expect(screen.getByText('CPU 2.1%')).toBeInTheDocument()
+    expect(screen.getByText('RAM 40 MB')).toBeInTheDocument()
+    expect(screen.getByText('CPU —')).toBeInTheDocument()
+    expect(screen.getByText('RAM —')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('แสดงตัวที่หยุด'))
+    expect(screen.getAllByText(/^CPU /)).toHaveLength(2)
+  })
+
   it('keeps each project’s metadata and actions in its own named list group', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({
       list: [
