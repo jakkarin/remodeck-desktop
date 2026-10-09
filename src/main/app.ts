@@ -25,6 +25,10 @@ import { DockerClient } from './docker/dockerClient'
 import { sshDialStdio } from './docker/dialStdio'
 import { HostGit } from './git/hostGit'
 import { getGitHubCredential } from './github/credentials'
+import { GitTokenService } from './gitAccess/gitTokenService'
+import { createGithubAdapter } from './gitAccess/providers'
+import { SecretStore, electronEncryptor } from './gitAccess/secretStore'
+import { TargetAccessService } from './gitAccess/targetAccessService'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
 import { resolveSshPath } from './proc/sshPath'
@@ -216,6 +220,14 @@ export async function createApp(opts: {
   }
   const targetFor = (hostId: string): SshTarget => new SshTarget(hostOf(hostId).sshHost, sshPath)
   const sshHostFor = (hostId: string): string => hostOf(hostId).sshHost
+
+  const adapters = [createGithubAdapter()]
+  const gitTokens = new GitTokenService({
+    store,
+    secrets: new SecretStore(opts.dataDir, electronEncryptor()),
+    adapters
+  })
+  const gitAccess = new TargetAccessService({ store, tokens: gitTokens, adapters, targetFor })
 
   const mirror = new MirrorService(git, (repo) => `${githubBase}/${repo.owner}/${repo.name}.git`)
   const sync = new SyncService({ git, mirror, store, targetFor })
@@ -491,6 +503,27 @@ export async function createApp(opts: {
     },
     pushLog: {
       read: async (limit) => store.readPushLog(limit)
+    },
+    gitTokens: {
+      list: async () => store.config.gitTokens,
+      add: (input) => gitTokens.add(input),
+      replace: (id, token) => gitTokens.replace(id, token),
+      setLabel: async (id, label) => gitTokens.setLabel(id, label),
+      remove: async (id) => gitTokens.remove(id)
+    },
+    gitAccess: {
+      status: async (hostId) => {
+        hostOf(hostId)
+        return gitAccess.status(hostId)
+      },
+      install: async (hostId, tokenIds) => {
+        hostOf(hostId)
+        return gitAccess.install(hostId, tokenIds)
+      },
+      remove: async (hostId) => {
+        hostOf(hostId)
+        return gitAccess.remove(hostId)
+      }
     }
   }
 

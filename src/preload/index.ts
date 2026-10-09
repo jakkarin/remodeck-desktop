@@ -66,6 +66,18 @@ const remodeck: RemodeckApi = {
   approval: { respond: send(C.approval.respond) },
   prefs: { get: invoke(C.prefs.get), update: invoke(C.prefs.update) },
   pushLog: { read: invoke(C.pushLog.read) },
+  gitTokens: {
+    list: invoke(C.gitTokens.list),
+    add: invoke(C.gitTokens.add),
+    replace: invoke(C.gitTokens.replace),
+    setLabel: invoke(C.gitTokens.setLabel),
+    remove: invoke(C.gitTokens.remove)
+  },
+  gitAccess: {
+    status: invoke(C.gitAccess.status),
+    install: invoke(C.gitAccess.install),
+    remove: invoke(C.gitAccess.remove)
+  },
   on(event: RemodeckEvent, cb: (...args: never[]) => void): () => void {
     const channel = C.events[event]
     if (!channel) throw new Error(`Unknown event ${String(event)}`)
