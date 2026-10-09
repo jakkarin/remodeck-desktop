@@ -36,7 +36,7 @@ export type GitAccessStatus = {
   missing: string[]
 }
 
-const HOST_RE = /^[a-z0-9.-]+$/
+const HOST_LABEL_RE = /^(?=.*[a-z0-9])[a-z0-9-]+$/
 const SEGMENT_RE = /^[a-z0-9._-]+$/
 const TOKEN_RE = /^[\x21-\x7e]{1,512}$/
 
@@ -51,7 +51,7 @@ export function normalizeScopePath(path: string): string {
 
 /** Returns an error message for an invalid host or scope path, or null when valid. */
 export function validateScope(host: string, path: string): string | null {
-  if (!HOST_RE.test(host)) return `Invalid host "${host}"`
+  if (!host.split('.').every((label) => HOST_LABEL_RE.test(label))) return `Invalid host "${host}"`
   const normalized = normalizeScopePath(path)
   if (normalized === '') return 'Scope path must not be empty'
   for (const segment of normalized.split('/')) {

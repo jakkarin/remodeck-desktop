@@ -20,6 +20,16 @@ describe('git access scope model', () => {
     expect(validateScope('github.com', 'org-a/payments')).toBeNull()
   })
 
+  it('rejects dot-only and empty host labels', () => {
+    expect(validateScope('..', 'x')).not.toBeNull()
+    expect(validateScope('.', 'x')).not.toBeNull()
+    expect(validateScope('a..b', 'x')).not.toBeNull()
+    expect(validateScope('.github.com', 'x')).not.toBeNull()
+    expect(validateScope('github.com.', 'x')).not.toBeNull()
+    expect(validateScope('-', 'x')).not.toBeNull()
+    expect(validateScope('github.com', 'org-a')).toBeNull()
+  })
+
   it('matches the most specific scope for a repo path', () => {
     const items = [
       { host: 'github.com', path: 'org-a' },
