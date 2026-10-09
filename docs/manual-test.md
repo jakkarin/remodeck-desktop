@@ -171,6 +171,18 @@ Still manual:
 - How the Electron UI renders (xterm, the popup, the buttons).
 - Real GitHub (credential manager, opening the PR) and case 7.
 
+`tests/e2e/gitAccess.e2e.test.ts` runs git access against the same Debian image over real ssh, through `TargetAccessService`.
+Tokens go straight into the store, so the GitHub API is not called. `gh` is a stub that prints the token it receives and
+answers as `gh auth git-credential`. 8/8 passed (whole e2e run: 30/30). It checks:
+- Longest-prefix token choice through `git credential fill`.
+- Owner-only modes on the token files.
+- A plain `ssh host 'cd repo && gh'` (sshd runs `bash -c`, which on Debian reads `~/.bashrc`): gets no token before the PATH block and the repo's token after it. Status also flips to active in non-login shells.
+- The PATH block sits above Debian's non-interactive guard. The mode of `~/.bashrc` is kept, and a symlinked one is not edited.
+- With the lines `gh auth setup-git` writes, status reports `behind` and gh answers first. With helper-first ticked, remodeck answers and gh is the fallback. After a later `setup-git`, status reports `missing`, and one update (with the saved choice) fixes it.
+- Remove leaves `~/.bashrc` identical to Debian's skeleton and keeps gh's block in `~/.gitconfig`.
+
+Not covered there: real `gh`, real GitHub push and PR, zsh/fish.
+
 
 ### UI redesign (manual)
 
