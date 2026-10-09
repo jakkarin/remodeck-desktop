@@ -187,4 +187,53 @@ describe('HostGitAccessPanel', () => {
     expect(refresh).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Update host' })).toBeInTheDocument()
   })
+
+  it('keeps the installed state when install fails after the host gained gitAccess', async () => {
+    vi.mocked(api.gitAccess.install).mockRejectedValue(
+      new Error('Status check failed (exit 1): boom')
+    )
+    let hosts: Host[] = [plainHost]
+    const view = (): React.JSX.Element => (
+      <AppStateContext.Provider value={{ refresh, hosts } as unknown as AppState}>
+        <HostGitAccessPanel host={plainHost} />
+      </AppStateContext.Provider>
+    )
+    const { rerender } = render(view())
+    refresh.mockImplementation(async () => {
+      hosts = [installedHost]
+      rerender(view())
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Install' }))
+    expect(await screen.findByText('Status check failed (exit 1): boom')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Update host' })).toBeInTheDocument()
+    const enable = screen.getByRole('checkbox', { name: 'Enable git access on this host' })
+    expect(enable).toBeChecked()
+    expect(enable).toBeDisabled()
+  })
+
+  it('stays not installed when install fails and the host has no gitAccess', async () => {
+    vi.mocked(api.gitAccess.install).mockRejectedValue(new Error('boom'))
+    renderPanel(plainHost)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Install' }))
+    expect(await screen.findByText('boom')).toBeInTheDocument()
+    expect(refresh).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Update host' })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Enable git access on this host' })).toBeEnabled()
+  })
+
+  it('disables Install until a token is checked', async () => {
+    renderPanel(plainHost)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    const box = await screen.findByRole('checkbox', { name: /github.com\/acme/ })
+    expect(screen.getByRole('button', { name: 'Install' })).toBeDisabled()
+    fireEvent.click(box)
+    expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled()
+  })
 })

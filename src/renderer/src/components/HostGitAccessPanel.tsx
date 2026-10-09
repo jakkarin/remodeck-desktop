@@ -211,7 +211,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
             )}
             <Button
               variant="primary"
-              disabled={busy}
+              disabled={busy || !tokens.some((t) => checked.has(t.id))}
               onClick={() => (installed ? void doInstall() : setConfirm('install'))}
             >
               {installed ? 'Update host' : 'Install'}
