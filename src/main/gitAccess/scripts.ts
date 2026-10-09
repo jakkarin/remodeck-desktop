@@ -11,7 +11,37 @@ export type InstallInput = {
   wrappers: { cli: CliSpec; defaultHost: string }[]
   /** Only with the user's consent: put ~/.local/bin first in PATH from the top of ~/.bashrc. */
   pathBlock?: boolean
+  /**
+   * Only with the user's consent: our include resets the helper list, asks our helper first and re-adds the
+   * helpers configured before it as fallback; the include line moves to the end of the global config.
+   */
+  helperFirst?: boolean
 }
+
+/**
+ * sh function `helpers <host> [git config flags]`: prints the credential helpers git would ask for https://<host>,
+ * in order, after empty-value resets. It reads credential.helper and credential.https://<host>[/].helper.
+ */
+const HELPER_LIST_FN = [
+  'helpers() {',
+  '  hh=$1; shift',
+  `  git config "$@" --get-regexp '^credential\\.' </dev/null 2>/dev/null | awk -v a=credential.helper -v b="credential.https://$hh.helper" -v c="credential.https://$hh/.helper" '`,
+  '    { k = $1; if (k != a && k != b && k != c) next; v = substr($0, length(k) + 2) }',
+  '    v == "" { n = 0; next }',
+  '    { l[++n] = v }',
+  "    END { for (i = 1; i <= n; i++) print l[i] }'",
+  '}'
+].join('\n')
+
+/** sh that deletes our include.path line by exact value; git older than 2.30 has no --fixed-value (exit 129). */
+const UNSET_INCLUDE = [
+  'urc=0',
+  'git config --global --fixed-value --unset-all include.path "$INC" </dev/null >/dev/null 2>&1 || urc=$?',
+  'if [ "$urc" -eq 129 ]; then',
+  `  esc=$(printf %s "$INC" | sed 's/[][\\.*^$+?(){}|]/\\\\&/g')`,
+  '  git config --global --unset-all include.path "^$esc\\$" </dev/null >/dev/null 2>&1 || :',
+  'fi'
+].join('\n')
 
 export const PATH_BLOCK_BEGIN = '# >>> remodeck git-access >>>'
 export const PATH_BLOCK_END = '# <<< remodeck git-access <<<'
@@ -260,10 +290,23 @@ export function buildInstallScript(input: InstallInput): string {
     ': > "$ROOT/providers.conf.tmp"',
     ': > "$ROOT/gitconfig.tmp"'
   ]
+  if (input.helperFirst) out.push(HELPER_LIST_FN)
   for (const p of input.providers) {
+    out.push(`printf '%s %s\\n' ${shQuote(p.host)} ${shQuote(p.gitUsername)} >> "$ROOT/providers.conf.tmp"`)
+    if (!input.helperFirst) {
+      out.push(
+        `printf '[credential "https://%s"]\\n\\thelper = %s\\n\\tuseHttpPath = true\\n' ${shQuote(p.host)} "$ROOT/git-credential-remodeck" >> "$ROOT/gitconfig.tmp"`
+      )
+      continue
+    }
     out.push(
-      `printf '%s %s\\n' ${shQuote(p.host)} ${shQuote(p.gitUsername)} >> "$ROOT/providers.conf.tmp"`,
-      `printf '[credential "https://%s"]\\n\\thelper = %s\\n\\tuseHttpPath = true\\n' ${shQuote(p.host)} "$ROOT/git-credential-remodeck" >> "$ROOT/gitconfig.tmp"`
+      `printf '[credential "https://%s"]\\n\\thelper =\\n\\thelper = %s\\n\\tuseHttpPath = true\\n' ${shQuote(p.host)} "$ROOT/git-credential-remodeck" >> "$ROOT/gitconfig.tmp"`,
+      // the helpers git asks today, read without includes so an earlier copy of ours is not counted;
+      // git config quotes each value, so inline helpers survive as written
+      `helpers ${shQuote(p.host)} --no-includes | while IFS= read -r v; do`,
+      '  case "$v" in "$ROOT/git-credential-remodeck") continue ;; esac',
+      `  git config --file "$ROOT/gitconfig.tmp" --add ${shQuote(`credential.https://${p.host}.helper`)} "$v" </dev/null`,
+      'done'
     )
   }
   out.push(
@@ -294,12 +337,31 @@ export function buildInstallScript(input: InstallInput): string {
     'find "$ROOT/tokens" -mindepth 1 -type d -empty -delete',
     '',
     '# git include',
-    'INC="$ROOT/gitconfig"',
-    'if ! git config --global --get-all include.path </dev/null | grep -Fxq -- "$INC"; then',
-    '  git config --global --add include.path "$INC" </dev/null',
-    'fi',
-    ''
+    'INC="$ROOT/gitconfig"'
   )
+  if (input.helperFirst) {
+    out.push(
+      // our reset must come after every other helper line; `git config --add` would put the line into an
+      // existing [include] section, which may sit above them, so a fresh section is appended instead
+      UNSET_INCLUDE,
+      'if [ -n "${GIT_CONFIG_GLOBAL:-}" ]; then GF=$GIT_CONFIG_GLOBAL',
+      'elif [ ! -e "$HOME/.gitconfig" ] && [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/git/config" ]; then GF="${XDG_CONFIG_HOME:-$HOME/.config}/git/config"',
+      'else GF="$HOME/.gitconfig"',
+      'fi',
+      'if [ -s "$GF" ] && [ -n "$(tail -c 1 "$GF")" ]; then echo >> "$GF"; fi',
+      // git config adds to the last [include] section, the one just appended, and quotes the path as needed
+      `printf '[include]\\n' >> "$GF"`,
+      'git config --file "$GF" --add include.path "$INC" </dev/null',
+      ''
+    )
+  } else {
+    out.push(
+      'if ! git config --global --get-all include.path </dev/null | grep -Fxq -- "$INC"; then',
+      '  git config --global --add include.path "$INC" </dev/null',
+      'fi',
+      ''
+    )
+  }
   for (const { cli, defaultHost } of input.wrappers) {
     const body = cliWrapperScript(cli, defaultHost, WRAPPER_VERSION)
     const wdelim = freshDelimiter(body)
@@ -390,6 +452,23 @@ export function buildStatusScript(clis: CliSpec[], hosts: string[]): string {
     '  echo "${1##*/}"',
     'done | sort -u | while IFS= read -r label; do echo "other_helper=$label"; done',
     '',
+    // where git asks our helper, includes followed; the worst host wins (missing > behind > first)
+    HELPER_LIST_FN,
+    'order=none',
+    'if [ -f "$ROOT/gitconfig" ] && git config --global --get-all include.path </dev/null 2>/dev/null | grep -Fxq -- "$INC"; then',
+    ...hosts.flatMap((h) => [
+      `  if grep -Fq ${shQuote(`[credential "https://${h}"]`)} "$ROOT/gitconfig"; then`,
+      `    list=$(helpers ${shQuote(h)})`,
+      '    if [ "$(printf \'%s\\n\' "$list" | head -n 1)" = "$ROOT/git-credential-remodeck" ]; then s=first',
+      '    elif printf \'%s\\n\' "$list" | grep -Fxq -- "$ROOT/git-credential-remodeck"; then s=behind',
+      '    else s=missing',
+      '    fi',
+      '    case "$order:$s" in *:missing|none:*|first:behind) order=$s ;; esac',
+      '  fi'
+    ]),
+    'fi',
+    'echo "helper_order=$order"',
+    '',
     'echo "home=$HOME"',
     RC_STATE_SNIPPET,
     'echo "path_block=$RCSTATE"',
@@ -439,15 +518,12 @@ export function buildRemoveScript(clis: CliSpec[]): string {
   const out: string[] = [
     `ROOT="${ROOT}"`,
     // never let an unset HOME turn $ROOT into a path at the filesystem root
-    'case "${HOME:-}" in /?*) ;; *) echo "HOME is not set" >&2; exit 1 ;; esac',
+    // (a drive path like C:/Users/me is what Git Bash may hand over on a Windows target)
+    'case "${HOME:-}" in /?*|[A-Za-z]:/?*) ;; *) echo "HOME is not set" >&2; exit 1 ;; esac',
     'INC="$ROOT/gitconfig"',
     '',
-    '# git include: exact value match; git older than 2.30 has no --fixed-value (exit 129), so use an escaped regex',
-    'git config --global --fixed-value --unset-all include.path "$INC" </dev/null >/dev/null 2>&1',
-    'if [ $? -eq 129 ]; then',
-    `  esc=$(printf %s "$INC" | sed 's/[][\\.*^$+?(){}|]/\\\\&/g')`,
-    '  git config --global --unset-all include.path "^$esc\\$" </dev/null >/dev/null 2>&1',
-    'fi'
+    '# git include: exact value match, or an escaped regex on git older than 2.30',
+    UNSET_INCLUDE
   ]
   for (const { command: cmd } of clis) {
     const file = `"$HOME/.local/bin/${cmd}"`

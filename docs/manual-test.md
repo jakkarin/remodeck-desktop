@@ -228,3 +228,6 @@ Use one real host with `git`, `gh` and Claude Code or Codex. Create fine-grained
 | G.11 | On a host where status says "Not active in non-login shells", tick "Add ~/.local/bin to PATH in ~/.bashrc…" and Update host → the top of `~/.bashrc` has the remodeck block, status shows "Active in non-login shells" and "PATH line in ~/.bashrc added by remodeck"; Update host again does not add a second block | ☐ |
 | G.12 | Leave the PATH box unticked and Install → `~/.bashrc` is byte-for-byte unchanged | ☐ |
 | G.13 | Remove from host after G.11 → the block is gone and the rest of `~/.bashrc` is unchanged | ☐ |
+| G.14 | After G.7, tick "Ask remodeck's credential helper before the others…" and Update host → the gh row now says it is asked after remodeck's; push to an org A repo uses the org A token, and push to a repo with no remodeck token still works through `gh auth` | ☐ |
+| G.15 | After G.14, run `gh auth setup-git` again on the host → status shows that a later reset hides remodeck's helper; Update host (box still ticked) → back to "asked after remodeck's" | ☐ |
+| G.16 | Untick the box from G.14 and Update host → the gh row warns again that it is asked before remodeck's; Remove from host leaves the `[credential]` block of gh in `~/.gitconfig` untouched | ☐ |

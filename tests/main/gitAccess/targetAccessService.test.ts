@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ProcResult } from '../../../src/main/proc/run'
+import type { HostGitAccess } from '../../../src/shared/gitAccess'
 import { GitTokenService } from '../../../src/main/gitAccess/gitTokenService'
 import { createGithubAdapter } from '../../../src/main/gitAccess/providers'
 import { redact } from '../../../src/main/gitAccess/redact'
@@ -120,6 +121,29 @@ describe('TargetAccessService with a recording target', () => {
     await service(target).install(hostId, [idA], { pathBlock: true })
     expect(target.scripts[0]).not.toContain(PATH_BLOCK_BEGIN)
     expect(target.scripts[2]).toContain(PATH_BLOCK_BEGIN)
+  })
+
+  it('remembers helperFirst for later updates until it is turned off', async () => {
+    const target = new FakeTarget()
+    target.handler = (s) => (s.includes('umask 077') ? ok('wrapper=gh:installed\n') : ok())
+    const reset = 'helper =\\n\\thelper = %s'
+    const svc = service(target)
+    const access = (): HostGitAccess | undefined => store.config.hosts.find((h) => h.id === hostId)!.gitAccess
+
+    await svc.install(hostId, [idA])
+    expect(target.scripts[0]).not.toContain(reset)
+    expect(access()?.helperFirst).toBeUndefined()
+
+    await svc.install(hostId, [idA], { helperFirst: true })
+    expect(target.scripts[2]).toContain(reset)
+    expect(access()?.helperFirst).toBe(true)
+
+    await svc.install(hostId, [idA])
+    expect(target.scripts[4]).toContain(reset)
+
+    await svc.install(hostId, [idA], { helperFirst: false })
+    expect(target.scripts[6]).not.toContain(reset)
+    expect(access()?.helperFirst).toBeUndefined()
   })
 
   it('records wrapperVersion null when the wrapper was skipped', async () => {

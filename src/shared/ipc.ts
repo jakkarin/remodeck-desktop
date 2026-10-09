@@ -117,7 +117,10 @@ export interface RemodeckApi {
   }
   gitAccess: {
     status(hostId: string): Promise<GitAccessStatus>
-    /** opts.pathBlock: the user agreed to edit ~/.bashrc so non-login shells find the gh wrapper. */
+    /**
+     * opts.pathBlock: the user agreed to edit ~/.bashrc so non-login shells find the gh wrapper.
+     * opts.helperFirst: ask remodeck's helper before other credential helpers; omitted keeps the host's choice.
+     */
     install(hostId: string, tokenIds: string[], opts?: InstallOptions): Promise<GitAccessStatus>
     remove(hostId: string): Promise<void>
   }

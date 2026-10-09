@@ -518,8 +518,9 @@ export async function createApp(opts: {
       },
       install: async (hostId, tokenIds, opts) => {
         hostOf(hostId)
-        // only the boolean crosses from the renderer
-        return gitAccess.install(hostId, tokenIds, { pathBlock: opts?.pathBlock === true })
+        // only booleans cross from the renderer; a missing helperFirst keeps the host's earlier choice
+        const helperFirst = typeof opts?.helperFirst === 'boolean' ? opts.helperFirst : undefined
+        return gitAccess.install(hostId, tokenIds, { pathBlock: opts?.pathBlock === true, helperFirst })
       },
       remove: async (hostId) => {
         hostOf(hostId)

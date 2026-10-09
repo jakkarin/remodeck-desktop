@@ -25,6 +25,10 @@ const PATH_BLOCK_ROWS = {
   partial: '~/.bashrc has an incomplete remodeck PATH block. Fix it by hand',
   absent: null
 } as const
+const HELPER_QUESTION =
+  "Ask remodeck's credential helper before the others (they stay as fallback for repos without a remodeck token)"
+const HELPER_MISSING =
+  "A credential helper reset later in the git config hides remodeck's helper. Update host with the option below ticked"
 
 function StatusRows({ status }: { status: GitAccessStatus }): React.JSX.Element {
   const { cli, wrapper } = status
@@ -62,11 +66,18 @@ function StatusRows({ status }: { status: GitAccessStatus }): React.JSX.Element 
         </>
       )}
       {PATH_BLOCK_ROWS[status.pathBlock] && <li>{PATH_BLOCK_ROWS[status.pathBlock]}</li>}
-      {status.otherHelpers.map((label) => (
-        <li key={label} className="error">
-          {`Credential helper "${label}" for github.com is asked before remodeck's and may answer with its own login. Repos without a remodeck token may also stop using it.`}
-        </li>
-      ))}
+      {status.helperOrder === 'missing' && <li className="error">{HELPER_MISSING}</li>}
+      {status.otherHelpers.map((label) =>
+        status.helperOrder === 'first' ? (
+          <li key={label}>
+            {`Credential helper "${label}" for github.com is asked after remodeck's, for repos without a remodeck token`}
+          </li>
+        ) : (
+          <li key={label} className="error">
+            {`Credential helper "${label}" for github.com is asked before remodeck's and may answer with its own login. Repos without a remodeck token may also stop using it.`}
+          </li>
+        )
+      )}
     </ul>
   )
 }
@@ -87,12 +98,19 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<'install' | 'remove' | null>(null)
   const [pathBlock, setPathBlock] = useState(false)
+  const savedHelperFirst = current.gitAccess?.helperFirst === true
+  const [helperFirst, setHelperFirst] = useState(savedHelperFirst)
   const active = enabled || installed
   const orphans = (status?.stale ?? []).filter((id) => !tokens.some((t) => t.id === id))
   // Ask on a first install (state unknown) or when the wrapper is missed and remodeck may edit ~/.bashrc.
   const askPath = !installed
     ? status === null || status.pathBlock === 'absent'
     : status !== null && !status.wrapper.nonLoginShell && status.pathBlock === 'absent'
+  // Ask only once another helper is seen, or to let the user undo an earlier choice.
+  const askHelper =
+    savedHelperFirst ||
+    (status !== null &&
+      (status.otherHelpers.length > 0 || status.helperOrder === 'behind' || status.helperOrder === 'missing'))
 
   useEffect(() => {
     if (!active) return
@@ -133,7 +151,12 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
     setError(null)
     try {
       const ids = tokens.filter((t) => checked.has(t.id)).map((t) => t.id)
-      setStatus(await api.gitAccess.install(host.id, ids, { pathBlock: askPath && pathBlock }))
+      setStatus(
+        await api.gitAccess.install(host.id, ids, {
+          pathBlock: askPath && pathBlock,
+          ...(askHelper ? { helperFirst } : {})
+        })
+      )
       setPathBlock(false)
     } catch (e) {
       setError(`${errorMessage(e)}${INSTALL_RETRY}`)
@@ -230,6 +253,17 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
               {PATH_QUESTION}
             </label>
           )}
+          {askHelper && (
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={helperFirst}
+                disabled={busy}
+                onChange={(e) => setHelperFirst(e.target.checked)}
+              />
+              {HELPER_QUESTION}
+            </label>
+          )}
           {error && <div className="error">{error}</div>}
           <div className="git-access-actions">
             {installed && (
@@ -258,7 +292,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
           confirmLabel="Install"
           summary={`Write the selected tokens in plain text on ${current.label}. ${WARNING}${
             askPath && pathBlock ? ' Also add ~/.local/bin to PATH at the top of ~/.bashrc.' : ''
-          }`}
+          }${askHelper && helperFirst ? " Also ask remodeck's credential helper before the others." : ''}`}
           onConfirm={doInstall}
           onClose={() => setConfirm(null)}
         />

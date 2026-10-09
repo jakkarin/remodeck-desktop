@@ -197,9 +197,31 @@ install script แทน `/home/<user>` ด้วย `$HOME` แบบ absolute 
 ติดตั้งด้วย `git config --global --add include.path "$HOME/.config/remodeck/git-access/gitconfig"`
 และใช้ path absolute เดียวกันตอน remove ไม่แก้ส่วนอื่นของ `~/.gitconfig`
 
-**helper ซ้อนกัน:** ถ้า user มี credential helper ของ host เดียวกันอยู่แล้วและตัวนั้นตอบก่อน git จะใช้ token ของตัวนั้น
-ตอน status จึงตรวจด้วย `git config --global --get-all credential.<url>.helper` และ `credential.helper`
-ถ้าเจอให้แสดง warning (ไม่แก้ให้)
+**helper ซ้อนกัน:** ถ้า user มี credential helper ของ host เดียวกันอยู่แล้ว (เช่น `gh auth setup-git` ที่เขียน
+`helper =` แล้วตามด้วย `helper = !gh auth git-credential`) จะเกิดได้สองแบบ:
+- บล็อกนั้นอยู่ก่อน include ของเรา → helper นั้นถูกถามก่อนและตอบด้วย login ของตัวเอง (`behind`)
+- บล็อกนั้นอยู่หลัง include ของเรา → `helper =` ล้าง helper ของเราทิ้ง (`missing`)
+
+`git config --add include.path` ใส่บรรทัดลงใน section `[include]` ที่มีอยู่แล้ว ซึ่งอาจอยู่บนสุดของไฟล์
+จึงคุมลำดับไม่ได้
+
+status ตรวจสองอย่าง:
+- `otherHelpers`: label ของ helper อื่นจาก `git config --global --get-all credential.<url>.helper` และ `credential.helper`
+- `helperOrder` (`first` / `behind` / `missing` / `none`): ไล่รายการ helper ที่ git จะถามจริงสำหรับ `https://<host>`
+  ตามลำดับ config และ include โดยนับ `helper =` เป็นการล้างรายการ
+
+**ให้ helper ของเราถูกถามก่อน (opt-in):** checkbox แสดงเมื่อเจอ helper อื่น หรือ `helperOrder` เป็น `behind`/`missing`
+หรือ host นั้นเคยติ๊กไว้แล้ว ค่าเริ่มต้นคือไม่ติ๊ก ถ้าติ๊ก install จะทำดังนี้:
+1. เขียน section ของแต่ละ host ในไฟล์ include เป็น `helper =`, helper ของเรา, `useHttpPath = true`
+2. ต่อท้ายด้วย helper เดิมที่ git ถามอยู่ (อ่านด้วย `--no-includes` จึงไม่นับสำเนาเก่าของเรา) เขียนผ่าน `git config --file`
+   เพื่อให้ quoting ของ inline helper ถูกต้อง repo ที่ไม่มี token ของเราจึงยังใช้ helper เดิม เช่น `gh auth`
+3. ลบ `include.path` ของเรา แล้วต่อ section `[include]` ใหม่ท้ายไฟล์ global config
+   (`GIT_CONFIG_GLOBAL` → `~/.gitconfig` → `$XDG_CONFIG_HOME/git/config` ตามกฎของ git) แล้ว `git config --file --add` เข้าไป
+
+ค่าที่เลือกเก็บใน `HostGitAccess.helperFirst` และใช้ต่อในการ Update host ครั้งถัดไปจนกว่าจะเอาติ๊กออก
+ถ้ามีคนรัน `gh auth setup-git` ทีหลัง status จะขึ้น `missing` กด Update host ครั้งเดียวก็กลับเป็น `first`
+Remove ลบแค่ include ของเรา บล็อกของ gh ไม่ถูกแตะ ข้อเสียคือ path ของ helper เดิมถูกคัดลอกไว้ในไฟล์ของเรา
+ถ้าถอน gh ภายหลัง git จะเตือนว่ารัน helper นั้นไม่ได้จนกว่าจะ Update host
 
 **`useHttpPath`:** กระทบ helper อื่นของ host นั้นด้วย ผลที่สังเกตได้จาก test (Task 5, git 2.45.1): เมื่อ include ของเรา
 เปิด `useHttpPath` แล้ว รายการ `store` เดิมของ github.com ที่ไม่ระบุ path จะไม่ตอบสำหรับ repo ที่ไม่มี token ของ remodeck
@@ -247,7 +269,7 @@ token จึงอยู่ใน script เท่านั้น ไม่โ�
 
 | คำสั่ง | ทำอะไร |
 | --- | --- |
-| `status(hostId)` | อ่าน scope ใน `tokens/`, เวอร์ชัน wrapper, CLI resolve ไปที่ไหนใน login/non-login shell, `gh --version`, helper อื่นที่ซ้อน, include ยังอยู่ไหม แล้วเทียบกับ `Host.gitAccess` เพื่อหาว่าอะไร stale, missing หรือ outdated |
+| `status(hostId)` | อ่าน scope ใน `tokens/`, เวอร์ชัน wrapper, CLI resolve ไปที่ไหนใน login/non-login shell, `gh --version`, helper อื่นที่ซ้อนและลำดับที่ git ถาม helper ของเรา (`helperOrder`), include ยังอยู่ไหม แล้วเทียบกับ `Host.gitAccess` เพื่อหาว่าอะไร stale, missing หรือ outdated |
 | `install(hostId, tokenIds)` | `umask 077`, สร้าง dir, เขียน helper / `providers.conf` / gitconfig / tokens ด้วย heredoc ลง tmp แล้ว `mv`, ลบ `@token` ที่ไม่อยู่ใน set (และ dir ที่ว่าง), เพิ่ม `include.path` ถ้ายังไม่มี, เขียน wrapper ตามกฎด้านบน แล้วบันทึก `Host.gitAccess` |
 | `remove(hostId)` | `git config --global --fixed-value --unset-all include.path <path>` (git เก่ากว่า 2.30 ใช้ regex ที่ escape แล้ว), ลบ wrapper เฉพาะที่มี marker, `rm -rf ~/.config/remodeck/git-access` แล้วล้าง `Host.gitAccess` |
 

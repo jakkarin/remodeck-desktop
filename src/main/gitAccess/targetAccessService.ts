@@ -61,18 +61,23 @@ export class TargetAccessService {
         }
       }
 
+      // a choice made once stays until the user unticks it, so a later update keeps the order
+      const helperFirst =
+        opts.helperFirst ?? this.store.config.hosts.find((h) => h.id === hostId)?.gitAccess?.helperFirst === true
       const script = buildInstallScript({
         tokens: entries.map(({ host, path, token }) => ({ host, path, token })),
         providers,
         wrappers,
-        pathBlock: opts.pathBlock === true
+        pathBlock: opts.pathBlock === true,
+        helperFirst
       })
       const r = await this.run(hostId, script, CHANGE_TIMEOUT_MS, 'Install', secrets)
       const wrapperInstalled = /^wrapper=[^:\r\n]+:installed\r?$/m.test(r.stdout)
       this.store.setHostGitAccess(hostId, {
         installedAt: new Date().toISOString(),
         installed: Object.fromEntries(entries.map((e) => [e.id, e.updatedAt])),
-        wrapperVersion: wrapperInstalled ? WRAPPER_VERSION : null
+        wrapperVersion: wrapperInstalled ? WRAPPER_VERSION : null,
+        ...(helperFirst ? { helperFirst: true } : {})
       })
       return this.readStatus(hostId, secrets)
     })

@@ -43,11 +43,13 @@ const okStatus: GitAccessStatus = {
     nonLoginShell: true
   },
   otherHelpers: [],
+  helperOrder: 'first',
   pathBlock: 'absent',
   stale: [],
   missing: []
 }
 const PATH_BOX = 'Add ~/.local/bin to PATH in ~/.bashrc so non-login shells use the gh wrapper'
+const HELPER_BOX = /Ask remodeck's credential helper before the others/
 
 const plainHost: Host = { id: 'h1', sshHost: 'box', label: 'Box', protected: false }
 const installedHost: Host = {
@@ -190,7 +192,8 @@ describe('HostGitAccessPanel', () => {
         loginShell: true,
         nonLoginShell: false
       },
-      otherHelpers: ['store']
+      otherHelpers: ['store'],
+      helperOrder: 'behind'
     })
     renderPanel(installedHost)
     expect(await screen.findByText('gh not found on this host')).toBeInTheDocument()
@@ -201,6 +204,51 @@ describe('HostGitAccessPanel', () => {
         'Credential helper "store" for github.com is asked before remodeck\'s and may answer with its own login. Repos without a remodeck token may also stop using it.'
       )
     ).toBeInTheDocument()
+  })
+
+  it('hides the helper question when no other helper is configured', async () => {
+    renderPanel(installedHost)
+    await screen.findByText('Active in non-login shells')
+    expect(screen.queryByRole('checkbox', { name: HELPER_BOX })).not.toBeInTheDocument()
+  })
+
+  it('asks to put remodeck first when gh answers before it, and passes the answer', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, otherHelpers: ['gh'], helperOrder: 'behind' })
+    vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
+    renderPanel(installedHost)
+    const box = await screen.findByRole('checkbox', { name: HELPER_BOX })
+    expect(box).not.toBeChecked()
+    fireEvent.click(box)
+    fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
+    await waitFor(() =>
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: false, helperFirst: true })
+    )
+  })
+
+  it('shows the saved choice ticked and lets the user turn it off', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, otherHelpers: ['gh'] })
+    vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
+    const host: Host = { ...installedHost, gitAccess: { ...installedHost.gitAccess!, helperFirst: true } }
+    renderPanel(host)
+    expect(
+      await screen.findByText(
+        'Credential helper "gh" for github.com is asked after remodeck\'s, for repos without a remodeck token'
+      )
+    ).toBeInTheDocument()
+    const box = screen.getByRole('checkbox', { name: HELPER_BOX })
+    expect(box).toBeChecked()
+    fireEvent.click(box)
+    fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
+    await waitFor(() =>
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: false, helperFirst: false })
+    )
+  })
+
+  it('reports a helper reset that hides remodeck', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, otherHelpers: ['gh'], helperOrder: 'missing' })
+    renderPanel(installedHost)
+    expect(await screen.findByText(/hides remodeck's helper/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: HELPER_BOX })).toBeInTheDocument()
   })
 
   it('renders a row for a stale token that was deleted in Settings', async () => {

@@ -17,12 +17,20 @@ export type HostGitAccess = {
   installedAt: string
   installed: Record<string, string>
   wrapperVersion: number | null
+  /** The user chose to have remodeck's helper asked before other credential helpers; kept for later updates. */
+  helperFirst?: boolean
 }
 
-/** pathBlock: the user agreed to put ~/.local/bin first in PATH from the top of ~/.bashrc. */
-export type InstallOptions = { pathBlock?: boolean }
+/**
+ * pathBlock: the user agreed to put ~/.local/bin first in PATH from the top of ~/.bashrc.
+ * helperFirst: the user agreed to ask remodeck's helper first, keeping the other helpers as fallback.
+ */
+export type InstallOptions = { pathBlock?: boolean; helperFirst?: boolean }
 
-export type PathBlockState ='present' | 'absent' | 'symlink' | 'partial'
+export type PathBlockState = 'present' | 'absent' | 'symlink' | 'partial'
+
+/** Where git asks remodeck's helper: first, after another helper, not at all (a later reset), or none installed. */
+export type HelperOrder = 'first' | 'behind' | 'missing' | 'none'
 
 export type GitAccessStatus = {
   helperInstalled: boolean
@@ -37,6 +45,7 @@ export type GitAccessStatus = {
     nonLoginShell: boolean
   }
   otherHelpers: string[]
+  helperOrder: HelperOrder
   /** Our PATH block at the top of ~/.bashrc; `partial` = begin marker without an end marker. */
   pathBlock: PathBlockState
   stale: string[]
