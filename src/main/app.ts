@@ -516,9 +516,10 @@ export async function createApp(opts: {
         hostOf(hostId)
         return gitAccess.status(hostId)
       },
-      install: async (hostId, tokenIds) => {
+      install: async (hostId, tokenIds, opts) => {
         hostOf(hostId)
-        return gitAccess.install(hostId, tokenIds)
+        // only the boolean crosses from the renderer
+        return gitAccess.install(hostId, tokenIds, { pathBlock: opts?.pathBlock === true })
       },
       remove: async (hostId) => {
         hostOf(hostId)

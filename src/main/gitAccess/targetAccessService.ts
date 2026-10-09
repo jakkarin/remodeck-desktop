@@ -1,4 +1,4 @@
-import type { GitAccessStatus } from '../../shared/gitAccess'
+import type { GitAccessStatus, InstallOptions } from '../../shared/gitAccess'
 import type { ProcResult } from '../proc/run'
 import type { SandboxTarget } from '../sandbox/target'
 import type { Store } from '../store/store'
@@ -34,7 +34,7 @@ export class TargetAccessService {
     return this.guarded([], () => this.readStatus(hostId, []))
   }
 
-  install(hostId: string, tokenIds: string[]): Promise<GitAccessStatus> {
+  install(hostId: string, tokenIds: string[], opts: InstallOptions = {}): Promise<GitAccessStatus> {
     // filled while tokens resolve and read at throw time, so every error is masked with what is known by then
     const secrets: string[] = []
     return this.guarded(secrets, async () => {
@@ -64,7 +64,8 @@ export class TargetAccessService {
       const script = buildInstallScript({
         tokens: entries.map(({ host, path, token }) => ({ host, path, token })),
         providers,
-        wrappers
+        wrappers,
+        pathBlock: opts.pathBlock === true
       })
       const r = await this.run(hostId, script, CHANGE_TIMEOUT_MS, 'Install', secrets)
       const wrapperInstalled = /^wrapper=[^:\r\n]+:installed\r?$/m.test(r.stdout)

@@ -56,8 +56,11 @@ UI tokens and reusable component usage: [Neutral design guidelines](docs/design-
   bridge rules do not apply to agents pushing directly, so protection relies on each token's scope and
   expiry and on GitHub rulesets. Remove from host deletes every file again. Inside remodeck terminals,
   `gh` resolves the repo from the configured `origin` URL, not from the Git Bridge rewrite of it.
+  Only if you tick it at install time, remodeck also puts `~/.local/bin` first in `PATH` from a marked
+  block at the top of `~/.bashrc` (never a symlinked one); Remove from host deletes that block too.
   — ค่าเริ่มต้นยังไม่มี token ใน sandbox แต่ถ้า opt-in ต่อ host token จะถูกเก็บเป็น plain text บน host นั้น
   และ process ใดที่รันเป็น user เดียวกันอ่านได้ การป้องกันจริงมาจาก scope/วันหมดอายุของ token และ ruleset ของ GitHub
+  ถ้าติ๊กยินยอมตอน install จะเพิ่ม `~/.local/bin` ไว้หน้า `PATH` ที่บนสุดของ `~/.bashrc` และลบออกให้ตอน Remove
 - Every push (bridge or Review) is logged to `push-log.jsonl`.
 - Zero footprint: nothing is written to the repo's working tree or commits; in the sandbox the app only
   does `git init`, sets `remote origin`, and updates `refs/remotes/origin/*` and tags. Removing a

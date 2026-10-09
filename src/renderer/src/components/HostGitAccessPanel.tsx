@@ -18,6 +18,13 @@ const INSTALL_RETRY = ' Try Update host again or Remove from host.'
 const ORPHAN = 'A removed token is still on this host. Update host or Remove from host deletes it.'
 const PROTECTION =
   "Real protection on the host comes from each token's scope and expiry and from GitHub rulesets, because Git Bridge rules don't apply to agents pushing directly."
+const PATH_QUESTION = 'Add ~/.local/bin to PATH in ~/.bashrc so non-login shells use the gh wrapper'
+const PATH_BLOCK_ROWS = {
+  present: 'PATH line in ~/.bashrc added by remodeck',
+  symlink: "~/.bashrc is a symlink, so remodeck didn't edit it. Put ~/.local/bin first in PATH yourself",
+  partial: '~/.bashrc has an incomplete remodeck PATH block. Fix it by hand',
+  absent: null
+} as const
 
 function StatusRows({ status }: { status: GitAccessStatus }): React.JSX.Element {
   const { cli, wrapper } = status
@@ -54,6 +61,7 @@ function StatusRows({ status }: { status: GitAccessStatus }): React.JSX.Element 
           </li>
         </>
       )}
+      {PATH_BLOCK_ROWS[status.pathBlock] && <li>{PATH_BLOCK_ROWS[status.pathBlock]}</li>}
       {status.otherHelpers.map((label) => (
         <li key={label} className="error">
           {`Credential helper "${label}" for github.com is asked before remodeck's and may answer with its own login. Repos without a remodeck token may also stop using it.`}
@@ -78,8 +86,13 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<'install' | 'remove' | null>(null)
+  const [pathBlock, setPathBlock] = useState(false)
   const active = enabled || installed
   const orphans = (status?.stale ?? []).filter((id) => !tokens.some((t) => t.id === id))
+  // Ask on a first install (state unknown) or when the wrapper is missed and remodeck may edit ~/.bashrc.
+  const askPath = !installed
+    ? status === null || status.pathBlock === 'absent'
+    : status !== null && !status.wrapper.nonLoginShell && status.pathBlock === 'absent'
 
   useEffect(() => {
     if (!active) return
@@ -120,7 +133,8 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
     setError(null)
     try {
       const ids = tokens.filter((t) => checked.has(t.id)).map((t) => t.id)
-      setStatus(await api.gitAccess.install(host.id, ids))
+      setStatus(await api.gitAccess.install(host.id, ids, { pathBlock: askPath && pathBlock }))
+      setPathBlock(false)
     } catch (e) {
       setError(`${errorMessage(e)}${INSTALL_RETRY}`)
     }
@@ -205,6 +219,17 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
           ))}
           <Button onClick={() => openSettings('gitTokens')}>Manage tokens</Button>
           {status && <StatusRows status={status} />}
+          {askPath && (
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={pathBlock}
+                disabled={busy}
+                onChange={(e) => setPathBlock(e.target.checked)}
+              />
+              {PATH_QUESTION}
+            </label>
+          )}
           {error && <div className="error">{error}</div>}
           <div className="git-access-actions">
             {installed && (
@@ -231,7 +256,9 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
           host={current}
           mode="click"
           confirmLabel="Install"
-          summary={`Write the selected tokens in plain text on ${current.label}. ${WARNING}`}
+          summary={`Write the selected tokens in plain text on ${current.label}. ${WARNING}${
+            askPath && pathBlock ? ' Also add ~/.local/bin to PATH at the top of ~/.bashrc.' : ''
+          }`}
           onConfirm={doInstall}
           onClose={() => setConfirm(null)}
         />
@@ -241,7 +268,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
           host={current}
           mode="click"
           confirmLabel="Remove"
-          summary={`Delete all remodeck git access files, tokens and the gh wrapper from ${current.label}.`}
+          summary={`Delete all remodeck git access files, tokens, the gh wrapper and the PATH line remodeck added to ~/.bashrc from ${current.label}.`}
           onConfirm={doRemove}
           onClose={() => setConfirm(null)}
         />

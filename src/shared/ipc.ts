@@ -2,7 +2,7 @@
 import type { ContainerStats } from './containerDetails'
 import type { PruneResult, ResourceKind, ResourceRow } from './resources'
 import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './containers'
-import type { GitAccessStatus, GitToken } from './gitAccess'
+import type { GitAccessStatus, GitToken, InstallOptions } from './gitAccess'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -117,7 +117,8 @@ export interface RemodeckApi {
   }
   gitAccess: {
     status(hostId: string): Promise<GitAccessStatus>
-    install(hostId: string, tokenIds: string[]): Promise<GitAccessStatus>
+    /** opts.pathBlock: the user agreed to edit ~/.bashrc so non-login shells find the gh wrapper. */
+    install(hostId: string, tokenIds: string[], opts?: InstallOptions): Promise<GitAccessStatus>
     remove(hostId: string): Promise<void>
   }
   on(event: 'host-status', cb: (hostId: string, s: HostStatus) => void): () => void

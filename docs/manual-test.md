@@ -225,3 +225,6 @@ Use one real host with `git`, `gh` and Claude Code or Codex. Create fine-grained
 | G.8 | On a host without git, Install → it fails, the error ends with "Try Update host again or Remove from host.", and Remove from host is offered and works | ☐ |
 | G.9 | Try to remove a host (Settings → Hosts) that still has git access → refused with "Remove git access from this host first"; after Remove from host the host can be removed | ☐ |
 | G.10 | In a remodeck terminal on a host with git access, run `gh pr list` in a repo whose `origin` is a github.com URL of org A → it uses the token for org A (the repo comes from the configured origin) | ☐ |
+| G.11 | On a host where status says "Not active in non-login shells", tick "Add ~/.local/bin to PATH in ~/.bashrc…" and Update host → the top of `~/.bashrc` has the remodeck block, status shows "Active in non-login shells" and "PATH line in ~/.bashrc added by remodeck"; Update host again does not add a second block | ☐ |
+| G.12 | Leave the PATH box unticked and Install → `~/.bashrc` is byte-for-byte unchanged | ☐ |
+| G.13 | Remove from host after G.11 → the block is gone and the rest of `~/.bashrc` is unchanged | ☐ |

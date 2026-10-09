@@ -6,7 +6,7 @@ import type { ProcResult } from '../../../src/main/proc/run'
 import { GitTokenService } from '../../../src/main/gitAccess/gitTokenService'
 import { createGithubAdapter } from '../../../src/main/gitAccess/providers'
 import { redact } from '../../../src/main/gitAccess/redact'
-import { WRAPPER_VERSION } from '../../../src/main/gitAccess/scripts'
+import { PATH_BLOCK_BEGIN, WRAPPER_VERSION } from '../../../src/main/gitAccess/scripts'
 import { SecretStore, type Encryptor } from '../../../src/main/gitAccess/secretStore'
 import { TargetAccessService } from '../../../src/main/gitAccess/targetAccessService'
 import { LocalTarget, type SandboxTarget } from '../../../src/main/sandbox/target'
@@ -111,6 +111,15 @@ describe('TargetAccessService with a recording target', () => {
     expect(access.installed).toEqual({ [idA]: tokenA.updatedAt, [idP]: tokenP.updatedAt })
     expect(access.wrapperVersion).toBe(WRAPPER_VERSION)
     expect(status.helperInstalled).toBe(true)
+  })
+
+  it('adds the ~/.bashrc PATH block only when asked', async () => {
+    const target = new FakeTarget()
+    target.handler = (s) => (s.includes('umask 077') ? ok('wrapper=gh:installed\n') : ok())
+    await service(target).install(hostId, [idA])
+    await service(target).install(hostId, [idA], { pathBlock: true })
+    expect(target.scripts[0]).not.toContain(PATH_BLOCK_BEGIN)
+    expect(target.scripts[2]).toContain(PATH_BLOCK_BEGIN)
   })
 
   it('records wrapperVersion null when the wrapper was skipped', async () => {

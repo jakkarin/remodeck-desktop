@@ -43,9 +43,11 @@ const okStatus: GitAccessStatus = {
     nonLoginShell: true
   },
   otherHelpers: [],
+  pathBlock: 'absent',
   stale: [],
   missing: []
 }
+const PATH_BOX = 'Add ~/.local/bin to PATH in ~/.bashrc so non-login shells use the gh wrapper'
 
 const plainHost: Host = { id: 'h1', sshHost: 'box', label: 'Box', protected: false }
 const installedHost: Host = {
@@ -91,8 +93,67 @@ describe('HostGitAccessPanel', () => {
     const dialog = screen.getByRole('dialog')
     expect(api.gitAccess.install).not.toHaveBeenCalled()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }))
-    await waitFor(() => expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1']))
+    await waitFor(() =>
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: false })
+    )
     expect(refresh).toHaveBeenCalled()
+  })
+
+  it('asks before editing ~/.bashrc on first install and passes the answer', async () => {
+    vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
+    renderPanel(plainHost)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
+    const pathBox = screen.getByRole('checkbox', { name: PATH_BOX })
+    expect(pathBox).not.toBeChecked()
+    fireEvent.click(pathBox)
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(/top of ~\/\.bashrc/)).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }))
+    await waitFor(() =>
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: true })
+    )
+  })
+
+  it('hides the PATH question when non-login shells already find the wrapper', async () => {
+    renderPanel(installedHost)
+    await screen.findByText('Active in non-login shells')
+    expect(screen.queryByRole('checkbox', { name: PATH_BOX })).not.toBeInTheDocument()
+  })
+
+  it('offers the PATH question on Update host when non-login shells miss the wrapper', async () => {
+    const notActive = { ...okStatus, wrapper: { ...okStatus.wrapper, nonLoginShell: false } }
+    vi.mocked(api.gitAccess.status).mockResolvedValue(notActive)
+    vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
+    renderPanel(installedHost)
+    fireEvent.click(await screen.findByRole('checkbox', { name: PATH_BOX }))
+    fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
+    await waitFor(() =>
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: true })
+    )
+  })
+
+  it('reports the PATH block state and never offers to edit a symlinked ~/.bashrc', async () => {
+    const symlinked: GitAccessStatus = {
+      ...okStatus,
+      wrapper: { ...okStatus.wrapper, nonLoginShell: false },
+      pathBlock: 'symlink'
+    }
+    vi.mocked(api.gitAccess.status).mockResolvedValue(symlinked)
+    renderPanel(installedHost)
+    expect(
+      await screen.findByText(
+        "~/.bashrc is a symlink, so remodeck didn't edit it. Put ~/.local/bin first in PATH yourself"
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: PATH_BOX })).not.toBeInTheDocument()
+  })
+
+  it('shows when remodeck added the PATH line', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, pathBlock: 'present' })
+    renderPanel(installedHost)
+    expect(await screen.findByText('PATH line in ~/.bashrc added by remodeck')).toBeInTheDocument()
   })
 
   it('shows an empty state when there are no tokens', async () => {
@@ -113,7 +174,9 @@ describe('HostGitAccessPanel', () => {
     expect(await screen.findByText('Changed since install')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Update host' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
-    await waitFor(() => expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1']))
+    await waitFor(() =>
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: false })
+    )
   })
 
   it('reports cli, wrapper and helper problems', async () => {

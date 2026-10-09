@@ -1,4 +1,12 @@
-import { scopeKey, type GitAccessStatus, type GitToken, type HostGitAccess } from '../../shared/gitAccess'
+import {
+  scopeKey,
+  type GitAccessStatus,
+  type GitToken,
+  type HostGitAccess,
+  type PathBlockState
+} from '../../shared/gitAccess'
+
+const PATH_BLOCK_STATES: readonly PathBlockState[] = ['present', 'absent', 'symlink', 'partial']
 
 export type RawStatus = {
   helper: boolean
@@ -11,6 +19,7 @@ export type RawStatus = {
   nonLoginResolves: string | null
   otherHelpers: string[]
   home: string | null
+  pathBlock: PathBlockState
 }
 
 /** Parses the `key=value` lines of the status script; unknown lines are ignored and, for a scalar key, the first line wins. */
@@ -25,7 +34,8 @@ export function parseStatusOutput(stdout: string): RawStatus {
     loginResolves: null,
     nonLoginResolves: null,
     otherHelpers: [],
-    home: null
+    home: null,
+    pathBlock: 'absent'
   }
   const seen = new Set<string>()
   for (const line of stdout.split('\n')) {
@@ -52,6 +62,9 @@ export function parseStatusOutput(stdout: string): RawStatus {
         break
       case 'home':
         raw.home = value || null
+        break
+      case 'path_block':
+        if (PATH_BLOCK_STATES.includes(value as PathBlockState)) raw.pathBlock = value as PathBlockState
         break
       case 'cli_path':
         raw.cliPath = value || null
@@ -106,6 +119,7 @@ export function computeStatus(
       nonLoginShell: resolvesToWrapper(raw.nonLoginResolves)
     },
     otherHelpers: raw.otherHelpers,
+    pathBlock: raw.pathBlock,
     stale,
     missing
   }

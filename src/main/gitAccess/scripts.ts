@@ -9,7 +9,24 @@ export type InstallInput = {
   tokens: { host: string; path: string; token: string }[]
   providers: { host: string; gitUsername: string }[]
   wrappers: { cli: CliSpec; defaultHost: string }[]
+  /** Only with the user's consent: put ~/.local/bin first in PATH from the top of ~/.bashrc. */
+  pathBlock?: boolean
 }
+
+export const PATH_BLOCK_BEGIN = '# >>> remodeck git-access >>>'
+export const PATH_BLOCK_END = '# <<< remodeck git-access <<<'
+const PATH_BLOCK_LINE =
+  'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH"; export PATH ;; esac'
+
+/** Sets RCSTATE to symlink, present (both markers), partial (begin marker only) or absent. */
+const RC_STATE_SNIPPET = [
+  'RC="$HOME/.bashrc"',
+  'if [ -L "$RC" ]; then RCSTATE=symlink',
+  `elif [ -f "$RC" ] && grep -Fxq ${shQuote(PATH_BLOCK_BEGIN)} "$RC"; then`,
+  `  if grep -Fxq ${shQuote(PATH_BLOCK_END)} "$RC"; then RCSTATE=present; else RCSTATE=partial; fi`,
+  'else RCSTATE=absent',
+  'fi'
+].join('\n')
 
 const USERNAME_RE = /^[A-Za-z0-9._-]+$/
 
@@ -94,6 +111,11 @@ function markerVersionSnippet(cmd: string, file: string): string {
 }
 
 /** Single-quotes a value for sh. */
+/** Escapes a literal for a sed BRE address (our markers contain no '/' but may contain '.' or '*'). */
+function sedEscape(value: string): string {
+  return value.replace(/[\\/.*[\]^$]/g, '\\$&')
+}
+
 function shQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
@@ -305,6 +327,29 @@ export function buildInstallScript(input: InstallInput): string {
       ''
     )
   }
+  if (input.pathBlock) {
+    const bdelim = freshDelimiter(PATH_BLOCK_LINE)
+    out.push(
+      '# PATH block at the top of ~/.bashrc, before any non-interactive guard; a symlinked rc is never edited',
+      RC_STATE_SNIPPET,
+      'if [ "$RCSTATE" = absent ]; then',
+      `  { cat <<'${bdelim}'`,
+      PATH_BLOCK_BEGIN,
+      PATH_BLOCK_LINE,
+      PATH_BLOCK_END,
+      bdelim,
+      '    if [ -f "$RC" ]; then cat "$RC"; fi',
+      '  } > "$RC.remodeck.tmp"',
+      // rewriting in place keeps the file's mode and owner
+      '  cat "$RC.remodeck.tmp" > "$RC"',
+      '  rm -f "$RC.remodeck.tmp"',
+      '  echo path_block=added',
+      'else',
+      '  echo "path_block=$RCSTATE"',
+      'fi',
+      ''
+    )
+  }
   return out.join('\n')
 }
 
@@ -346,6 +391,8 @@ export function buildStatusScript(clis: CliSpec[], hosts: string[]): string {
     'done | sort -u | while IFS= read -r label; do echo "other_helper=$label"; done',
     '',
     'echo "home=$HOME"',
+    RC_STATE_SNIPPET,
+    'echo "path_block=$RCSTATE"',
     // each probe: stdin from /dev/null, bounded by timeout when available, reported only as an absolute path
     'probe() {',
     '  tmo=',
@@ -417,6 +464,19 @@ export function buildRemoveScript(clis: CliSpec[]): string {
       'fi'
     )
   }
-  out.push('', 'rm -rf "$ROOT"', 'exit 0', '')
+  out.push(
+    '',
+    '# PATH block: only lines between both of our markers are deleted; a partial block is left alone',
+    RC_STATE_SNIPPET,
+    'if [ "$RCSTATE" = present ]; then',
+    `  sed '/^${sedEscape(PATH_BLOCK_BEGIN)}$/,/^${sedEscape(PATH_BLOCK_END)}$/d' "$RC" > "$RC.remodeck.tmp" &&`,
+    '    cat "$RC.remodeck.tmp" > "$RC" && echo path_block=removed',
+    '  rm -f "$RC.remodeck.tmp"',
+    'fi',
+    '',
+    'rm -rf "$ROOT"',
+    'exit 0',
+    ''
+  )
   return out.join('\n')
 }

@@ -38,7 +38,7 @@
 - GitHub App / installation tokens
 - ให้ Git Bridge ใช้ token ตาม scope (bridge ยังใช้ `getGitHubCredential` เดิม)
 - ตั้ง `user.name`/`user.email` ตาม scope บน target
-- แก้ shell rc (`.bashrc`, `.profile`) ของ target
+- แก้ shell rc ของ target โดยที่ผู้ใช้ไม่ได้ยินยอม (ดูหัวข้อ PATH: แก้ `~/.bashrc` ได้เฉพาะเมื่อติ๊กยินยอมตอน install) และ rc ของ zsh/fish
 - ติดตั้ง token ลง target อัตโนมัติเมื่อ token ถูก rotate
 
 ## ภาพรวม
@@ -224,8 +224,18 @@ install script แทน `/home/<user>` ด้วย `$HOME` แบบ absolute 
 **ถ้ามี `~/.local/bin/gh` อยู่แล้วแต่ไม่มี marker:** ไม่ทับ install สำเร็จเฉพาะส่วน git และ status แสดง
 "gh wrapper not installed: ~/.local/bin/gh already exists"
 
-**PATH:** ไม่แก้ shell rc ตอน status จะตรวจ `command -v gh` ทั้งใน `bash -lc` และ `bash -c`
-ถ้าไม่ใช่ wrapper ของเรา จะแสดงวิธีแก้ (เพิ่ม `~/.local/bin` ไว้หน้า `PATH`) ให้ผู้ใช้ทำเอง
+**PATH:** ตอน status จะตรวจ `command -v gh` ทั้งใน `bash -lc` และ `bash -c`
+ถ้าไม่ใช่ wrapper ของเรา จะแสดงวิธีแก้ (เพิ่ม `~/.local/bin` ไว้หน้า `PATH`)
+
+ผู้ใช้เลือกให้ remodeck แก้ให้ได้ด้วย checkbox
+"Add ~/.local/bin to PATH in ~/.bashrc so non-login shells use the gh wrapper" (ค่าเริ่มต้นไม่ติ๊ก)
+ซึ่งแสดงเฉพาะตอน install ครั้งแรก หรือเมื่อ status บอกว่า wrapper ไม่ active ใน non-login shell และยังไม่มี block ของเรา
+
+- ถ้าติ๊ก install จะแทรก block ที่มี marker `# >>> remodeck git-access >>>` / `# <<< remodeck git-access <<<`
+  ไว้**บนสุด**ของ `~/.bashrc` (อยู่ก่อน guard non-interactive ของ Ubuntu) และเพิ่ม `~/.local/bin` เฉพาะเมื่อยังไม่มีใน `PATH`
+- ถ้ามี block อยู่แล้วจะไม่เพิ่มซ้ำ, ถ้า `~/.bashrc` เป็น symlink จะไม่แก้ และเขียนทับในที่เดิมเพื่อคง mode/owner ของไฟล์
+- status รายงาน `path_block=present|absent|symlink|partial`
+- Remove ลบเฉพาะบรรทัดระหว่าง marker ทั้งสองตัว ถ้ามีแค่ marker เปิด (`partial`) จะไม่แตะไฟล์
 
 **เวอร์ชัน:** แอปรู้เวอร์ชันล่าสุดของ wrapper ถ้า marker บน target เก่ากว่า status จะขึ้น "Update available"
 และอัปเดตเมื่อผู้ใช้กด Update host

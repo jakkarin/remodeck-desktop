@@ -19,6 +19,11 @@ export type HostGitAccess = {
   wrapperVersion: number | null
 }
 
+/** pathBlock: the user agreed to put ~/.local/bin first in PATH from the top of ~/.bashrc. */
+export type InstallOptions = { pathBlock?: boolean }
+
+export type PathBlockState ='present' | 'absent' | 'symlink' | 'partial'
+
 export type GitAccessStatus = {
   helperInstalled: boolean
   includeActive: boolean
@@ -32,6 +37,8 @@ export type GitAccessStatus = {
     nonLoginShell: boolean
   }
   otherHelpers: string[]
+  /** Our PATH block at the top of ~/.bashrc; `partial` = begin marker without an end marker. */
+  pathBlock: PathBlockState
   stale: string[]
   missing: string[]
 }
