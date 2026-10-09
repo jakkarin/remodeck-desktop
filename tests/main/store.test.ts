@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Store } from '../../src/main/store/store'
+import { scopeKey } from '../../src/shared/gitAccess'
 import { DEFAULT_PREFS, type PushLogEntry } from '../../src/shared/types'
 
 let dir: string
@@ -223,5 +224,101 @@ describe('Store', () => {
     const store = new Store(dir)
     const h = store.addHost('box', 'Box')
     expect(() => store.updateHost(h.id, { protected: 'x' as never })).toThrow()
+  })
+})
+
+describe('Store git access', () => {
+  const base = {
+    provider: 'github' as const,
+    host: 'github.com',
+    path: 'org-a',
+    login: 'j',
+    label: 'A',
+    expiresAt: null
+  }
+
+  it('upserts tokens by scope, keeps the id on rotate and persists', () => {
+    const s = new Store(dir)
+    const t = s.upsertGitToken(base)
+    const t2 = s.upsertGitToken({ ...base, label: 'B' })
+    expect(t2.id).toBe(t.id)
+    expect(t2.label).toBe('B')
+    expect(t2.updatedAt >= t.updatedAt).toBe(true)
+    expect(new Store(dir).config.gitTokens).toHaveLength(1)
+  })
+
+  it('keeps tokens sorted by scope and rejects invalid scopes', () => {
+    const s = new Store(dir)
+    s.upsertGitToken({ ...base, path: 'zed' })
+    s.upsertGitToken({ ...base, path: 'org-a/repo' })
+    s.upsertGitToken({ ...base, path: 'org-a' })
+    expect(s.config.gitTokens.map(scopeKey)).toEqual([
+      'github.com/org-a',
+      'github.com/org-a/repo',
+      'github.com/zed'
+    ])
+    expect(() => s.upsertGitToken({ ...base, path: '../x' })).toThrow()
+  })
+
+  it('sets a label and removes a token', () => {
+    const s = new Store(dir)
+    const t = s.upsertGitToken(base)
+    expect(s.setGitTokenLabel(t.id, '  New ').label).toBe('New')
+    expect(() => s.setGitTokenLabel(t.id, ' ')).toThrow(/empty/)
+    expect(() => s.setGitTokenLabel('nope', 'x')).toThrow(/Unknown git token/)
+    s.removeGitToken(t.id)
+    expect(new Store(dir).config.gitTokens).toEqual([])
+    expect(() => s.removeGitToken(t.id)).toThrow(/Unknown git token/)
+  })
+
+  it('sets and clears host git access', () => {
+    const s = new Store(dir)
+    const h = s.addHost('h', 'H')
+    const t = s.upsertGitToken(base)
+    s.setHostGitAccess(h.id, {
+      installedAt: 'x',
+      installed: { [t.id]: t.updatedAt },
+      wrapperVersion: 1
+    })
+    expect(new Store(dir).config.hosts[0].gitAccess?.wrapperVersion).toBe(1)
+    s.setHostGitAccess(h.id, null)
+    expect(s.config.hosts[0].gitAccess).toBeUndefined()
+    expect(new Store(dir).config.hosts[0].gitAccess).toBeUndefined()
+    expect(() => s.setHostGitAccess('nope', null)).toThrow(/Unknown host/)
+  })
+
+  it('loads legacy config without gitTokens and drops invalid or malformed entries', () => {
+    const file = path.join(dir, 'config.json')
+    fs.writeFileSync(file, JSON.stringify({ hosts: [], repos: [], workspaces: [] }))
+    expect(new Store(dir).config.gitTokens).toEqual([])
+    const good = {
+      id: 'a',
+      provider: 'github',
+      host: 'github.com',
+      path: 'o',
+      login: 'j',
+      label: 'L',
+      expiresAt: null,
+      updatedAt: 't'
+    }
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        hosts: [
+          {
+            id: 'h1',
+            sshHost: 'a',
+            label: 'A',
+            gitAccess: { installedAt: 'x', installed: {}, wrapperVersion: null }
+          },
+          { id: 'h2', sshHost: 'b', label: 'B', gitAccess: 'junk' }
+        ],
+        gitTokens: [good, { ...good, id: 'b', path: '../bad' }, null]
+      })
+    )
+    const c = new Store(dir).config
+    expect(c.gitTokens.map((t) => t.id)).toEqual(['a'])
+    expect(c.hosts[0].gitAccess).toBeDefined()
+    expect(c.hosts[1].gitAccess).toBeUndefined()
   })
 })
