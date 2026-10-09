@@ -28,7 +28,8 @@ describe('Store', () => {
       hosts: [],
       repos: [],
       workspaces: [],
-      prefs: DEFAULT_PREFS
+      prefs: DEFAULT_PREFS,
+      gitTokens: []
     })
     s.addHost('h', 'H')
     expect(fs.existsSync(path.join(nested, 'config.json'))).toBe(true)

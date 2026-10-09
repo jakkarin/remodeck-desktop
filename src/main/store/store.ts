@@ -207,11 +207,12 @@ export class Store {
         hosts: (raw.hosts ?? []).map((h) => ({ ...h, protected: h.protected === true })),
         repos: raw.repos ?? [],
         workspaces: raw.workspaces ?? [],
-        prefs: loadPrefs(raw.prefs)
+        prefs: loadPrefs(raw.prefs),
+        gitTokens: []
       }
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT')
-        return { hosts: [], repos: [], workspaces: [], prefs: loadPrefs(undefined) }
+        return { hosts: [], repos: [], workspaces: [], prefs: loadPrefs(undefined), gitTokens: [] }
       throw err
     }
   }
