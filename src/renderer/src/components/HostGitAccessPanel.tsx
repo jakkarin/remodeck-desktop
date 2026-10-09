@@ -178,7 +178,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
           {tokens.length === 0 ? (
             <p className="dim">No tokens yet.</p>
           ) : (
-            <ul aria-label="Tokens for this host">
+            <ul aria-label="Tokens for this host" className="git-access-tokens">
               {tokens.map((t) => (
                 <li key={t.id}>
                   <label className="checkbox">
@@ -206,7 +206,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
           <Button onClick={() => openSettings('gitTokens')}>Manage tokens</Button>
           {status && <StatusRows status={status} />}
           {error && <div className="error">{error}</div>}
-          <div className="dialog-actions">
+          <div className="git-access-actions">
             {installed && (
               <Button onClick={() => void check()} disabled={busy}>
                 Check again

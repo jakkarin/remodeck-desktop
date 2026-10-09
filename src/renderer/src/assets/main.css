@@ -242,6 +242,10 @@ textarea::placeholder {
   flex-direction: column;
   gap: var(--space-2);
 }
+/* Children keep their height and the dialog scrolls; shrinking lets tall sections overlap the actions. */
+.dialog > * {
+  flex-shrink: 0;
+}
 .dialog h2 {
   margin: 0 0 4px;
   font-size: var(--text-title);
@@ -465,6 +469,22 @@ textarea::placeholder {
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
+}
+.git-access-tokens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.git-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
 }
 .settings h3 {
   margin: 0;
