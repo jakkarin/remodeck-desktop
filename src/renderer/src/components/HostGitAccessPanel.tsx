@@ -14,6 +14,8 @@ import { Badge, Button } from './ui'
 
 const WARNING =
   'Tokens are stored in plain text on this host. Anything running as this user can read them. Terminals opened from remodeck keep using the Git Bridge and push approval.'
+const INSTALL_RETRY = ' Try Update host again or Remove from host.'
+const ORPHAN = 'A removed token is still on this host. Update host or Remove from host deletes it.'
 const PROTECTION =
   "Real protection on the host comes from each token's scope and expiry and from GitHub rulesets, because Git Bridge rules don't apply to agents pushing directly."
 
@@ -54,7 +56,7 @@ function StatusRows({ status }: { status: GitAccessStatus }): React.JSX.Element 
       )}
       {status.otherHelpers.map((label) => (
         <li key={label} className="error">
-          {`Your existing credential helper "${label}" for github.com won't answer for repos without a remodeck token.`}
+          {`Credential helper "${label}" for github.com is asked before remodeck's and may answer with its own login. Repos without a remodeck token may also stop using it.`}
         </li>
       ))}
     </ul>
@@ -77,6 +79,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<'install' | 'remove' | null>(null)
   const active = enabled || installed
+  const orphans = (status?.stale ?? []).filter((id) => !tokens.some((t) => t.id === id))
 
   useEffect(() => {
     if (!active) return
@@ -84,7 +87,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
       .list()
       .then((list) => setTokens([...list].sort(compareScopes)))
       .catch((e) => setError(errorMessage(e)))
-  }, [active])
+  }, [active, installed])
 
   const check = useCallback(async (): Promise<void> => {
     setBusy(true)
@@ -119,7 +122,7 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
       const ids = tokens.filter((t) => checked.has(t.id)).map((t) => t.id)
       setStatus(await api.gitAccess.install(host.id, ids))
     } catch (e) {
-      setError(errorMessage(e))
+      setError(`${errorMessage(e)}${INSTALL_RETRY}`)
     }
     // A failure can follow a successful install, so always re-read the host record.
     try {
@@ -195,20 +198,24 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
               ))}
             </ul>
           )}
+          {orphans.map((id) => (
+            <p key={id} className="settings-help">
+              {ORPHAN}
+            </p>
+          ))}
           <Button onClick={() => openSettings('gitTokens')}>Manage tokens</Button>
           {status && <StatusRows status={status} />}
           {error && <div className="error">{error}</div>}
           <div className="dialog-actions">
             {installed && (
-              <>
-                <Button onClick={() => void check()} disabled={busy}>
-                  Check again
-                </Button>
-                <Button variant="danger" onClick={() => setConfirm('remove')} disabled={busy}>
-                  Remove from host
-                </Button>
-              </>
+              <Button onClick={() => void check()} disabled={busy}>
+                Check again
+              </Button>
             )}
+            {/* a failed first install can leave files on the host; the remove script is safe on a clean one */}
+            <Button variant="danger" onClick={() => setConfirm('remove')} disabled={busy}>
+              Remove from host
+            </Button>
             <Button
               variant="primary"
               disabled={busy || !tokens.some((t) => checked.has(t.id))}

@@ -133,10 +133,28 @@ function TokenRow({
   onReplace: () => void
 }): React.JSX.Element {
   const [confirming, setConfirming] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [labelDraft, setLabelDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const scope = scopeKey(token)
   const exp = expiry(token.expiresAt)
   const count = hostLabels.length
+
+  async function saveLabel(): Promise<void> {
+    const next = labelDraft.trim()
+    if (next === '') {
+      setError('Label cannot be empty')
+      return
+    }
+    setError(null)
+    try {
+      await api.gitTokens.setLabel(token.id, next)
+      setEditing(false)
+      await onChanged()
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
 
   async function remove(): Promise<void> {
     setError(null)
@@ -177,10 +195,38 @@ function TokenRow({
           </Button>{' '}
           <Button onClick={() => setConfirming(false)}>Cancel</Button>
         </div>
+      ) : editing ? (
+        <div>
+          <TextInput
+            aria-label={`Label for ${scope}`}
+            value={labelDraft}
+            onChange={(e) => setLabelDraft(e.target.value)}
+          />{' '}
+          <Button variant="primary" onClick={() => void saveLabel()}>
+            Save label
+          </Button>{' '}
+          <Button
+            onClick={() => {
+              setEditing(false)
+              setError(null)
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
       ) : (
         <div>
           <Button aria-label={`Replace token for ${scope}`} onClick={onReplace}>
             Replace
+          </Button>{' '}
+          <Button
+            aria-label={`Edit label for ${scope}`}
+            onClick={() => {
+              setLabelDraft(token.label)
+              setEditing(true)
+            }}
+          >
+            Edit label
           </Button>{' '}
           <Button aria-label={`Remove token for ${scope}`} onClick={() => setConfirming(true)}>
             Remove
@@ -213,15 +259,26 @@ export function GitTokensSection(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    let live = true
+    api.gitTokens
+      .list()
+      .then((list) => {
+        if (!live) return
+        setTokens([...list].sort(compareScopes))
+        setLoadError(null)
+      })
+      .catch((e) => live && setLoadError(errorMessage(e)))
+    return () => {
+      live = false
+    }
+  }, [])
 
   return (
     <section className="settings-section">
       <h3>Git tokens</h3>
       <p className="settings-help">
         Fine-grained personal access tokens with Contents and Pull requests read and write
-        permissions.{' '}
+        permissions. Select only the repositories you need and set an expiration.{' '}
         <a href={TOKEN_URL} target="_blank" rel="noreferrer">
           Create a token on GitHub
         </a>

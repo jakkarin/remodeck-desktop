@@ -163,6 +163,41 @@ describe('GitTokensSection', () => {
     expect(await screen.findByText('No expiry')).toBeInTheDocument()
   })
 
+  it('edits a label inline and reloads', async () => {
+    vi.mocked(api.gitTokens.setLabel).mockResolvedValue(token({ label: 'Renamed' }))
+    renderSection()
+    await screen.findAllByRole('listitem')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit label for github.com/org-a' }))
+    const input = screen.getByRole('textbox', { name: 'Label for github.com/org-a' })
+    expect(input).toHaveValue('Work')
+    fireEvent.change(input, { target: { value: ' Renamed ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save label' }))
+    await waitFor(() => expect(api.gitTokens.setLabel).toHaveBeenCalledWith('t1', 'Renamed'))
+    await waitFor(() => expect(api.gitTokens.list).toHaveBeenCalledTimes(2))
+    expect(
+      screen.queryByRole('textbox', { name: 'Label for github.com/org-a' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('rejects an empty label inline without calling the API', async () => {
+    renderSection()
+    await screen.findAllByRole('listitem')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit label for github.com/org-a' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Label for github.com/org-a' }), {
+      target: { value: '   ' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save label' }))
+    expect(await screen.findByText('Label cannot be empty')).toBeInTheDocument()
+    expect(api.gitTokens.setLabel).not.toHaveBeenCalled()
+  })
+
+  it('tells the user to limit repositories and set an expiration', async () => {
+    renderSection()
+    await screen.findAllByRole('listitem')
+    expect(screen.getByText(/only the repositories/i)).toBeInTheDocument()
+    expect(screen.getByText(/expiration/i)).toBeInTheDocument()
+  })
+
   it('explains the required permissions with a link to create a token', async () => {
     renderSection()
     await screen.findAllByRole('listitem')
