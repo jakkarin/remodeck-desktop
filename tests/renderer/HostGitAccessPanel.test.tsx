@@ -1,0 +1,190 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import type { GitAccessStatus, GitToken } from '../../src/shared/gitAccess'
+import type { Host } from '../../src/shared/types'
+
+vi.mock('../../src/renderer/src/api', () => ({
+  api: {
+    gitAccess: { status: vi.fn(), install: vi.fn(), remove: vi.fn() },
+    gitTokens: { list: vi.fn() }
+  },
+  errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
+}))
+
+import { api } from '../../src/renderer/src/api'
+import { HostGitAccessPanel } from '../../src/renderer/src/components/HostGitAccessPanel'
+import { AppStateContext, type AppState } from '../../src/renderer/src/state'
+
+const WARNING =
+  'Tokens are stored in plain text on this host. Anything running as this user can read them. Terminals opened from remodeck keep using the Git Bridge and push approval.'
+
+const tokenA: GitToken = {
+  id: 't1',
+  provider: 'github',
+  host: 'github.com',
+  path: 'acme',
+  login: 'a',
+  label: 'Acme',
+  expiresAt: null,
+  updatedAt: '2026-01-01T00:00:00Z'
+}
+const tokenB: GitToken = { ...tokenA, id: 't2', path: 'other', label: 'Other' }
+
+const okStatus: GitAccessStatus = {
+  helperInstalled: true,
+  includeActive: true,
+  scopesOnTarget: ['github.com/acme'],
+  cli: { path: '/usr/bin/gh', version: '2.50.0' },
+  wrapper: {
+    state: 'ours',
+    version: 1,
+    outdated: false,
+    loginShell: true,
+    nonLoginShell: true
+  },
+  otherHelpers: [],
+  stale: [],
+  missing: []
+}
+
+const plainHost: Host = { id: 'h1', sshHost: 'box', label: 'Box', protected: false }
+const installedHost: Host = {
+  ...plainHost,
+  gitAccess: { installedAt: '2026-01-01T00:00:00Z', installed: { t1: 'x' }, wrapperVersion: 1 }
+}
+
+const refresh = vi.fn().mockResolvedValue(undefined)
+
+function renderPanel(host: Host, hosts: Host[] = [host]): void {
+  const value = { refresh, hosts } as unknown as AppState
+  render(
+    <AppStateContext.Provider value={value}>
+      <HostGitAccessPanel host={host} />
+    </AppStateContext.Provider>
+  )
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  refresh.mockResolvedValue(undefined)
+  vi.mocked(api.gitTokens.list).mockResolvedValue([tokenA, tokenB])
+  vi.mocked(api.gitAccess.status).mockResolvedValue(okStatus)
+})
+
+describe('HostGitAccessPanel', () => {
+  it('is off by default and does not touch the host', () => {
+    renderPanel(plainHost)
+    expect(
+      screen.getByRole('checkbox', { name: 'Enable git access on this host' })
+    ).not.toBeChecked()
+    expect(api.gitAccess.status).not.toHaveBeenCalled()
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument()
+  })
+
+  it('warns when enabled and installs after a click confirmation', async () => {
+    vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
+    renderPanel(plainHost)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    expect(screen.getByText(WARNING)).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    const dialog = screen.getByRole('dialog')
+    expect(api.gitAccess.install).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }))
+    await waitFor(() => expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1']))
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it('shows an empty state when there are no tokens', async () => {
+    vi.mocked(api.gitTokens.list).mockResolvedValue([])
+    renderPanel(plainHost)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    expect(await screen.findByText('No tokens yet.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Manage tokens' })).toBeInTheDocument()
+  })
+
+  it('loads status for an installed host and pre-checks installed tokens', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, stale: ['t1'] })
+    renderPanel(installedHost)
+    await waitFor(() => expect(api.gitAccess.status).toHaveBeenCalledWith('h1'))
+    const acme = await screen.findByRole('checkbox', { name: /github.com\/acme/ })
+    expect(acme).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /github.com\/other/ })).not.toBeChecked()
+    expect(await screen.findByText('Changed since install')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Update host' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
+    await waitFor(() => expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1']))
+  })
+
+  it('reports cli, wrapper and helper problems', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({
+      ...okStatus,
+      cli: { path: null, version: null },
+      wrapper: {
+        state: 'ours',
+        version: 0,
+        outdated: true,
+        loginShell: true,
+        nonLoginShell: false
+      },
+      otherHelpers: ['store']
+    })
+    renderPanel(installedHost)
+    expect(await screen.findByText('gh not found on this host')).toBeInTheDocument()
+    expect(screen.getByText('Update available')).toBeInTheDocument()
+    expect(screen.getByText(/Put ~\/\.local\/bin first in PATH/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Your existing credential helper "store" for github.com won\'t answer for repos without a remodeck token.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('reports a foreign gh wrapper', async () => {
+    vi.mocked(api.gitAccess.status).mockResolvedValue({
+      ...okStatus,
+      wrapper: {
+        state: 'foreign',
+        version: null,
+        outdated: false,
+        loginShell: false,
+        nonLoginShell: false
+      }
+    })
+    renderPanel(installedHost)
+    expect(
+      await screen.findByText('gh wrapper not installed: ~/.local/bin/gh already exists')
+    ).toBeInTheDocument()
+  })
+
+  it('removes after confirmation and refreshes', async () => {
+    vi.mocked(api.gitAccess.remove).mockResolvedValue(undefined as never)
+    renderPanel(installedHost)
+    await screen.findByRole('checkbox', { name: /github.com\/acme/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove from host' }))
+    expect(api.gitAccess.remove).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(api.gitAccess.remove).toHaveBeenCalledWith('h1'))
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+  })
+
+  it('checks again and shows a status error inline while staying usable', async () => {
+    renderPanel(installedHost)
+    await waitFor(() => expect(api.gitAccess.status).toHaveBeenCalledTimes(1))
+    vi.mocked(api.gitAccess.status).mockRejectedValue(new Error('ssh failed'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Check again' }))
+    expect(await screen.findByText('ssh failed')).toBeInTheDocument()
+    expect(api.gitAccess.status).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Update host' })).toBeEnabled()
+  })
+
+  it('shows an install error and keeps the installed state', async () => {
+    vi.mocked(api.gitAccess.install).mockRejectedValue(new Error('probe failed'))
+    renderPanel(installedHost)
+    await screen.findByRole('checkbox', { name: /github.com\/acme/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
+    expect(await screen.findByText('probe failed')).toBeInTheDocument()
+    expect(refresh).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Update host' })).toBeInTheDocument()
+  })
+})
