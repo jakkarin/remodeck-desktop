@@ -54,9 +54,10 @@ export class GitTokenService {
     if (pathErr) throw new Error(pathErr)
     if (!isValidTokenValue(input.token)) throw new Error('Token contains invalid characters')
     const { login, expiresAt } = await adapter.validateToken(host, path, input.token)
-    const label = input.label.trim() || scopeKey({ host, path })
-
     const existing = this.store.config.gitTokens.find((x) => x.host === host && x.path === path)
+    // a blank label on a rotation keeps the name the user gave the token
+    const label = input.label.trim() || existing?.label || scopeKey({ host, path })
+
     if (existing) {
       // The id is already known, so the secret goes first: a failed save leaves config untouched.
       this.secrets.set(existing.id, input.token)

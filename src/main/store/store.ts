@@ -199,6 +199,10 @@ export class Store {
     if (this.cfg.workspaces.some((w) => w.hostId === id)) {
       throw new Error(`Host ${id} still has workspaces`)
     }
+    // its tokens would stay on the target with no way left to remove them
+    if (this.cfg.hosts.some((h) => h.id === id && h.gitAccess !== undefined)) {
+      throw new Error('Remove git access from this host first')
+    }
     this.cfg.hosts = this.cfg.hosts.filter((h) => h.id !== id)
     this.save()
   }

@@ -90,6 +90,17 @@ describe('Store', () => {
     expect(s.config.hosts).toEqual([])
   })
 
+  it('removeHost refuses while git access is set on the host', () => {
+    const s = new Store(dir)
+    const h = s.addHost('dev', 'Dev')
+    s.setHostGitAccess(h.id, { installedAt: 't', installed: {}, wrapperVersion: null })
+    expect(() => s.removeHost(h.id)).toThrow('Remove git access from this host first')
+    expect(s.config.hosts).toHaveLength(1)
+    s.setHostGitAccess(h.id, null)
+    s.removeHost(h.id)
+    expect(s.config.hosts).toEqual([])
+  })
+
   it('push log returns newest first and limited', () => {
     const s = new Store(dir)
     expect(s.readPushLog(5)).toEqual([])

@@ -160,7 +160,8 @@ if [ -n "$repo" ]; then
     */*) host=${shQuote(defaultHost)}; path=$repo ;;
   esac
 else
-  url=$(git remote get-url origin 2>/dev/null </dev/null) || url=
+  # the raw configured value: \`git remote get-url\` would apply the bridge insteadOf rewrite of remodeck terminals
+  url=$(git config --get remote.origin.url 2>/dev/null </dev/null) || url=
   case "$url" in
     *://*)
       rest=\${url#*://}
@@ -281,14 +282,11 @@ export function buildInstallScript(input: InstallInput): string {
     const body = cliWrapperScript(cli, defaultHost, WRAPPER_VERSION)
     const wdelim = freshDelimiter(body)
     const file = `"$HOME/.local/bin/${cli.command}"`
-    const marker = `# remodeck-cli-wrapper ${cli.command} v`
     out.push(
       `# ${cli.command} wrapper: only ours (marker on line 2) is replaced, anything else is left alone`,
       `if [ -e ${file} ] || [ -L ${file} ]; then`,
-      `  case "$(sed -n 2p ${file} 2>/dev/null)" in`,
-      `    "${marker}"*) WRAP=1 ;;`,
-      '    *) WRAP= ;;',
-      '  esac',
+      markerVersionSnippet(cli.command, file),
+      '  if [ -n "$wv" ]; then WRAP=1; else WRAP=; fi',
       'else',
       '  WRAP=1',
       'fi',
@@ -338,7 +336,8 @@ export function buildStatusScript(clis: CliSpec[], hosts: string[]): string {
     '  [ -n "$h" ] || continue',
     '  [ "$h" = "$ROOT/git-credential-remodeck" ] && continue',
     // only a label leaves the host: helper values can carry secrets (inline shell, --file=..., URLs)
-    '  case "$h" in "!"*) echo inline; continue ;; esac',
+    // gh's own helper (gh auth setup-git) gets its name; any other inline text stays hidden
+    '  case "$h" in "!"*"gh auth git-credential"*) echo gh; continue ;; "!"*) echo inline; continue ;; esac',
     '  set -f',
     '  set -- $h',
     '  set +f',

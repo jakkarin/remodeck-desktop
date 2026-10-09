@@ -99,6 +99,18 @@ describe('status and remove scripts', () => {
     expect(r.stdout).not.toContain('SECRET123')
   })
 
+  it('labels the helper written by gh auth setup-git as "gh" and leaks nothing else', async () => {
+    await run(installScript)
+    await run(
+      'git config --global --replace-all credential.https://github.com.helper ""\n' +
+        "git config --global --add credential.https://github.com.helper '!/usr/SECRET789/bin/gh auth git-credential'"
+    )
+    const r = await run(statusScript)
+    expect(parseStatusOutput(r.stdout).otherHelpers).toEqual(['gh'])
+    expect(r.stdout).not.toContain('SECRET789')
+    expect(r.stdout).not.toContain('/usr/')
+  })
+
   it('reports home and resolves our wrapper to exactly <home>/.local/bin/gh', async () => {
     await withFakeGh()
     await run(installScript)

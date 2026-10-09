@@ -58,6 +58,16 @@ describe('gh wrapper', () => {
     expect(await line1('gh x', 'ssh://git@github.com:22/org-b/y.git')).toBe('token=B args=x')
   })
 
+  it('reads the configured origin, not the bridge insteadOf rewrite of it', async () => {
+    const key = 'url.http://127.0.0.1:1/s/tok/.insteadOf'
+    const env =
+      `export GIT_CONFIG_COUNT=3 GIT_CONFIG_KEY_0='${key}' GIT_CONFIG_VALUE_0='https://github.com/' ` +
+      `GIT_CONFIG_KEY_1='${key}' GIT_CONFIG_VALUE_1='git@github.com:' ` +
+      `GIT_CONFIG_KEY_2='${key}' GIT_CONFIG_VALUE_2='ssh://git@github.com/'`
+    expect(await line1('gh x', 'https://github.com/org-a/payments.git', env)).toBe('token=P args=x')
+    expect(await line1('gh x', 'git@github.com:org-b/y.git', env)).toBe('token=B args=x')
+  })
+
   it('passes through untouched when no token matches or there is no repo', async () => {
     expect(await line1('gh x')).toBe('token=none args=x')
     expect(await line1('gh x', 'https://github.com/org-z/y.git')).toBe('token=none args=x')
@@ -114,6 +124,15 @@ describe('gh wrapper', () => {
     const before = (await t.exec('cat "$HOME/.local/bin/gh"')).stdout
     const r = await run(installScript)
     expect(r.code).toBe(0)
+    expect(r.stdout).toContain('wrapper=gh:skipped')
+    expect(r.stdout).not.toContain('wrapper=gh:installed')
+    expect((await t.exec('cat "$HOME/.local/bin/gh"')).stdout).toBe(before)
+  })
+
+  it('skips a file whose marker version is not all digits, as status and remove do', async () => {
+    await run(`printf '#!/bin/sh\\n# remodeck-cli-wrapper gh v1abc\\necho mine\\n' > "$HOME/.local/bin/gh"`)
+    const before = (await t.exec('cat "$HOME/.local/bin/gh"')).stdout
+    const r = await run(installScript)
     expect(r.stdout).toContain('wrapper=gh:skipped')
     expect(r.stdout).not.toContain('wrapper=gh:installed')
     expect((await t.exec('cat "$HOME/.local/bin/gh"')).stdout).toBe(before)

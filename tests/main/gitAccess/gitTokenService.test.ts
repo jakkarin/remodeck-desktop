@@ -52,6 +52,16 @@ describe('GitTokenService', () => {
     expect(t.label).toBe('github.com/org-a')
   })
 
+  it('keeps an existing custom label when a rotation through add has a blank label', async () => {
+    const first = await svc.add({ ...input, label: 'Work' })
+    const rotated = await svc.add({ ...input, label: '  ', token: 'tok2' })
+    expect(rotated.id).toBe(first.id)
+    expect(rotated.label).toBe('Work')
+    expect(secrets.get(first.id)).toBe('tok2')
+    const renamed = await svc.add({ ...input, label: 'Home', token: 'tok3' })
+    expect(renamed.label).toBe('Home')
+  })
+
   it('rejects hosts without a provider', async () => {
     await expect(svc.add({ ...input, host: 'gitlab.com' })).rejects.toThrow(
       "gitlab.com isn't supported yet"
