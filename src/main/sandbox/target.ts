@@ -1,7 +1,7 @@
 import { runProcess, type ProcResult } from '../proc/run'
 
 export interface SandboxTarget {
-  exec(script: string): Promise<ProcResult>
+  exec(script: string, opts?: { timeoutMs?: number }): Promise<ProcResult>
   gitUrl(path: string): string
 }
 
@@ -16,8 +16,11 @@ export class SshTarget implements SandboxTarget {
     private readonly sshPath: string
   ) {}
 
-  exec(script: string): Promise<ProcResult> {
-    return runProcess(this.sshPath, sshExecArgs(this.sshHost), { input: script })
+  exec(script: string, opts?: { timeoutMs?: number }): Promise<ProcResult> {
+    return runProcess(this.sshPath, sshExecArgs(this.sshHost), {
+      input: script,
+      timeoutMs: opts?.timeoutMs
+    })
   }
 
   gitUrl(path: string): string {
@@ -35,8 +38,12 @@ export class LocalTarget implements SandboxTarget {
     this.homeDir = homeDir.replaceAll('\\', '/')
   }
 
-  async exec(script: string): Promise<ProcResult> {
-    const opts = { input: script, env: { ...process.env, HOME: this.homeDir } as Record<string, string> }
+  async exec(script: string, execOpts?: { timeoutMs?: number }): Promise<ProcResult> {
+    const opts = {
+      input: script,
+      env: { ...process.env, HOME: this.homeDir } as Record<string, string>,
+      timeoutMs: execOpts?.timeoutMs
+    }
     try {
       return await runProcess('bash', ['-s'], opts)
     } catch (e) {
