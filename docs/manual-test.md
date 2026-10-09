@@ -207,3 +207,17 @@ Check in real Electron, after the move to the three-column workspace:
 | C.20 | A list taller than the window scrolls under the tab bar (Containers, Images, Volumes and Networks); compose project names sit at the left edge | ☐ |
 | C.21 | Click the terminal collapse button → the terminal folds down to its tab bar at the bottom of the window and expands again; drag the bar above the terminal to resize it → switch to the Git page and back → both pages keep the same terminal height, also after restarting the app | ☐ |
 | C.22 | Open a container's details → drag the bar between the list and the panel → the panel resizes (no narrower than 280px, and the list keeps at least 320px); close and reopen the panel or restart the app → the width is kept; below 720px wide the bar disappears | ☐ |
+
+### Git access on target hosts (manual)
+
+Use one real host with `git`, `gh` and Claude Code or Codex. Create fine-grained tokens (Contents RW, Pull requests RW, short expiry) for org A, org B and one repo of org A (the override).
+
+| # | Step | Result |
+| --- | --- | --- |
+| G.1 | Settings → Git tokens: add a token for org A, one for org B and one for a single repo of org A → the repo override is listed under org A | ☐ |
+| G.2 | Host settings → enable Git access on this host → the plain-text warning shows; select all three tokens, Install, confirm → status shows helper, include and gh wrapper active (login and non-login shell) | ☐ |
+| G.3 | On the host, open a plain SSH session (not a remodeck terminal) and have Claude Code or Codex clone, commit, push a branch and open a PR in a repo of org A, a repo of org B, and the override repo → all three succeed, each with its own token | ☐ |
+| G.4 | Open a terminal from remodeck on the same host and push → it still goes through the Git Bridge and asks for approval | ☐ |
+| G.5 | Replace one token in Settings → reopen Host settings → the row shows "Changed since install"; Update host clears it | ☐ |
+| G.6 | Remove from host and confirm → push and `gh pr create` from the same repos now fail, and `~/.config/remodeck/git-access`, `~/.local/bin/gh` (ours) and the `include.path` line in `~/.gitconfig` are gone | ☐ |
+

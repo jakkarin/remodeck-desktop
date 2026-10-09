@@ -50,6 +50,13 @@ UI tokens and reusable component usage: [Neutral design guidelines](docs/design-
   other processes of that user can read its environment and use the forwarded port while the terminal
   is open. The real gates are the approval popup and the fixed rules on the host, which the sandbox
   cannot touch.
+- Optional, per host and off by default: **Git access on this host** (Host settings) writes your scoped
+  tokens in plain text on that host so agents there can use `git` and `gh` directly. Anything running as
+  that user can read them. Terminals opened from remodeck keep using the Git Bridge and push approval, but
+  bridge rules do not apply to agents pushing directly, so protection relies on each token's scope and
+  expiry and on GitHub rulesets. Remove from host deletes every file again.
+  — ค่าเริ่มต้นยังไม่มี token ใน sandbox แต่ถ้า opt-in ต่อ host token จะถูกเก็บเป็น plain text บน host นั้น
+  และ process ใดที่รันเป็น user เดียวกันอ่านได้ การป้องกันจริงมาจาก scope/วันหมดอายุของ token และ ruleset ของ GitHub
 - Every push (bridge or Review) is logged to `push-log.jsonl`.
 - Zero footprint: nothing is written to the repo's working tree or commits; in the sandbox the app only
   does `git init`, sets `remote origin`, and updates `refs/remotes/origin/*` and tags. Removing a

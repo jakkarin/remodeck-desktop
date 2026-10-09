@@ -201,8 +201,9 @@ install script แทน `/home/<user>` ด้วย `$HOME` แบบ absolute 
 ตอน status จึงตรวจด้วย `git config --global --get-all credential.<url>.helper` และ `credential.helper`
 ถ้าเจอให้แสดง warning (ไม่แก้ให้)
 
-**`useHttpPath`:** กระทบ helper อื่นของ host นั้นด้วย ต้องมี test ยืนยันพฤติกรรมของ `credential-store`
-ที่มีรายการไม่ระบุ path และบันทึกผลไว้ใน status/README
+**`useHttpPath`:** กระทบ helper อื่นของ host นั้นด้วย ผลที่สังเกตได้จาก test (Task 5, git 2.45.1): เมื่อ include ของเรา
+เปิด `useHttpPath` แล้ว รายการ `store` เดิมของ github.com ที่ไม่ระบุ path จะไม่ตอบสำหรับ repo ที่ไม่มี token ของ remodeck
+ส่วน repo ที่ token ของเราครอบคลุม token ของเราชนะเสมอ UI จึงเตือนผ่าน `otherHelpers` (ไม่แก้ให้)
 
 ### CLI wrapper (`~/.local/bin/<cli>`, POSIX sh, `0755`)
 
