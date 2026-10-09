@@ -478,6 +478,10 @@ textarea::placeholder {
   flex-direction: column;
   gap: var(--space-1);
 }
+/* a plain link-like action, not a full-width row of the flex column */
+.git-access-manage {
+  align-self: flex-start;
+}
 .git-access-actions {
   display: flex;
   flex-wrap: wrap;

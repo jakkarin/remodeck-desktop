@@ -240,7 +240,9 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
               {ORPHAN}
             </p>
           ))}
-          <Button onClick={() => openSettings('gitTokens')}>Manage tokens</Button>
+          <Button className="git-access-manage" onClick={() => openSettings('gitTokens')}>
+            Manage tokens
+          </Button>
           {status && <StatusRows status={status} />}
           {askPath && (
             <label className="checkbox">
