@@ -54,7 +54,8 @@ UI tokens and reusable component usage: [Neutral design guidelines](docs/design-
   tokens in plain text on that host so agents there can use `git` and `gh` directly. Anything running as
   that user can read them. Terminals opened from remodeck keep using the Git Bridge and push approval, but
   bridge rules do not apply to agents pushing directly, so protection relies on each token's scope and
-  expiry and on GitHub rulesets. Remove from host deletes every file again.
+  expiry and on GitHub rulesets. Remove from host deletes every file again. Inside remodeck terminals,
+  `gh` resolves the repo from the configured `origin` URL, not from the Git Bridge rewrite of it.
   — ค่าเริ่มต้นยังไม่มี token ใน sandbox แต่ถ้า opt-in ต่อ host token จะถูกเก็บเป็น plain text บน host นั้น
   และ process ใดที่รันเป็น user เดียวกันอ่านได้ การป้องกันจริงมาจาก scope/วันหมดอายุของ token และ ruleset ของ GitHub
 - Every push (bridge or Review) is logged to `push-log.jsonl`.
