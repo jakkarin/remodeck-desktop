@@ -5,9 +5,7 @@ import { join } from 'node:path'
 import { LocalTarget } from '../../../src/main/sandbox/target'
 import { ROOT, buildInstallScript, helperScript, type InstallInput } from '../../../src/main/gitAccess/scripts'
 
-// R1: NOSYSTEM keeps the machine's system credential helper (e.g. Git Credential Manager) out of every run;
-// the unset keeps an askpass program from answering where the helper stays silent.
-const PREFIX = 'export GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0\nunset GIT_ASKPASS SSH_ASKPASS\n'
+import { GIT_PREFIX as PREFIX } from './testHelpers'
 
 const providers = [{ host: 'github.com', gitUsername: 'x-access-token' }]
 const input = (tokens: InstallInput['tokens']): InstallInput => ({ tokens, providers, wrappers: [] })

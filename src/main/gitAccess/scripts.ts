@@ -83,6 +83,97 @@ function shQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
+/**
+ * Content of ~/.local/bin/<cli.command> (POSIX sh). Line 2 is the marker the installer and status use to recognise it.
+ * It never edits "$@": the repo flags are only read, then the real binary gets the original arguments.
+ */
+export function cliWrapperScript(cli: CliSpec, defaultHost: string, version: number): string {
+  const cmd = cli.command
+  const flagCases = cli.repoFlags.map((f) =>
+    f.startsWith('--') ? `    ${f}=*) repo=\${arg#${f}=}; break ;;` : `    ${f}?*) repo=\${arg#${f}}; break ;;`
+  )
+  // gh also honours GITHUB_TOKEN; other CLIs only their own variable
+  const alreadySet = [cli.tokenEnv, ...(cli.tokenEnv === 'GH_TOKEN' ? ['GITHUB_TOKEN'] : [])]
+    .map((v) => `[ -n "\${${v}:-}" ]`)
+    .join(' || ')
+  return `#!/bin/sh
+# remodeck-cli-wrapper ${cmd} v${version}
+# Picks the token for the repo this call targets, then hands over to the real ${cmd}.
+helper="${ROOT}/git-credential-remodeck"
+
+# 1. the real binary: first PATH entry that is not this file
+real=
+oldifs=$IFS
+IFS=:
+set -f
+for dir in $PATH; do
+  [ -n "$dir" ] || dir=.
+  cand="$dir/${cmd}"
+  if [ -f "$cand" ] && [ -x "$cand" ] && ! [ "$cand" -ef "$0" ]; then real=$cand; break; fi
+done
+set +f
+IFS=$oldifs
+if [ -z "$real" ]; then
+  echo "${cmd}: ${cmd} not found on PATH (remodeck wrapper)" >&2
+  exit 127
+fi
+
+# 2. the caller already chose a token
+if ${alreadySet}; then exec "$real" "$@"; fi
+
+# 3. which repo: flag, then env, then the origin remote
+repo=
+want=
+for arg in "$@"; do
+  if [ -n "$want" ]; then repo=$arg; break; fi
+  case "$arg" in
+    ${cli.repoFlags.join('|')}) want=1 ;;
+${flagCases.join('\n')}
+  esac
+done
+${cli.repoEnv ? `[ -n "$repo" ] || repo=\${${cli.repoEnv}:-}` : ''}
+host=
+path=
+if [ -n "$repo" ]; then
+  case "$repo" in
+    */*/*) host=\${repo%%/*}; path=\${repo#*/} ;;
+    */*) host=${shQuote(defaultHost)}; path=$repo ;;
+  esac
+else
+  url=$(git remote get-url origin 2>/dev/null </dev/null) || url=
+  case "$url" in
+    *://*)
+      rest=\${url#*://}
+      host=\${rest%%/*}; host=\${host#*@}; host=\${host%%:*}
+      path=\${rest#*/}
+      ;;
+    *:*)
+      host=\${url%%:*}; host=\${host#*@}
+      path=\${url#*:}
+      ;;
+  esac
+fi
+
+# 4. same longest-prefix lookup git uses
+if [ -n "$host" ] && [ -n "$path" ] && [ -f "$helper" ]; then
+  token=$(sh "$helper" --token-for "$host/$path" 2>/dev/null) || token=
+  if [ -n "$token" ]; then ${cli.tokenEnv}=$token; export ${cli.tokenEnv}; fi
+fi
+
+# 5. original arguments, untouched
+exec "$real" "$@"
+`
+}
+
+/** A heredoc delimiter that occurs in none of `texts`. */
+function freshDelimiter(...texts: string[]): string {
+  let delim: string
+  do {
+    delim = `REMODECK_${randomBytes(8).toString('hex')}`
+  } while (texts.some((t) => t.includes(delim)))
+  return delim
+}
+
 function assertValid(input: InstallInput): void {
   for (const t of input.tokens) {
     const err = validateScope(t.host, t.path)
@@ -100,16 +191,13 @@ function assertValid(input: InstallInput): void {
 /**
  * Builds the sh script that makes the target match `input`: writes the helper, providers.conf, the included
  * gitconfig and one @token per scope, then prunes stale tokens. Secrets only appear as single-quoted
- * printf arguments, so nothing in them is expanded. Wrapper files are appended after the git include by Task 6; until then
- * `input.wrappers` is unused and the script prints no `wrapper=` lines.
+ * printf arguments, so nothing in them is expanded. Each CLI wrapper is written last and reported as
+ * `wrapper=<cli>:installed` or `wrapper=<cli>:skipped` (a file without our marker is never touched).
  */
 export function buildInstallScript(input: InstallInput): string {
   assertValid(input)
   const helper = helperScript()
-  let delim: string
-  do {
-    delim = `REMODECK_${randomBytes(8).toString('hex')}`
-  } while (helper.includes(delim))
+  const delim = freshDelimiter(helper)
 
   const out: string[] = [
     'set -eu',
@@ -169,5 +257,35 @@ export function buildInstallScript(input: InstallInput): string {
     'fi',
     ''
   )
+  for (const { cli, defaultHost } of input.wrappers) {
+    const body = cliWrapperScript(cli, defaultHost, WRAPPER_VERSION)
+    const wdelim = freshDelimiter(body)
+    const file = `"$HOME/.local/bin/${cli.command}"`
+    const marker = `# remodeck-cli-wrapper ${cli.command} v`
+    out.push(
+      `# ${cli.command} wrapper: only ours (marker on line 2) is replaced, anything else is left alone`,
+      `if [ -e ${file} ] || [ -L ${file} ]; then`,
+      `  case "$(sed -n 2p ${file} 2>/dev/null)" in`,
+      `    "${marker}"*) WRAP=1 ;;`,
+      '    *) WRAP= ;;',
+      '  esac',
+      'else',
+      '  WRAP=1',
+      'fi',
+      'if [ -n "$WRAP" ]; then',
+      // dir gets 0755 whatever the install umask (077) is
+      '  (umask 022; mkdir -p "$HOME/.local/bin")',
+      `  cat > ${file}.tmp <<'${wdelim}'`,
+      body.replace(/\n$/, ''),
+      wdelim,
+      `  chmod 755 ${file}.tmp`,
+      `  mv ${file}.tmp ${file}`,
+      `  echo wrapper=${cli.command}:installed`,
+      'else',
+      `  echo wrapper=${cli.command}:skipped`,
+      'fi',
+      ''
+    )
+  }
   return out.join('\n')
 }
