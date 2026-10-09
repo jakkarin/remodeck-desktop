@@ -99,18 +99,17 @@ function assertValid(input: InstallInput): void {
 
 /**
  * Builds the sh script that makes the target match `input`: writes the helper, providers.conf, the included
- * gitconfig and one @token per scope, then prunes stale tokens. Secrets only sit inside quoted heredocs, so
- * nothing in them is expanded. Wrapper files are appended after the git include by Task 6; until then
+ * gitconfig and one @token per scope, then prunes stale tokens. Secrets only appear as single-quoted
+ * printf arguments, so nothing in them is expanded. Wrapper files are appended after the git include by Task 6; until then
  * `input.wrappers` is unused and the script prints no `wrapper=` lines.
  */
 export function buildInstallScript(input: InstallInput): string {
   assertValid(input)
   const helper = helperScript()
-  const secrets = input.tokens.map((t) => t.token)
   let delim: string
   do {
     delim = `REMODECK_${randomBytes(8).toString('hex')}`
-  } while (secrets.some((s) => s.includes(delim)) || helper.includes(delim))
+  } while (helper.includes(delim))
 
   const out: string[] = [
     'set -eu',
@@ -146,10 +145,8 @@ export function buildInstallScript(input: InstallInput): string {
     const dir = `"$ROOT/tokens/${t.host}/${t.path}"`
     out.push(
       `mkdir -p ${dir}`,
-      `printf %s "$(cat <<'${delim}'`,
-      t.token,
-      delim,
-      `)" > ${dir}/@token.tmp`,
+      // printf is a builtin and the single-quoted literal is never expanded, so the token stays off exec argv
+      `printf %s ${shQuote(t.token)} > ${dir}/@token.tmp`,
       `mv ${dir}/@token.tmp ${dir}/@token`
     )
   }
@@ -161,6 +158,8 @@ export function buildInstallScript(input: InstallInput): string {
     '    *) rm -f "$f" ;;',
     '  esac',
     'done',
+    '# stray *.tmp files (a secret may sit in one if an earlier run died before mv)',
+    'find "$ROOT" -type f -name \'*.tmp\' -exec rm -f {} +',
     'find "$ROOT/tokens" -mindepth 1 -type d -empty -delete',
     '',
     '# git include',

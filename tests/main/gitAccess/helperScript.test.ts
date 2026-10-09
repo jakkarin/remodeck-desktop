@@ -87,7 +87,7 @@ describe('credential helper and install script', () => {
   })
 
   it('writes awkward token values verbatim with no trailing newline', async () => {
-    const awkward = [`a$b\`c'd\\e`, '$(touch${IFS}pwned)', `"q"'`, '%s%n\\n', '-n', 'x'.repeat(512)]
+    const awkward = [`a$b\`c'd\\e`, '$(touch${IFS}pwned)', `"q"'`, `a'b"c(d)e`, `it's(`, '%s%n\\n', '-n', 'x'.repeat(512)]
     for (const [i, token] of awkward.entries()) {
       await install([{ host: 'github.com', path: `r${i}`, token }])
       const r = await run(`cat "${ROOT}/tokens/github.com/r${i}/@token"`)
@@ -95,6 +95,17 @@ describe('credential helper and install script', () => {
     }
     await install([{ host: 'github.com', path: 'q', token: `it's` }])
     expect((await fill('q/x')).stdout).toContain(`password=it's\n`)
+  })
+
+  it('removes stray .tmp files and the directories they kept alive', async () => {
+    await install(tokens)
+    await run(
+      `mkdir -p "${ROOT}/tokens/github.com/org-z" && printf secret > "${ROOT}/tokens/github.com/org-z/@token.tmp"`
+    )
+    await install(tokens)
+    expect((await t.exec(`test -e "${ROOT}/tokens/github.com/org-z"`)).code).not.toBe(0)
+    expect((await t.exec(`find "${ROOT}" -name '*.tmp' | wc -l`)).stdout.trim()).toBe('0')
+    expect((await fill('org-b/y')).stdout).toContain('password=B')
   })
 
   it('erase leaves the token in place', async () => {
