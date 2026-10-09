@@ -83,6 +83,21 @@ function shQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
+/** sh that sets `real` to the first PATH entry for `cmd` that is not the file `self` (a quoted sh expression). */
+function findRealSnippet(cmd: string, self: string): string {
+  return `real=
+oldifs=$IFS
+IFS=:
+set -f
+for dir in $PATH; do
+  [ -n "$dir" ] || dir=.
+  cand="$dir/${cmd}"
+  if [ -f "$cand" ] && [ -x "$cand" ] && ! [ "$cand" -ef ${self} ]; then real=$cand; break; fi
+done
+set +f
+IFS=$oldifs`
+}
+
 /**
  * Content of ~/.local/bin/<cli.command> (POSIX sh). Line 2 is the marker the installer and status use to recognise it.
  * It never edits "$@": the repo flags are only read, then the real binary gets the original arguments.
@@ -102,17 +117,7 @@ export function cliWrapperScript(cli: CliSpec, defaultHost: string, version: num
 helper="${ROOT}/git-credential-remodeck"
 
 # 1. the real binary: first PATH entry that is not this file
-real=
-oldifs=$IFS
-IFS=:
-set -f
-for dir in $PATH; do
-  [ -n "$dir" ] || dir=.
-  cand="$dir/${cmd}"
-  if [ -f "$cand" ] && [ -x "$cand" ] && ! [ "$cand" -ef "$0" ]; then real=$cand; break; fi
-done
-set +f
-IFS=$oldifs
+${findRealSnippet(cmd, '"$0"')}
 if [ -z "$real" ]; then
   echo "${cmd}: ${cmd} not found on PATH (remodeck wrapper)" >&2
   exit 127
@@ -287,5 +292,108 @@ export function buildInstallScript(input: InstallInput): string {
       ''
     )
   }
+  return out.join('\n')
+}
+
+/**
+ * Builds the read-only sh script that reports the target's state as `key=value` lines (see parseStatusOutput).
+ * The per-CLI lines (cli_*, wrapper, resolve_*) repeat for each CLI; the parser keeps the first.
+ * It only reads: nothing is created, changed or deleted.
+ */
+export function buildStatusScript(clis: CliSpec[], hosts: string[]): string {
+  for (const h of hosts) {
+    if (validateScope(h, 'x')) throw new Error(`Invalid host "${h}"`)
+  }
+  const helperKeys = ['credential.helper', ...hosts.map((h) => `credential.https://${h}.helper`)]
+  const out: string[] = [
+    `ROOT="${ROOT}"`,
+    'if [ -f "$ROOT/git-credential-remodeck" ]; then echo helper=1; else echo helper=0; fi',
+    // --global without --includes: our own included gitconfig is not read here
+    'INC="$ROOT/gitconfig"',
+    'if git config --global --get-all include.path </dev/null 2>/dev/null | grep -Fxq -- "$INC"; then echo include=1; else echo include=0; fi',
+    'if [ -d "$ROOT/tokens" ]; then',
+    '  find "$ROOT/tokens" -type f -name @token 2>/dev/null | sort | while IFS= read -r f; do',
+    '    f=${f#"$ROOT/tokens/"}',
+    '    echo "scope=${f%/@token}"',
+    '  done',
+    'fi',
+    '{',
+    ...helperKeys.map((k) => `  git config --global --get-all ${shQuote(k)}`),
+    '} </dev/null 2>/dev/null | sort -u | while IFS= read -r h; do',
+    '  [ -n "$h" ] || continue',
+    '  [ "$h" = "$ROOT/git-credential-remodeck" ] && continue',
+    '  echo "other_helper=$h"',
+    'done'
+  ]
+  for (const { command: cmd } of clis) {
+    const file = `"$HOME/.local/bin/${cmd}"`
+    const marker = `# remodeck-cli-wrapper ${cmd} v`
+    out.push(
+      '',
+      `# ${cmd}`,
+      findRealSnippet(cmd, file),
+      'echo "cli_path=$real"',
+      'ver=',
+      `[ -z "$real" ] || ver=$("$real" --version </dev/null 2>/dev/null | head -n 1 | grep -Eo '[0-9]+\\.[0-9]+(\\.[0-9]+)?' | head -n 1)`,
+      'echo "cli_version=$ver"',
+      `if [ -f ${file} ] && ! [ -L ${file} ]; then`,
+      `  line2=$(sed -n 2p ${file} 2>/dev/null)`,
+      '  case "$line2" in',
+      `    "${marker}"[0-9]*)`,
+      `      n=\${line2#"${marker}"}`,
+      '      case "$n" in *[!0-9]*) echo wrapper=foreign ;; *) echo "wrapper=ours:$n" ;; esac ;;',
+      '    *) echo wrapper=foreign ;;',
+      '  esac',
+      `elif [ -e ${file} ] || [ -L ${file} ]; then`,
+      '  echo wrapper=foreign',
+      'else',
+      '  echo wrapper=none',
+      'fi',
+      `echo "resolve_login=$(bash -lc ${shQuote(`command -v ${cmd}`)} </dev/null 2>/dev/null | tail -n 1)"`,
+      `echo "resolve_nonlogin=$(bash -c ${shQuote(`command -v ${cmd}`)} </dev/null 2>/dev/null | tail -n 1)"`
+    )
+  }
+  out.push('exit 0', '')
+  return out.join('\n')
+}
+
+/**
+ * Builds the sh script that undoes the install. It deletes exactly three things: our include line in
+ * ~/.gitconfig, the ~/.local/bin/<cmd> files whose line 2 is our marker (never symlinks), and $ROOT.
+ * Exits 0 whether or not anything was installed.
+ */
+export function buildRemoveScript(clis: CliSpec[]): string {
+  const out: string[] = [
+    `ROOT="${ROOT}"`,
+    // never let an unset HOME turn $ROOT into a path at the filesystem root
+    'case "${HOME:-}" in /?*) ;; *) echo "HOME is not set" >&2; exit 1 ;; esac',
+    'INC="$ROOT/gitconfig"',
+    '',
+    '# git include: exact value match; git older than 2.30 has no --fixed-value (exit 129), so use an escaped regex',
+    'git config --global --fixed-value --unset-all include.path "$INC" </dev/null >/dev/null 2>&1',
+    'if [ $? -eq 129 ]; then',
+    `  esc=$(printf %s "$INC" | sed 's/[][\\.*^$+?(){}|]/\\\\&/g')`,
+    '  git config --global --unset-all include.path "^$esc\\$" </dev/null >/dev/null 2>&1',
+    'fi'
+  ]
+  for (const { command: cmd } of clis) {
+    const file = `"$HOME/.local/bin/${cmd}"`
+    const marker = `# remodeck-cli-wrapper ${cmd} v`
+    out.push(
+      '',
+      `# ${cmd} wrapper: only ours (marker on line 2, regular file) is deleted`,
+      `if [ -f ${file} ] && ! [ -L ${file} ]; then`,
+      `  case "$(sed -n 2p ${file} 2>/dev/null)" in`,
+      `    "${marker}"[0-9]*) rm -f ${file}; echo wrapper=${cmd}:removed ;;`,
+      `    *) echo wrapper=${cmd}:foreign ;;`,
+      '  esac',
+      `elif [ -e ${file} ] || [ -L ${file} ]; then`,
+      `  echo wrapper=${cmd}:foreign`,
+      'else',
+      `  echo wrapper=${cmd}:none`,
+      'fi'
+    )
+  }
+  out.push('', 'rm -rf "$ROOT"', 'exit 0', '')
   return out.join('\n')
 }
