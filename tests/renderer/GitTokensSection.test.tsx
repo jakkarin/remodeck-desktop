@@ -143,6 +143,26 @@ describe('GitTokensSection', () => {
     await waitFor(() => expect(api.gitTokens.remove).toHaveBeenCalledWith('t1'))
   })
 
+  it('returns to the add form when the token being replaced is removed', async () => {
+    vi.mocked(api.gitTokens.remove).mockResolvedValue(undefined as never)
+    renderSection()
+    await screen.findAllByRole('listitem')
+    fireEvent.click(screen.getByRole('button', { name: 'Replace token for github.com/org-a' }))
+    expect(screen.getByRole('button', { name: 'Replace token' })).toBeInTheDocument()
+    vi.mocked(api.gitTokens.list).mockResolvedValue(TOKENS.filter((t) => t.id !== 't1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove token for github.com/org-a' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove' }))
+    expect(await screen.findByRole('button', { name: 'Add token' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Replace token' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Host')).not.toBeDisabled()
+  })
+
+  it('shows No expiry for an unparsable expiry date', async () => {
+    vi.mocked(api.gitTokens.list).mockResolvedValue([token({ expiresAt: 'garbage' })])
+    renderSection()
+    expect(await screen.findByText('No expiry')).toBeInTheDocument()
+  })
+
   it('explains the required permissions with a link to create a token', async () => {
     renderSection()
     await screen.findAllByRole('listitem')

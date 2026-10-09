@@ -12,6 +12,7 @@ const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new'
 function expiry(expiresAt: string | null): { text: string; tone: BadgeTone } {
   if (expiresAt === null) return { text: 'No expiry', tone: 'neutral' }
   const ms = new Date(expiresAt).getTime() - Date.now()
+  if (Number.isNaN(ms)) return { text: 'No expiry', tone: 'neutral' }
   if (ms <= 0) return { text: 'Expired', tone: 'danger' }
   const days = Math.ceil(ms / DAY_MS)
   return {
@@ -195,7 +196,12 @@ export function GitTokensSection(): React.JSX.Element {
   const { hosts } = useAppState()
   const [tokens, setTokens] = useState<GitToken[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [mode, setMode] = useState<FormMode>({ kind: 'add' })
+  const [requestedMode, setMode] = useState<FormMode>({ kind: 'add' })
+  // A token removed elsewhere must not leave the replace form pointing at a dead id.
+  const mode: FormMode =
+    requestedMode.kind === 'replace' && !tokens.some((t) => t.id === requestedMode.token.id)
+      ? { kind: 'add' }
+      : requestedMode
 
   const load = useCallback(async (): Promise<void> => {
     try {
