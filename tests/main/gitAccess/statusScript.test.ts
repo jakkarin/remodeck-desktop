@@ -82,11 +82,52 @@ describe('status and remove scripts', () => {
     expect(raw.nonLoginResolves).toMatch(/\/\.local\/bin\/gh$/)
   })
 
-  it('lists credential helpers that are not ours', async () => {
+  it('lists credential helpers that are not ours, as labels only', async () => {
     await run(installScript)
-    await run('git config --global credential.helper store\ngit config --global credential.https://github.com.helper cache')
+    await run(
+      'git config --global credential.helper "store --file=/secret/path/SECRET456"\n' +
+        'git config --global credential.https://github.com.helper /usr/bin/cache'
+    )
     const raw = await status()
     expect(raw.otherHelpers.sort()).toEqual(['cache', 'store'])
+  })
+
+  it('reports an inline shell helper as "inline" and never leaks its text', async () => {
+    await run('git config --global credential.helper \'!f() { echo password=SECRET123; }; f\'')
+    const r = await run(statusScript)
+    expect(parseStatusOutput(r.stdout).otherHelpers).toEqual(['inline'])
+    expect(r.stdout).not.toContain('SECRET123')
+  })
+
+  it('reports home and resolves our wrapper to exactly <home>/.local/bin/gh', async () => {
+    await withFakeGh()
+    await run(installScript)
+    const raw = parseStatusOutput((await run('export PATH="$HOME/.local/bin:$HOME/fakebin:$PATH"\n' + statusScript)).stdout)
+    const shHome = (await run('printf %s "$HOME"')).stdout
+    expect(raw.home).toBe(shHome)
+    expect(raw.nonLoginResolves).toBe(`${shHome}/.local/bin/gh`)
+  })
+
+  describe('shell probes', () => {
+    const PATHS = 'export PATH="$HOME/.local/bin:$HOME/fakebin:$PATH"\n'
+    const profile = (body: string) => run(`cat > "$HOME/.bash_profile" <<'EOF'\n${body}\nEOF`)
+
+    it('ignores noise printed by the login profile', async () => {
+      await withFakeGh()
+      await run(installScript)
+      await profile('echo "junk one"\necho /not/the/answer\nexport PATH="$HOME/.local/bin:$HOME/fakebin:$PATH"\necho trailing-junk-before-command-v')
+      const raw = parseStatusOutput((await run(PATHS + statusScript)).stdout)
+      expect(raw.loginResolves).toBe(`${raw.home}/.local/bin/gh`)
+    })
+
+    it('gives up on a login profile that blocks', async (ctx) => {
+      if ((await run('command -v timeout')).code !== 0) ctx.skip()
+      await profile('sleep 30')
+      const started = Date.now()
+      const r = await run('export REMODECK_PROBE_TIMEOUT=1\n' + PATHS + statusScript)
+      expect(Date.now() - started).toBeLessThan(15000)
+      expect(r.stdout).toContain('resolve_login=?')
+    }, 30000)
   })
 
   it('is read-only: the files under HOME and their contents are unchanged', async () => {
@@ -116,6 +157,15 @@ describe('status and remove scripts', () => {
       const again = await run(removeScript)
       expect(again.code).toBe(0)
       expect(again.stderr).toBe('')
+    })
+
+    it('keeps a gh whose marker version is not all digits, byte for byte', async () => {
+      const body = '#!/bin/sh\n# remodeck-cli-wrapper gh v1abc\necho mine\n'
+      await run(`mkdir -p "$HOME/.local/bin" && printf '#!/bin/sh\\n# remodeck-cli-wrapper gh v1abc\\necho mine\\n' > "$HOME/.local/bin/gh"`)
+      const r = await run(removeScript)
+      expect(r.code).toBe(0)
+      expect(r.stdout).toContain('wrapper=gh:foreign')
+      expect((await run('cat "$HOME/.local/bin/gh"')).stdout).toBe(body)
     })
 
     it('exits 0 when nothing is installed', async () => {

@@ -9,8 +9,9 @@ const raw = (over: Partial<RawStatus> = {}): RawStatus => ({
   cliPath: '/usr/bin/gh',
   cliVersion: '2.62.0',
   wrapper: { state: 'ours', version: 1 },
-  loginResolves: '$HOME/.local/bin/gh',
-  nonLoginResolves: '$HOME/.local/bin/gh',
+  home: '/home/u',
+  loginResolves: '/home/u/.local/bin/gh',
+  nonLoginResolves: '/home/u/.local/bin/gh',
   otherHelpers: [],
   ...over
 })
@@ -97,7 +98,16 @@ describe('computeStatus', () => {
   it('loginShell / nonLoginShell are true only when the command resolves to our wrapper', () => {
     const s = computeStatus(raw({ loginResolves: '/usr/bin/gh', nonLoginResolves: null }), undefined, [], 1)
     expect(s.wrapper).toMatchObject({ loginShell: false, nonLoginShell: false })
-    const r = computeStatus(raw({ loginResolves: '/home/u/.local/bin/gh' }), undefined, [], 1)
-    expect(r.wrapper.loginShell).toBe(true)
+    // some other user's .local/bin/gh is not ours
+    const other = computeStatus(raw({ loginResolves: '/home/v/.local/bin/gh' }), undefined, [], 1)
+    expect(other.wrapper.loginShell).toBe(false)
+    // an unknown home or an unknown probe ("?") is false
+    expect(computeStatus(raw({ home: null }), undefined, [], 1).wrapper).toMatchObject({
+      loginShell: false,
+      nonLoginShell: false
+    })
+    const q = parseStatusOutput('home=/home/u\nresolve_login=?\nresolve_nonlogin=/home/u/.local/bin/gh\n')
+    expect(q.loginResolves).toBeNull()
+    expect(computeStatus(q, undefined, [], 1).wrapper).toMatchObject({ loginShell: false, nonLoginShell: true })
   })
 })

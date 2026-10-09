@@ -10,6 +10,7 @@ export type RawStatus = {
   loginResolves: string | null
   nonLoginResolves: string | null
   otherHelpers: string[]
+  home: string | null
 }
 
 /** Parses the `key=value` lines of the status script; unknown lines are ignored and, for a scalar key, the first line wins. */
@@ -23,7 +24,8 @@ export function parseStatusOutput(stdout: string): RawStatus {
     wrapper: { state: 'none', version: null },
     loginResolves: null,
     nonLoginResolves: null,
-    otherHelpers: []
+    otherHelpers: [],
+    home: null
   }
   const seen = new Set<string>()
   for (const line of stdout.split('\n')) {
@@ -48,6 +50,9 @@ export function parseStatusOutput(stdout: string): RawStatus {
       case 'include':
         raw.include = value === '1'
         break
+      case 'home':
+        raw.home = value || null
+        break
       case 'cli_path':
         raw.cliPath = value || null
         break
@@ -55,10 +60,10 @@ export function parseStatusOutput(stdout: string): RawStatus {
         raw.cliVersion = value || null
         break
       case 'resolve_login':
-        raw.loginResolves = value || null
+        raw.loginResolves = value === '?' ? null : value || null
         break
       case 'resolve_nonlogin':
-        raw.nonLoginResolves = value || null
+        raw.nonLoginResolves = value === '?' ? null : value || null
         break
       case 'wrapper': {
         const m = /^ours:(\d+)$/.exec(value)
@@ -70,9 +75,6 @@ export function parseStatusOutput(stdout: string): RawStatus {
   }
   return raw
 }
-
-// The wrapper lives at $HOME/.local/bin/gh; the shell may report it with $HOME expanded or not.
-const WRAPPER_PATH_RE = /^(\$HOME|\/.+)\/\.local\/bin\/gh$/
 
 /** Compares what the target reports with what remodeck recorded at install time. */
 export function computeStatus(
@@ -89,7 +91,8 @@ export function computeStatus(
     if (!token || token.updatedAt !== installedUpdatedAt) stale.push(id)
     if (token && !raw.scopes.includes(scopeKey(token))) missing.push(id)
   }
-  const resolvesToWrapper = (p: string | null): boolean => p !== null && WRAPPER_PATH_RE.test(p)
+  // exactly where our wrapper lives; an unknown home or probe means false
+  const resolvesToWrapper = (p: string | null): boolean => p !== null && raw.home !== null && p === `${raw.home}/.local/bin/gh`
   return {
     helperInstalled: raw.helper,
     includeActive: raw.include,

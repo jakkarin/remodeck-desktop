@@ -78,6 +78,21 @@ printf 'username=%s\\npassword=%s\\n' "$username" "$token"
 `
 }
 
+/**
+ * sh that sets `wv` to N when line 2 of `file` is exactly `# remodeck-cli-wrapper <cmd> v<N>` (digits only), else empty.
+ * Status and remove share it so both agree on what counts as our wrapper.
+ */
+function markerVersionSnippet(cmd: string, file: string): string {
+  const marker = `# remodeck-cli-wrapper ${cmd} v`
+  return `  wv=
+  line2=$(sed -n 2p ${file} 2>/dev/null)
+  case "$line2" in
+    "${marker}"[0-9]*)
+      n=\${line2#"${marker}"}
+      case "$n" in *[!0-9]*) ;; *) wv=$n ;; esac ;;
+  esac`
+}
+
 /** Single-quotes a value for sh. */
 function shQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
@@ -322,12 +337,29 @@ export function buildStatusScript(clis: CliSpec[], hosts: string[]): string {
     '} </dev/null 2>/dev/null | sort -u | while IFS= read -r h; do',
     '  [ -n "$h" ] || continue',
     '  [ "$h" = "$ROOT/git-credential-remodeck" ] && continue',
-    '  echo "other_helper=$h"',
-    'done'
+    // only a label leaves the host: helper values can carry secrets (inline shell, --file=..., URLs)
+    '  case "$h" in "!"*) echo inline; continue ;; esac',
+    '  set -f',
+    '  set -- $h',
+    '  set +f',
+    '  [ -n "${1:-}" ] || continue',
+    '  echo "${1##*/}"',
+    'done | sort -u | while IFS= read -r label; do echo "other_helper=$label"; done',
+    '',
+    'echo "home=$HOME"',
+    // each probe: stdin from /dev/null, bounded by timeout when available, reported only as an absolute path
+    'probe() {',
+    '  tmo=',
+    '  if command -v timeout >/dev/null 2>&1; then tmo="timeout ${REMODECK_PROBE_TIMEOUT:-10}"; fi',
+    '  if out=$($tmo bash "$1" "$3" </dev/null 2>/dev/null); then',
+    `    r=$(printf '%s\\n' "$out" | tail -n 1)`,
+    '    case "$r" in /*) echo "resolve_$2=$r"; return ;; esac',
+    '  fi',
+    '  echo "resolve_$2=?"',
+    '}'
   ]
   for (const { command: cmd } of clis) {
     const file = `"$HOME/.local/bin/${cmd}"`
-    const marker = `# remodeck-cli-wrapper ${cmd} v`
     out.push(
       '',
       `# ${cmd}`,
@@ -337,20 +369,15 @@ export function buildStatusScript(clis: CliSpec[], hosts: string[]): string {
       `[ -z "$real" ] || ver=$("$real" --version </dev/null 2>/dev/null | head -n 1 | grep -Eo '[0-9]+\\.[0-9]+(\\.[0-9]+)?' | head -n 1)`,
       'echo "cli_version=$ver"',
       `if [ -f ${file} ] && ! [ -L ${file} ]; then`,
-      `  line2=$(sed -n 2p ${file} 2>/dev/null)`,
-      '  case "$line2" in',
-      `    "${marker}"[0-9]*)`,
-      `      n=\${line2#"${marker}"}`,
-      '      case "$n" in *[!0-9]*) echo wrapper=foreign ;; *) echo "wrapper=ours:$n" ;; esac ;;',
-      '    *) echo wrapper=foreign ;;',
-      '  esac',
+      markerVersionSnippet(cmd, file),
+      '  if [ -n "$wv" ]; then echo "wrapper=ours:$wv"; else echo wrapper=foreign; fi',
       `elif [ -e ${file} ] || [ -L ${file} ]; then`,
       '  echo wrapper=foreign',
       'else',
       '  echo wrapper=none',
       'fi',
-      `echo "resolve_login=$(bash -lc ${shQuote(`command -v ${cmd}`)} </dev/null 2>/dev/null | tail -n 1)"`,
-      `echo "resolve_nonlogin=$(bash -c ${shQuote(`command -v ${cmd}`)} </dev/null 2>/dev/null | tail -n 1)"`
+      `probe -lc login ${shQuote(`command -v ${cmd}`)}`,
+      `probe -c nonlogin ${shQuote(`command -v ${cmd}`)}`
     )
   }
   out.push('exit 0', '')
@@ -378,15 +405,12 @@ export function buildRemoveScript(clis: CliSpec[]): string {
   ]
   for (const { command: cmd } of clis) {
     const file = `"$HOME/.local/bin/${cmd}"`
-    const marker = `# remodeck-cli-wrapper ${cmd} v`
     out.push(
       '',
       `# ${cmd} wrapper: only ours (marker on line 2, regular file) is deleted`,
       `if [ -f ${file} ] && ! [ -L ${file} ]; then`,
-      `  case "$(sed -n 2p ${file} 2>/dev/null)" in`,
-      `    "${marker}"[0-9]*) rm -f ${file}; echo wrapper=${cmd}:removed ;;`,
-      `    *) echo wrapper=${cmd}:foreign ;;`,
-      '  esac',
+      markerVersionSnippet(cmd, file),
+      `  if [ -n "$wv" ]; then rm -f ${file}; echo wrapper=${cmd}:removed; else echo wrapper=${cmd}:foreign; fi`,
       `elif [ -e ${file} ] || [ -L ${file} ]; then`,
       `  echo wrapper=${cmd}:foreign`,
       'else',
