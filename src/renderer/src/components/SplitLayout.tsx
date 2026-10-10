@@ -64,7 +64,8 @@ export function SplitLayout({
     window.addEventListener('pointerup', onUp)
   }, [])
 
-  const rows = bottomCollapsed ? 'minmax(0, 1fr) auto' : `minmax(0, 1fr) 6px ${sizes.bottom}px`
+  // The gap row stays when collapsed so the dock header keeps the same spacing as the panes.
+  const rows = `minmax(0, 1fr) 6px ${bottomCollapsed ? 'auto' : `${sizes.bottom}px`}`
 
   return (
     <div
@@ -111,10 +112,7 @@ export function SplitLayout({
           onPointerDown={(e) => startDrag('bottom', e)}
         />
       )}
-      <div
-        className="min-h-0 min-w-0 overflow-hidden"
-        style={{ gridColumn: '1 / -1', gridRow: bottomCollapsed ? 2 : 3 }}
-      >
+      <div className="min-h-0 min-w-0 overflow-hidden" style={{ gridColumn: '1 / -1', gridRow: 3 }}>
         {bottom}
       </div>
     </div>

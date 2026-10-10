@@ -108,14 +108,14 @@ describe('ContainersView', () => {
       live: true
     })
     render(<ContainersView host={host} />)
-    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    const shop = await screen.findByRole('region', { name: 'shop' })
     const row = within(within(shop).getByRole('list')).getByRole('listitem')
     expect(within(row).getByText('web-image')).toBeInTheDocument()
     expect(within(row).getByText('Running')).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
     expect(within(shop).queryByText('worker')).toBeNull()
     expect(
-      within(screen.getByRole('region', { name: 'jobs (compose)' })).getByText('worker')
+      within(screen.getByRole('region', { name: 'jobs' })).getByText('worker')
     ).toBeInTheDocument()
     const standalone = screen.getByRole('region', { name: 'Standalone' })
     expect(within(standalone).getByText('No ports')).toBeInTheDocument()
@@ -124,7 +124,7 @@ describe('ContainersView', () => {
 
   it('groups compose projects and standalone, hiding stopped by default', async () => {
     render(<ContainersView host={host} />)
-    expect(await screen.findByText('shop (compose)')).toBeInTheDocument()
+    expect(await screen.findByText('shop')).toBeInTheDocument()
     expect(screen.getByText('Standalone')).toBeInTheDocument()
     expect(screen.getByText('web')).toBeInTheDocument()
     expect(screen.getByText('solo')).toBeInTheDocument()
@@ -185,13 +185,13 @@ describe('ContainersView', () => {
     fireEvent.change(screen.getByLabelText('Filter containers'), { target: { value: 'SOLO-IM' } })
     expect(screen.getByText('solo')).toBeInTheDocument()
     expect(screen.queryByText('web')).toBeNull()
-    expect(screen.queryByText('shop (compose)')).toBeNull()
+    expect(screen.queryByText('shop')).toBeNull()
   })
 
   it('persists collapsed compose groups per host', async () => {
     const { unmount } = render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByRole('button', { name: /shop \(compose\)/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'shop' }))
     expect(screen.getByText('web')).not.toBeVisible()
     expect(JSON.parse(localStorage.getItem('remodeck.composeCollapsed') ?? '{}')).toEqual({
       h1: ['shop']
@@ -219,8 +219,8 @@ describe('ContainersView', () => {
 
   it('collapses a compose project and wires the toggle to its list', async () => {
     render(<ContainersView host={host} />)
-    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
-    const toggle = within(shop).getByRole('button', { name: /shop \(compose\)/ })
+    const shop = await screen.findByRole('region', { name: 'shop' })
+    const toggle = within(shop).getByRole('button', { name: 'shop' })
     const listId = toggle.getAttribute('aria-controls') ?? ''
     expect(document.getElementById(listId)).not.toBeNull()
     expect(within(shop).getByText('web')).toBeVisible()
@@ -250,6 +250,18 @@ describe('ContainersView', () => {
       expect(api.containers.action).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'), 'stop')
     )
     expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('the details panel runs the same actions as the row', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    const actions = await screen.findByRole('group', { name: 'Container actions' })
+    fireEvent.click(within(actions).getByRole('button', { name: 'Restart' }))
+    await waitFor(() =>
+      expect(api.containers.action).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'), 'restart')
+    )
+    expect(within(actions).queryByRole('button', { name: 'Start' })).toBeNull()
   })
 
   it('asks for a click confirm to Stop on a protected host', async () => {
@@ -495,13 +507,13 @@ describe('ContainersView', () => {
       live: true
     })
     render(<ContainersView host={host} />)
-    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
-    expect(within(shop).getByRole('button', { name: /shop \(compose\)/ })).toHaveAttribute(
+    const shop = await screen.findByRole('region', { name: 'shop' })
+    expect(within(shop).getByRole('button', { name: 'shop' })).toHaveAttribute(
       'title',
       '/w · a.yml, b.yml'
     )
-    const jobs = screen.getByRole('region', { name: 'jobs (compose)' })
-    expect(within(jobs).getByRole('button', { name: /jobs \(compose\)/ })).toHaveAttribute(
+    const jobs = screen.getByRole('region', { name: 'jobs' })
+    expect(within(jobs).getByRole('button', { name: 'jobs' })).toHaveAttribute(
       'title',
       'Compose project path unknown (see the terminal for actual results)'
     )

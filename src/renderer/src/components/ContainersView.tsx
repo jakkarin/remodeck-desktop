@@ -206,7 +206,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
     after?: React.ReactNode
   ): React.JSX.Element => (
     <TooltipProvider>
-      <div className="@container h-full min-h-0 p-2">
+      <div className="@container h-full min-h-0">
         <div
           ref={splitRef}
           className={cn(
@@ -308,7 +308,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       {projects.map((p) => (
         <ContainerGroup
           key={p.name}
-          title={`${p.name} (compose)`}
+          title={p.name}
           meta={runningIn(p.name)}
           collapsed={collapsed.includes(p.name)}
           onToggle={() => toggleProject(p.name)}
@@ -349,7 +349,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       <Input
         aria-label="Filter containers"
         placeholder="Filter"
-        className="h-7 w-48"
+        className="h-7 w-[200px] bg-(--bg-subtle)"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
       />
@@ -367,6 +367,9 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
           key={selected.id}
           host={host}
           container={selected}
+          busy={busy.has(selected.id)}
+          onAction={(action) => request(selected, action)}
+          onTerminal={(kind) => terminal(selected, kind)}
           onClose={() => setSelectedId(null)}
         />
       </>

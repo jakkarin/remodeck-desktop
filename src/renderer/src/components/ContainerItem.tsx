@@ -7,7 +7,9 @@ import {
   formatCpu,
   formatMem,
   isActiveContainer,
-  isTransitional
+  isTransitional,
+  shortStatus,
+  statusTone
 } from '../containerPresentation'
 import { CONTAINER_GRID } from './ContainerGroup'
 import { Button } from './ui/button'
@@ -50,6 +52,13 @@ function RowAction({
   )
 }
 
+const STATUS_TEXT = {
+  neutral: 'text-muted-foreground',
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-destructive'
+} as const
+
 const dotTone: Record<ContainerInfo['state'], string> = {
   running: 'bg-success shadow-[0_0_0_3px_var(--success-bg)]',
   paused: 'bg-warning',
@@ -89,8 +98,10 @@ export function ContainerItem({
     <li
       className={cn(
         CONTAINER_GRID,
-        'rounded-[7px] px-2 py-1.5 transition-colors hover:bg-accent',
-        selected && 'bg-selected text-selected-foreground hover:bg-selected',
+        // --row-bg is shared with the hover actions so they cover the columns beneath them.
+        'group relative rounded-[7px] bg-(--row-bg) p-2 transition-colors [--row-bg:transparent] hover:[--row-bg:var(--color-accent)]',
+        selected &&
+          'text-selected-foreground [--row-bg:var(--color-selected)] hover:[--row-bg:var(--color-selected)]',
         !active && !selected && 'text-muted-foreground'
       )}
     >
@@ -100,19 +111,17 @@ export function ContainerItem({
       >
         <span className="sr-only">{capitalise(c.state)}</span>
       </span>
-      <div className="min-w-0">
-        <button
-          type="button"
-          className="block max-w-full truncate rounded-sm text-left font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-          aria-label={`Details for ${c.name}`}
-          aria-pressed={selected}
-          title={c.name}
-          onClick={onSelect}
-        >
-          {c.name}
-        </button>
-        <div className="truncate text-[11px] text-muted-foreground">{c.status}</div>
-      </div>
+      {/* The name button's ::after covers the row, so a click anywhere on it opens the details. */}
+      <button
+        type="button"
+        className="min-w-0 truncate rounded-sm text-left font-medium outline-none after:absolute after:inset-0 after:rounded-[7px] focus-visible:after:ring-2 focus-visible:after:ring-ring/30"
+        aria-label={`Details for ${c.name}`}
+        aria-pressed={selected}
+        title={c.name}
+        onClick={onSelect}
+      >
+        {c.name}
+      </button>
       <span className={cn(mono, 'truncate')} title={c.image}>
         {c.image}
       </span>
@@ -134,7 +143,11 @@ export function ContainerItem({
         {running && <span className="sr-only">{`RAM ${mem}`}</span>}
         <span aria-hidden={running ? 'true' : undefined}>{mem}</span>
       </span>
-      <div className="flex justify-end gap-0.5">
+      <span className={cn('truncate text-xs', STATUS_TEXT[statusTone(c)])} title={c.status}>
+        {shortStatus(c)}
+      </span>
+      {/* Row actions appear over the right-hand columns on hover or keyboard focus. */}
+      <div className="invisible absolute inset-y-0 right-0 z-10 flex items-center justify-end gap-0.5 rounded-r-[7px] bg-background bg-[linear-gradient(var(--row-bg),var(--row-bg))] pr-2 pl-4 group-focus-within:visible group-hover:visible">
         <RowAction
           label="Logs"
           name={c.name}

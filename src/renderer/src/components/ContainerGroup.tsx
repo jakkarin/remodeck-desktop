@@ -4,9 +4,9 @@ import { cn } from 'cn'
 
 /** Shared column template for the header row and every container row. */
 export const CONTAINER_GRID =
-  'grid grid-cols-[14px_minmax(150px,1.4fr)_minmax(120px,1.2fr)_minmax(80px,110px)_60px_76px_148px] items-center gap-2.5'
+  'grid grid-cols-[22px_minmax(160px,1.4fr)_minmax(140px,1.2fr)_110px_64px_80px_72px] items-center gap-2.5'
 
-const COLUMNS = ['Name', 'Image', 'Ports', 'CPU', 'Memory']
+const COLUMNS = ['Name', 'Image', 'Ports', 'CPU', 'Memory', 'Up']
 
 /** A named group of container rows: heading, optional toggle and actions, column header, rows. */
 export function ContainerGroup({
@@ -58,7 +58,7 @@ export function ContainerGroup({
         {actions && <span className="ml-auto flex gap-1 font-normal">{actions}</span>}
       </div>
       <div hidden={collapsed} className="overflow-x-auto">
-        <div className="flex min-w-[760px] flex-col px-1.5">
+        <div className="flex min-w-[640px] flex-col px-1.5">
           <div
             aria-hidden="true"
             className={cn(
@@ -70,7 +70,6 @@ export function ContainerGroup({
             {COLUMNS.map((c) => (
               <span key={c}>{c}</span>
             ))}
-            <span />
           </div>
           <ul id={listId} className="m-0 flex list-none flex-col p-0">
             {children}

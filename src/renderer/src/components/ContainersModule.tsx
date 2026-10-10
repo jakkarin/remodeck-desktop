@@ -87,26 +87,24 @@ export function ContainersModule({
   }
 
   return (
-    <div
-      ref={rootRef}
-      style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
-    >
-      <div style={{ flex: 1, minHeight: 0 }}>
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col p-2">
+      <div className="min-h-0 flex-1">
         <FadeIn className="h-full min-h-0">
           <ContainersView key={host.id} host={host} />
         </FadeIn>
       </div>
-      {!bottomCollapsed && (
+      {bottomCollapsed ? (
+        <div aria-hidden="true" className="h-1.5 shrink-0" />
+      ) : (
         <div
           role="separator"
           aria-orientation="horizontal"
           aria-label="Resize terminal"
-          className="cursor-row-resize touch-none rounded-full transition-colors hover:bg-(--accent)/40"
-          style={{ height: 6, flexShrink: 0 }}
+          className="h-1.5 shrink-0 cursor-row-resize touch-none rounded-full transition-colors hover:bg-(--accent)/40"
           onPointerDown={resizeBottom}
         />
       )}
-      <div style={bottomCollapsed ? undefined : { height: bottomSize, flexShrink: 0 }}>
+      <div className="shrink-0" style={bottomCollapsed ? undefined : { height: bottomSize }}>
         {bottom}
       </div>
     </div>

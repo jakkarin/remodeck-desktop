@@ -1,14 +1,14 @@
-import { Eye, EyeOff, X } from 'lucide-react'
+import { Eye, EyeOff, Play, RotateCw, ScrollText, Square, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toContainerDetails, type ContainerDetails } from '../../../shared/containerDetails'
-import type { ContainerInfo } from '../../../shared/containers'
+import type { ContainerAction, ContainerInfo } from '../../../shared/containers'
 import type { Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { dangerLevel } from '../danger'
 import { cn } from 'cn'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { capitalise, stateTone, isTransitional } from '../containerPresentation'
+import { capitalise, stateTone, isActiveContainer, isTransitional } from '../containerPresentation'
 
 const BADGE_VARIANT = {
   neutral: 'secondary',
@@ -107,12 +107,21 @@ function Env({ env }: { env: ContainerDetails['env'] }): React.JSX.Element {
 export function ContainerDetailsPanel({
   host,
   container,
+  busy = false,
+  onAction,
+  onTerminal,
   onClose
 }: {
   host: Host
   container: ContainerInfo
+  busy?: boolean
+  onAction?: (action: ContainerAction) => void
+  onTerminal?: (kind: 'logs' | 'shell') => void
   onClose: () => void
 }): React.JSX.Element {
+  const active = isActiveContainer(container)
+  const running = container.state === 'running'
+  const removing = container.state === 'removing'
   const [tab, setTab] = useState<Tab>('overview')
   const [details, setDetails] = useState<ContainerDetails | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -150,23 +159,78 @@ export function ContainerDetailsPanel({
       aria-label={`Details for ${container.name}`}
       className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
     >
-      <div className="flex shrink-0 items-center gap-2 px-4 pt-3.5 pb-2">
-        <span
-          className="min-w-0 flex-1 truncate font-mono text-[15px] font-semibold"
-          title={container.name}
-        >
-          {container.name}
-        </span>
-        <Badge
-          variant={BADGE_VARIANT[stateTone[container.state]]}
-          data-pulse={isTransitional(container.state) ? 'true' : undefined}
-          className={cn(isTransitional(container.state) && 'animate-pulse')}
-        >
-          {capitalise(container.state)}
-        </Badge>
-        <Button variant="ghost" size="icon" aria-label="Close details" onClick={onClose}>
-          <X />
-        </Button>
+      <div className="flex shrink-0 flex-col gap-2.5 px-4 pt-3.5 pb-3">
+        <div className="flex items-center gap-2">
+          <span
+            className="min-w-0 flex-1 truncate text-[15px] font-semibold"
+            title={container.name}
+          >
+            {container.name}
+          </span>
+          <Badge
+            variant={BADGE_VARIANT[stateTone[container.state]]}
+            data-pulse={isTransitional(container.state) ? 'true' : undefined}
+            className={cn(isTransitional(container.state) && 'animate-pulse')}
+          >
+            {capitalise(container.state)}
+          </Badge>
+          <Button variant="ghost" size="icon" aria-label="Close details" onClick={onClose}>
+            <X />
+          </Button>
+        </div>
+        {onAction && onTerminal && (
+          <div className="flex flex-wrap gap-1.5" aria-label="Container actions" role="group">
+            {active ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onAction('restart')}
+                >
+                  <RotateCw /> Restart
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onAction('stop')}
+                >
+                  <Square /> Stop
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy || removing}
+                onClick={() => onAction('start')}
+              >
+                <Play /> Start
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !running}
+              onClick={() => onTerminal('shell')}
+            >
+              <SquareTerminal /> Shell
+            </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => onTerminal('logs')}>
+              <ScrollText /> Logs
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive/30 text-destructive"
+              disabled={busy || removing}
+              onClick={() => onAction('remove')}
+            >
+              Remove
+            </Button>
+          </div>
+        )}
       </div>
       <div role="tablist" className="flex shrink-0 gap-1 border-b border-border px-3">
         {TABS.map(([id, label]) => (
