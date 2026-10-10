@@ -1,5 +1,5 @@
 import type { BranchInfo, CommitInfo, FileChange } from '../../../shared/types'
-import { PaneHeader } from './ui'
+import { PaneTitle } from './Pane'
 import { CommitList } from './CommitList'
 import { Banner } from './Banner'
 import { rebuildAction } from './rebuildAction'
@@ -33,28 +33,30 @@ export function ChangesPane({
 }): React.JSX.Element {
   if (!branch) {
     return (
-      <div className="pane">
-        <PaneHeader>Changes</PaneHeader>
-        <div className="muted pad">Select a branch on the left</div>
+      <div className="flex h-full min-h-0 flex-col">
+        <PaneTitle>Changes</PaneTitle>
+        <div className="p-3.5 text-muted-foreground">Select a branch on the left</div>
       </div>
     )
   }
   return (
-    <div className="pane changes-pane">
-      <PaneHeader>{`${branch.name} → ${branch.base.replace(/^origin\//, '')}`}</PaneHeader>
-      <div className="pane-scroll">
+    <div className="flex h-full min-h-0 flex-col">
+      <PaneTitle title={`${branch.name} → ${branch.base.replace(/^origin\//, '')}`}>
+        {`${branch.name} → ${branch.base.replace(/^origin\//, '')}`}
+      </PaneTitle>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {error && (
           <Banner tone="danger" action={rebuildAction(error, onRebuild)}>
             {error}
           </Banner>
         )}
         {branch.rewritten && (
-          <div className="badge warn banner">
+          <Banner tone="warning">
             history rewritten — this branch was rewritten in the sandbox since the last Sync
-          </div>
+          </Banner>
         )}
         {branch.ahead === 0 && commits.length === 0 ? (
-          <div className="muted pad">No new commits compared to base</div>
+          <div className="p-3.5 text-muted-foreground">No new commits compared to base</div>
         ) : (
           <>
             <CommitList commits={commits} selected={commit} onSelect={onSelectCommit} />

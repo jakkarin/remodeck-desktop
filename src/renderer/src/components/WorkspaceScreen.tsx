@@ -3,7 +3,8 @@ import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { openTerminal } from '../terminalEvents'
 import { useWorkspaceData } from '../useWorkspaceData'
-import { Button, PaneHeader } from './ui'
+import { Button } from './ui/button'
+import { PaneTitle } from './Pane'
 import { BranchPane } from './BranchPane'
 import { ChangesPane } from './ChangesPane'
 import { DiffPane } from './DiffPane'
@@ -64,73 +65,79 @@ export function WorkspaceScreen({
   const branchesError = d.branchesError ?? actionError
   const diffError = d.diffError
   return (
-    <div className="screen">
+    <div className="flex h-full flex-col bg-ground">
       {!connected && (
-        <div className="disconnected-banner">
+        <div className="mx-2 mt-2 flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
           <span>{host?.label ?? 'Host'} is not connected</span>
           {hostStatus?.state === 'error' && hostStatus.error && (
-            <span className="error">{hostStatus.error}</span>
+            <span className="error text-destructive">{hostStatus.error}</span>
           )}
-          <Button disabled={hostStatus?.state === 'connecting'} onClick={() => void connect()}>
+          <Button
+            variant="secondary"
+            disabled={hostStatus?.state === 'connecting'}
+            onClick={() => void connect()}
+          >
             {hostStatus?.state === 'error' ? 'Retry' : 'Connect'}
           </Button>
         </div>
       )}
-      <SplitLayout
-        bottom={bottom}
-        bottomCollapsed={bottomCollapsed}
-        left={
-          <BranchPane
-            branches={d.branches}
-            worktrees={d.worktrees}
-            selected={d.branch?.name ?? null}
-            isNew={d.isNew}
-            connected={connected}
-            error={branchesError}
-            onSelect={d.selectBranch}
-            onOpenTerminal={(p) => void open(p)}
-            onRebuild={rebuildFn}
-          />
-        }
-        middle={
-          <ChangesPane
-            workspaceId={workspaceId}
-            branch={d.branch}
-            commits={d.commits}
-            files={d.files}
-            commit={d.commit}
-            file={d.file?.path ?? null}
-            connected={connected}
-            error={d.changesError}
-            onSelectCommit={d.selectCommit}
-            onSelectFile={d.selectFile}
-            onRebuild={rebuildFn}
-          />
-        }
-        right={
-          <div className="pane">
-            {diffError && (
-              <Banner tone="danger" action={rebuildAction(diffError, rebuildFn)}>
-                {diffError}
-              </Banner>
-            )}
-            {d.file && d.diffText !== null ? (
-              <DiffPane
-                key={`${d.branch?.name}|${d.commit}|${d.file.path}`}
-                text={d.diffText}
-                path={d.file.path}
-                oldPath={d.file.oldPath}
-                binary={d.file.additions === null}
-              />
-            ) : (
-              <>
-                <PaneHeader>Diff</PaneHeader>
-                <div className="muted pad">Select a file to view its diff</div>
-              </>
-            )}
-          </div>
-        }
-      />
+      <div className="min-h-0 flex-1 p-2">
+        <SplitLayout
+          bottom={bottom}
+          bottomCollapsed={bottomCollapsed}
+          left={
+            <BranchPane
+              branches={d.branches}
+              worktrees={d.worktrees}
+              selected={d.branch?.name ?? null}
+              isNew={d.isNew}
+              connected={connected}
+              error={branchesError}
+              onSelect={d.selectBranch}
+              onOpenTerminal={(p) => void open(p)}
+              onRebuild={rebuildFn}
+            />
+          }
+          middle={
+            <ChangesPane
+              workspaceId={workspaceId}
+              branch={d.branch}
+              commits={d.commits}
+              files={d.files}
+              commit={d.commit}
+              file={d.file?.path ?? null}
+              connected={connected}
+              error={d.changesError}
+              onSelectCommit={d.selectCommit}
+              onSelectFile={d.selectFile}
+              onRebuild={rebuildFn}
+            />
+          }
+          right={
+            <div className="flex h-full min-h-0 flex-col">
+              {diffError && (
+                <Banner tone="danger" action={rebuildAction(diffError, rebuildFn)}>
+                  {diffError}
+                </Banner>
+              )}
+              {d.file && d.diffText !== null ? (
+                <DiffPane
+                  key={`${d.branch?.name}|${d.commit}|${d.file.path}`}
+                  text={d.diffText}
+                  path={d.file.path}
+                  oldPath={d.file.oldPath}
+                  binary={d.file.additions === null}
+                />
+              ) : (
+                <>
+                  <PaneTitle>Diff</PaneTitle>
+                  <div className="p-3.5 text-muted-foreground">Select a file to view its diff</div>
+                </>
+              )}
+            </div>
+          }
+        />
+      </div>
     </div>
   )
 }

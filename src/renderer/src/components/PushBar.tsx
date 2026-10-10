@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { BranchInfo } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { showToast } from '../toast'
-import { Button, TextInput } from './ui'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 export function PushBar({
   workspaceId,
@@ -45,14 +46,15 @@ export function PushBar({
   }
 
   return (
-    <div className="push-bar">
-      <label>
+    <div className="m-2 flex flex-col gap-2.5 rounded-lg border border-border bg-muted/40 p-3">
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         Target branch
-        <TextInput value={target} onChange={(e) => setTarget(e.target.value)} />
+        <Input value={target} onChange={(e) => setTarget(e.target.value)} />
       </label>
-      <div className="push-actions">
+      <div className="flex gap-2">
         <Button
-          variant="primary"
+          size="lg"
+          className="flex-1"
           aria-label="Push to GitHub"
           disabled={!connected || busy || !target}
           title={connected ? undefined : 'Host is not connected'}
@@ -60,7 +62,7 @@ export function PushBar({
         >
           ↑ Push
         </Button>
-        <Button disabled={!canOpenPR} onClick={() => void openPR()}>
+        <Button variant="outline" size="lg" disabled={!canOpenPR} onClick={() => void openPR()}>
           Open PR
         </Button>
       </div>
