@@ -71,3 +71,24 @@
   --foreground: var(--fg);
   --secondary: var(--bg-subtle);
 }
+
+/* tw-animate-css drives enter/exit scale and translate through these properties. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 80ms !important;
+    transition-duration: 80ms !important;
+  }
+  [data-slot],
+  [data-state],
+  [data-open],
+  [data-closed] {
+    --tw-enter-scale: 1;
+    --tw-exit-scale: 1;
+    --tw-enter-translate-x: 0;
+    --tw-exit-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-exit-translate-y: 0;
+  }
+}

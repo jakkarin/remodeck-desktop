@@ -178,7 +178,7 @@ describe('App layout', () => {
     const git = await screen.findByRole('button', { name: 'Git' })
     expect(git).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('rail Settings is pressed while the settings page shows, and Git returns', async () => {
@@ -261,7 +261,7 @@ describe('App prefs', () => {
     vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'light' })
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    const dialog = screen.getByRole('region', { name: 'Settings' })
+    const dialog = await screen.findByRole('region', { name: 'Settings' })
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Light' }))
     await waitFor(() => expect(api.prefs.update).toHaveBeenCalledWith({ theme: 'light' }))
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe('light'))
@@ -278,7 +278,7 @@ describe('App prefs', () => {
     )
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Manage tokens' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Git tokens' })).toHaveAttribute(
       'aria-current',
       'page'
@@ -317,7 +317,7 @@ describe('App prefs', () => {
     await waitFor(() => expect(terminals).toHaveLength(1))
     expect(terminals[0].options.fontSize).toBe(15)
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    const dialog = screen.getByRole('region', { name: 'Settings' })
+    const dialog = await screen.findByRole('region', { name: 'Settings' })
     fireEvent.change(within(dialog).getByLabelText('Terminal font size'), {
       target: { value: '18' }
     })
@@ -360,5 +360,20 @@ describe('App module switch', () => {
     expect(terminals).toHaveLength(1)
     expect(disposed.every((d) => d.mock.calls.length === 0)).toBe(true)
     expect(api.terminal.close).not.toHaveBeenCalled()
+  })
+
+  it('keeps the same terminal tab present across Git, Containers, Git', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => {
+      announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' })
+    })
+    const tab = screen.getByRole('button', { name: 'Close one' })
+    fireEvent.click(screen.getByRole('button', { name: 'Containers' }))
+    await screen.findByText('permission denied on docker.sock')
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(screen.getByRole('button', { name: 'Close one' })).toBe(tab)
   })
 })

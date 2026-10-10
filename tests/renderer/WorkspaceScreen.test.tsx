@@ -285,7 +285,7 @@ describe('WorkspaceScreen push bar (moved from ReviewView)', () => {
     expect(toast).toHaveTextContent('Pushed')
     expect(toast).toHaveTextContent('feat/a → origin/feat/a')
     fireEvent.click(within(toast).getByRole('button', { name: 'Dismiss notification' }))
-    expect(toast).not.toBeInTheDocument()
+    await waitFor(() => expect(toast).not.toBeInTheDocument())
   })
 
   it('toasts a non-fast-forward message verbatim and keeps Open PR disabled', async () => {

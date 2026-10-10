@@ -1,10 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { ApprovalModal } from './components/ApprovalModal'
 import { ActivityBar } from './components/ActivityBar'
 import { ContainersModule } from './components/ContainersModule'
 import { GitModule } from './components/GitModule'
 import { SettingsView } from './components/SettingsView'
+import { DURATION, transitionFor } from './motion'
 import { readLayout, saveCollapsed } from './layout'
 import { TerminalTabs } from './components/TerminalTabs'
 import { Toaster } from './components/Toaster'
@@ -46,6 +48,11 @@ function Layout(): React.JSX.Element {
     return el
   })
   const [collapsed, setCollapsed] = useState(() => readLayout().collapsed)
+  // Opacity-only module crossfade; reduced motion keeps a short fade.
+  const reduced = useReducedMotion() ?? false
+  const fade = reduced
+    ? transitionFor('fast', true)
+    : { duration: DURATION.fast, ease: 'easeOut' as const }
 
   const toggle = (): void => {
     saveCollapsed(!collapsed)
@@ -61,23 +68,34 @@ function Layout(): React.JSX.Element {
         <div className="app-body">
           <ActivityBar onOpenSettings={() => openSettings('general')} />
           <main className="main">
-            {activeModule === 'settings' ? (
-              <SettingsView
-                key={`${settings.section}:${settings.repoId ?? ''}`}
-                initialSection={settings.section}
-                initialRepoId={settings.repoId}
-              />
-            ) : activeModule === 'git' ? (
-              <GitModule
-                bottom={<TerminalSlot node={terminalNode} />}
-                bottomCollapsed={collapsed}
-              />
-            ) : (
-              <ContainersModule
-                bottom={<TerminalSlot node={terminalNode} />}
-                bottomCollapsed={collapsed}
-              />
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeModule}
+                className="flex h-full min-h-0 flex-col"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={fade}
+              >
+                {activeModule === 'settings' ? (
+                  <SettingsView
+                    key={`${settings.section}:${settings.repoId ?? ''}`}
+                    initialSection={settings.section}
+                    initialRepoId={settings.repoId}
+                  />
+                ) : activeModule === 'git' ? (
+                  <GitModule
+                    bottom={<TerminalSlot node={terminalNode} />}
+                    bottomCollapsed={collapsed}
+                  />
+                ) : (
+                  <ContainersModule
+                    bottom={<TerminalSlot node={terminalNode} />}
+                    bottomCollapsed={collapsed}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
         {createPortal(<TerminalTabs collapsed={collapsed} onToggle={toggle} />, terminalNode)}
