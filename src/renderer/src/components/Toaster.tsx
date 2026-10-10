@@ -82,6 +82,7 @@ export function Toaster(): React.JSX.Element {
     <div
       className="pointer-events-none fixed right-4 bottom-4 z-200 flex w-[min(340px,calc(100vw-32px))] flex-col gap-2"
       aria-live="polite"
+      data-toaster=""
     >
       <AnimatePresence initial={false}>
         {list.map((t, i) => (

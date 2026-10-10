@@ -30,10 +30,3 @@ export function transitionFor(kind: MotionKind, reduced: boolean): Transition {
 export function useTransitionFor(kind: MotionKind): Transition {
   return transitionFor(kind, useReducedMotion() ?? false)
 }
-
-/** Shared enter/exit pose for dialogs and popovers. */
-export const dialogMotion = {
-  initial: { opacity: 0, scale: 0.96, y: 6 },
-  animate: { opacity: 1, scale: 1, y: 0 },
-  exit: { opacity: 0, scale: 0.96, y: 6 }
-}

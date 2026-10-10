@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Toaster } from '../../src/renderer/src/components/Toaster'
+import { Dialog, DialogContent, DialogTitle } from '../../src/renderer/src/components/ui/dialog'
 import { dismissToast, getToasts, showToast } from '../../src/renderer/src/toast'
 
 beforeEach(() => {
@@ -48,5 +49,32 @@ describe('Toaster', () => {
       vi.advanceTimersByTime(4100)
     })
     expect(getToasts()).toHaveLength(0)
+  })
+})
+
+describe('Toaster over a modal dialog', () => {
+  it('dismissing a toast does not close an open dialog', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <>
+        <Dialog open onOpenChange={onOpenChange}>
+          <DialogContent aria-describedby={undefined}>
+            <DialogTitle>Clone</DialogTitle>
+          </DialogContent>
+        </Dialog>
+        <Toaster />
+      </>
+    )
+    act(() => showToast('Push failed', { tone: 'error' }))
+    // Radix arms its outside-interaction listeners on the next tick
+    act(() => {
+      vi.advanceTimersByTime(10)
+    })
+    const dismiss = screen.getByRole('button', { name: 'Dismiss notification' })
+    fireEvent.pointerDown(dismiss)
+    fireEvent.click(dismiss)
+    expect(getToasts()).toHaveLength(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Clone' })).toBeInTheDocument()
   })
 })
