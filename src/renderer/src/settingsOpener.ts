@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 
-export type SettingsSection = 'general' | 'appearance' | 'repositories' | 'gitTokens' | 'pushLog'
+export type SettingsSection = 'general' | 'repositories' | 'gitTokens' | 'pushLog'
 
 export type OpenSettings = (section: SettingsSection, repoId?: string) => void
 

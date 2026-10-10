@@ -121,13 +121,19 @@ describe('SettingsView navigation', () => {
       'page'
     )
     expect(screen.getByLabelText('Default protected branches')).toBeInTheDocument()
-    fireEvent.click(within(nav).getByRole('button', { name: 'Appearance' }))
-    expect(within(nav).getByRole('button', { name: 'Appearance' })).toHaveAttribute(
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['General', 'Repositories', 'Git tokens', 'Push log'])
+    expect(screen.getByRole('group', { name: 'Theme' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Terminal font size')).toBeInTheDocument()
+    fireEvent.click(within(nav).getByRole('button', { name: 'Push log' }))
+    expect(within(nav).getByRole('button', { name: 'Push log' })).toHaveAttribute(
       'aria-current',
       'page'
     )
     expect(within(nav).getByRole('button', { name: 'General' })).not.toHaveAttribute('aria-current')
-    expect(screen.getByRole('radio', { name: 'Dark' })).toBeInTheDocument()
   })
 
   it('honours initialSection and initialRepoId', () => {
@@ -220,9 +226,9 @@ describe('General section', () => {
   })
 })
 
-describe('Appearance section', () => {
+describe('Appearance controls on General', () => {
   it('theme change calls update and sets / removes data-theme', async () => {
-    renderWith('appearance')
+    renderWith('general')
     expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
     fireEvent.click(screen.getByRole('radio', { name: 'Dark' }))
     await waitFor(() => expect(updatePrefsApi).toHaveBeenCalledWith({ theme: 'dark' }))
@@ -235,7 +241,7 @@ describe('Appearance section', () => {
   })
 
   it('font size change calls update with a number', async () => {
-    renderWith('appearance')
+    renderWith('general')
     const select = screen.getByLabelText('Terminal font size')
     expect(select).toHaveValue('13')
     fireEvent.change(select, { target: { value: '16' } })

@@ -176,7 +176,17 @@ describe('App layout', () => {
     const git = await screen.findByRole('button', { name: 'Git' })
     expect(git).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
+  })
+
+  it('rail Settings is pressed while the settings page shows, and Git returns', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Switch host' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    expect(screen.queryByRole('region', { name: 'Settings' })).not.toBeInTheDocument()
   })
 
   it('switching host hides but keeps the other host terminals', async () => {
@@ -249,8 +259,7 @@ describe('App prefs', () => {
     vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'light' })
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    const dialog = screen.getByRole('dialog', { name: 'Settings' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Appearance' }))
+    const dialog = screen.getByRole('region', { name: 'Settings' })
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Light' }))
     await waitFor(() => expect(api.prefs.update).toHaveBeenCalledWith({ theme: 'light' }))
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe('light'))
@@ -263,7 +272,7 @@ describe('App prefs', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Switch workspace' }))
     fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
     fireEvent.click(screen.getByRole('button', { name: 'Repo settings…' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Settings' })
+    const dialog = await screen.findByRole('region', { name: 'Settings' })
     expect(within(dialog).getByRole('button', { name: 'Repositories' })).toHaveAttribute(
       'aria-current',
       'page'
@@ -286,8 +295,7 @@ describe('App prefs', () => {
     await waitFor(() => expect(terminals).toHaveLength(1))
     expect(terminals[0].options.fontSize).toBe(15)
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    const dialog = screen.getByRole('dialog', { name: 'Settings' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Appearance' }))
+    const dialog = screen.getByRole('region', { name: 'Settings' })
     fireEvent.change(within(dialog).getByLabelText('Terminal font size'), {
       target: { value: '18' }
     })

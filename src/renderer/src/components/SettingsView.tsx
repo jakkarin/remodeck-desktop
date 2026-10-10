@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { SettingsSection } from '../settingsOpener'
-import { AppearanceSection } from './settings/AppearanceSection'
 import { GeneralSection } from './settings/GeneralSection'
 import { GitTokensSection } from './settings/GitTokensSection'
 import { PushLogSection } from './settings/PushLogSection'
@@ -8,7 +7,6 @@ import { RepositoriesSection } from './settings/RepositoriesSection'
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'general', label: 'General' },
-  { id: 'appearance', label: 'Appearance' },
   { id: 'repositories', label: 'Repositories' },
   { id: 'gitTokens', label: 'Git tokens' },
   { id: 'pushLog', label: 'Push log' }
@@ -23,7 +21,7 @@ export function SettingsView({
 }): React.JSX.Element {
   const [section, setSection] = useState<SettingsSection>(initialSection)
   return (
-    <div className="settings">
+    <section aria-label="Settings" className="settings">
       <nav className="settings-nav" aria-label="Settings sections">
         <h2>Settings</h2>
         {SECTIONS.map((s) => (
@@ -40,11 +38,10 @@ export function SettingsView({
       </nav>
       <div className="settings-panel">
         {section === 'general' && <GeneralSection />}
-        {section === 'appearance' && <AppearanceSection />}
         {section === 'repositories' && <RepositoriesSection initialRepoId={initialRepoId} />}
         {section === 'gitTokens' && <GitTokensSection />}
         {section === 'pushLog' && <PushLogSection />}
       </div>
-    </div>
+    </section>
   )
 }

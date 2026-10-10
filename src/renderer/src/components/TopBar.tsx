@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
-import { Button } from './ui'
+import { Button } from './ui/button'
 import { HostSelector } from './HostSelector'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
@@ -46,25 +46,46 @@ export function TopBar({ now = Date.now }: { now?: () => number }): React.JSX.El
 
   const title = hostDown ? 'Host is not connected' : info?.error
   return (
-    <header className="topbar">
-      <HostSelector />
-      {activeModule === 'git' && (
+    <header className="relative flex h-[46px] shrink-0 items-center gap-2 border-b bg-background px-3">
+      <div
+        aria-hidden="true"
+        className="mr-2 flex size-[22px] items-center justify-center rounded-md bg-foreground text-xs font-semibold text-background"
+      >
+        r
+      </div>
+      {activeModule === 'settings' ? (
+        <span className="font-semibold">Settings</span>
+      ) : (
         <>
-          <WorkspaceSwitcher />
-          <Button
-            variant="ghost"
-            className={`sync-btn${info?.error ? ' warn' : ''}`}
-            disabled={!active || hostDown || pending}
-            title={title}
-            onClick={() => void sync()}
-          >
-            <RefreshCw size={14} className={pending ? 'spinning' : undefined} />
-            {label}
-          </Button>
+          <HostSelector />
+          {activeModule === 'git' && (
+            <>
+              <span aria-hidden="true" className="text-muted-foreground">
+                /
+              </span>
+              <WorkspaceSwitcher />
+            </>
+          )}
+          <span className="flex-1" />
+          {activeModule === 'git' && (
+            <Button
+              variant="ghost"
+              className={`h-[30px] gap-1.5 rounded-lg px-2.5 text-[13px] ${info?.error ? 'warn text-warning' : 'text-foreground'}`}
+              disabled={!active || hostDown || pending}
+              title={title}
+              onClick={() => void sync()}
+            >
+              <RefreshCw size={14} className={pending ? 'spinning' : undefined} />
+              {label}
+            </Button>
+          )}
         </>
       )}
-      <span className="topbar-spacer" />
-      {error && <div className="error topbar-error">{error}</div>}
+      {error && (
+        <div className="error absolute top-full right-2.5 left-2.5 z-20 rounded border border-destructive bg-background px-2 py-1">
+          {error}
+        </div>
+      )}
     </header>
   )
 }

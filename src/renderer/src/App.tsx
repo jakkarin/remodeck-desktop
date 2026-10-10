@@ -4,7 +4,7 @@ import { ApprovalModal } from './components/ApprovalModal'
 import { ActivityBar } from './components/ActivityBar'
 import { ContainersModule } from './components/ContainersModule'
 import { GitModule } from './components/GitModule'
-import { SettingsDialog } from './components/SettingsDialog'
+import { SettingsView } from './components/SettingsView'
 import { readLayout, saveCollapsed } from './layout'
 import { TerminalTabs } from './components/TerminalTabs'
 import { Toaster } from './components/Toaster'
@@ -30,11 +30,15 @@ function TerminalSlot({ node }: { node: HTMLElement }): React.JSX.Element {
 }
 
 function Layout(): React.JSX.Element {
-  const { hosts, activeHostId, activeModule } = useAppState()
+  const { hosts, activeHostId, activeModule, selectModule } = useAppState()
   const active = hosts.find((h) => h.id === activeHostId)
-  const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string } | null>(
-    null
-  )
+  const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string }>({
+    section: 'general'
+  })
+  const openSettings = (section: SettingsSection, repoId?: string): void => {
+    setSettings({ section, repoId })
+    selectModule('settings')
+  }
   const [terminalNode] = useState(() => {
     const el = document.createElement('div')
     el.className = 'terminal-portal'
@@ -48,13 +52,19 @@ function Layout(): React.JSX.Element {
   }
 
   return (
-    <SettingsOpenerContext.Provider value={(section, repoId) => setSettings({ section, repoId })}>
+    <SettingsOpenerContext.Provider value={openSettings}>
       <div className={active?.protected ? 'app protected' : 'app'}>
         <TopBar />
         <div className="app-body">
-          <ActivityBar onOpenSettings={() => setSettings({ section: 'general' })} />
+          <ActivityBar onOpenSettings={() => openSettings('general')} />
           <main className="main">
-            {activeModule === 'git' ? (
+            {activeModule === 'settings' ? (
+              <SettingsView
+                key={`${settings.section}:${settings.repoId ?? ''}`}
+                initialSection={settings.section}
+                initialRepoId={settings.repoId}
+              />
+            ) : activeModule === 'git' ? (
               <GitModule
                 bottom={<TerminalSlot node={terminalNode} />}
                 bottomCollapsed={collapsed}
@@ -68,14 +78,6 @@ function Layout(): React.JSX.Element {
           </main>
         </div>
         {createPortal(<TerminalTabs collapsed={collapsed} onToggle={toggle} />, terminalNode)}
-        {settings && (
-          <SettingsDialog
-            key={`${settings.section}:${settings.repoId ?? ''}`}
-            initialSection={settings.section}
-            initialRepoId={settings.repoId}
-            onClose={() => setSettings(null)}
-          />
-        )}
       </div>
     </SettingsOpenerContext.Provider>
   )
