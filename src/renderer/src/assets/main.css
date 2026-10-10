@@ -80,6 +80,10 @@
     animation-duration: 80ms !important;
     transition-duration: 80ms !important;
   }
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+  }
   [data-slot],
   [data-state],
   [data-open],
