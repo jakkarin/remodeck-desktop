@@ -2,7 +2,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { compareScopes, scopeKey, type GitToken } from '../../../../shared/gitAccess'
 import { api, errorMessage } from '../../api'
 import { useAppState } from '../../state'
-import { Badge, Button, TextInput, type BadgeTone } from '../ui'
+import { Badge } from '@renderer/components/ui/badge'
+import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
+import { Label } from '@renderer/components/ui/label'
+import { NativeSelect } from '@renderer/components/ui/native-select'
+import { FormError, SectionHeader } from './SettingsParts'
+
+type BadgeTone = 'neutral' | 'warning' | 'danger'
+const TONE_VARIANT = {
+  neutral: 'secondary',
+  warning: 'warning',
+  danger: 'destructive'
+} as const
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const WARN_DAYS = 7
@@ -63,12 +75,15 @@ function TokenForm({
   }
 
   return (
-    <form className="settings-section" onSubmit={(e) => void submit(e)}>
-      <div className="settings-field">
-        <label htmlFor="git-token-host">Host</label>
-        <select
+    <form
+      className="flex flex-col gap-3 rounded-xl border bg-background p-4"
+      onSubmit={(e) => void submit(e)}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="git-token-host">Host</Label>
+        <NativeSelect
           id="git-token-host"
-          className="ui-input"
+          className="w-full"
           value={host}
           disabled={replacing !== null}
           onChange={(e) => setHost(e.target.value)}
@@ -78,11 +93,11 @@ function TokenForm({
               {h}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
-      <div className="settings-field">
-        <label htmlFor="git-token-path">Path</label>
-        <TextInput
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="git-token-path">Path</Label>
+        <Input
           id="git-token-path"
           value={path}
           readOnly={replacing !== null}
@@ -91,18 +106,14 @@ function TokenForm({
         />
       </div>
       {!replacing && (
-        <div className="settings-field">
-          <label htmlFor="git-token-label">Label</label>
-          <TextInput
-            id="git-token-label"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="git-token-label">Label</Label>
+          <Input id="git-token-label" value={label} onChange={(e) => setLabel(e.target.value)} />
         </div>
       )}
-      <div className="settings-field">
-        <label htmlFor="git-token-value">Token</label>
-        <TextInput
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="git-token-value">Token</Label>
+        <Input
           id="git-token-value"
           type="password"
           autoComplete="off"
@@ -110,12 +121,16 @@ function TokenForm({
           onChange={(e) => setTokenValue(e.target.value)}
         />
       </div>
-      {error && <div className="error">{error}</div>}
-      <div>
-        <Button type="submit" variant="primary" disabled={busy || tokenValue === ''}>
+      {error && <FormError>{error}</FormError>}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={busy || tokenValue === ''}>
           {replacing ? 'Replace token' : 'Add token'}
-        </Button>{' '}
-        {onCancel && <Button onClick={onCancel}>Cancel</Button>}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
       </div>
     </form>
   )
@@ -167,14 +182,19 @@ function TokenRow({
   }
 
   return (
-    <li className="settings-field">
-      <div>
-        <strong data-testid="scope">{scope}</strong> <span className="dim">{token.label}</span>{' '}
-        <span className="dim">{token.login}</span>
+    <li className="flex flex-col gap-2 rounded-xl border bg-background p-4">
+      <div className="flex items-center gap-2">
+        <strong data-testid="scope" className="text-[13px] font-semibold">
+          {scope}
+        </strong>
+        <span className="text-xs text-muted-foreground">{token.label}</span>
+        <span className="text-xs text-muted-foreground">{token.login}</span>
+        <Badge variant={TONE_VARIANT[exp.tone]} className="ml-auto">
+          {exp.text}
+        </Badge>
       </div>
       <div>
-        <Badge tone={exp.tone}>{exp.text}</Badge>{' '}
-        <span className="dim">
+        <span className="text-xs text-muted-foreground">
           {count === 0
             ? 'Not installed'
             : `Installed on ${count} ${count === 1 ? 'host' : 'hosts'}`}
@@ -184,28 +204,35 @@ function TokenRow({
         <div>
           {count > 0 ? (
             <>
-              <p className="settings-help">{`Still installed on: ${hostLabels.join(', ')}`}</p>
-              <p className="settings-help">Removing it here does not remove it from those hosts.</p>
+              <p className="m-0 text-xs text-muted-foreground">{`Still installed on: ${hostLabels.join(', ')}`}</p>
+              <p className="m-0 text-xs text-muted-foreground">
+                Removing it here does not remove it from those hosts.
+              </p>
             </>
           ) : (
-            <p className="settings-help">Remove this token from this computer?</p>
+            <p className="m-0 text-xs text-muted-foreground">
+              Remove this token from this computer?
+            </p>
           )}
-          <Button variant="danger" onClick={() => void remove()}>
-            Confirm remove
-          </Button>{' '}
-          <Button onClick={() => setConfirming(false)}>Cancel</Button>
+          <div className="mt-2 flex gap-2">
+            <Button variant="destructive" onClick={() => void remove()}>
+              Confirm remove
+            </Button>
+            <Button variant="outline" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+          </div>
         </div>
       ) : editing ? (
-        <div>
-          <TextInput
+        <div className="flex items-center gap-2">
+          <Input
             aria-label={`Label for ${scope}`}
             value={labelDraft}
             onChange={(e) => setLabelDraft(e.target.value)}
-          />{' '}
-          <Button variant="primary" onClick={() => void saveLabel()}>
-            Save label
-          </Button>{' '}
+          />
+          <Button onClick={() => void saveLabel()}>Save label</Button>
           <Button
+            variant="outline"
             onClick={() => {
               setEditing(false)
               setError(null)
@@ -215,11 +242,12 @@ function TokenRow({
           </Button>
         </div>
       ) : (
-        <div>
-          <Button aria-label={`Replace token for ${scope}`} onClick={onReplace}>
+        <div className="flex gap-2">
+          <Button variant="outline" aria-label={`Replace token for ${scope}`} onClick={onReplace}>
             Replace
-          </Button>{' '}
+          </Button>
           <Button
+            variant="outline"
             aria-label={`Edit label for ${scope}`}
             onClick={() => {
               setLabelDraft(token.label)
@@ -227,13 +255,17 @@ function TokenRow({
             }}
           >
             Edit label
-          </Button>{' '}
-          <Button aria-label={`Remove token for ${scope}`} onClick={() => setConfirming(true)}>
+          </Button>
+          <Button
+            variant="outline"
+            aria-label={`Remove token for ${scope}`}
+            onClick={() => setConfirming(true)}
+          >
             Remove
           </Button>
         </div>
       )}
-      {error && <div className="error">{error}</div>}
+      {error && <FormError>{error}</FormError>}
     </li>
   )
 }
@@ -274,20 +306,20 @@ export function GitTokensSection(): React.JSX.Element {
   }, [])
 
   return (
-    <section className="settings-section">
-      <h3>Git tokens</h3>
-      <p className="settings-help">
+    <>
+      <SectionHeader title="Git tokens" />
+      <p className="m-0 text-xs text-muted-foreground">
         Fine-grained personal access tokens with Contents and Pull requests read and write
         permissions. Select only the repositories you need and set an expiration.{' '}
         <a href={TOKEN_URL} target="_blank" rel="noreferrer">
           Create a token on GitHub
         </a>
       </p>
-      {loadError && <div className="error">{loadError}</div>}
+      {loadError && <FormError>{loadError}</FormError>}
       {tokens.length === 0 ? (
-        <p className="dim">No tokens yet.</p>
+        <p className="m-0 text-xs text-muted-foreground">No tokens yet.</p>
       ) : (
-        <ul aria-label="Git tokens">
+        <ul aria-label="Git tokens" className="m-0 flex list-none flex-col gap-3 p-0">
           {tokens.map((t) => (
             <TokenRow
               key={t.id}
@@ -299,7 +331,9 @@ export function GitTokensSection(): React.JSX.Element {
           ))}
         </ul>
       )}
-      <h3>{mode.kind === 'replace' ? `Replace token for ${scopeKey(mode.token)}` : 'Add token'}</h3>
+      <h2 className="m-0 text-sm font-semibold">
+        {mode.kind === 'replace' ? `Replace token for ${scopeKey(mode.token)}` : 'Add token'}
+      </h2>
       <TokenForm
         key={mode.kind === 'replace' ? mode.token.id : 'add'}
         mode={mode}
@@ -309,6 +343,6 @@ export function GitTokensSection(): React.JSX.Element {
         }}
         onCancel={mode.kind === 'replace' ? () => setMode({ kind: 'add' }) : undefined}
       />
-    </section>
+    </>
   )
 }

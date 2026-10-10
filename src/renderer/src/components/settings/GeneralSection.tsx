@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { TERMINAL_FONT_MAX, TERMINAL_FONT_MIN, type Theme } from '../../../../shared/types'
 import { errorMessage } from '../../api'
 import { useAppState } from '../../state'
-import { TextInput } from '../ui'
+import { Input } from '@renderer/components/ui/input'
+import { Label } from '@renderer/components/ui/label'
+import { NativeSelect } from '@renderer/components/ui/native-select'
+import { ToggleGroup, ToggleGroupItem } from '@renderer/components/ui/toggle-group'
 import { parseBranches } from './parseBranches'
+import { FormError, Row, SectionHeader } from './SettingsParts'
 
-function BranchesField(): React.JSX.Element {
+function BranchesCard(): React.JSX.Element {
   const { prefs, updatePrefs } = useAppState()
   const current = prefs.defaultProtectedBranches
   const [value, setValue] = useState(current.join(', '))
@@ -23,22 +27,27 @@ function BranchesField(): React.JSX.Element {
   }
 
   return (
-    <div className="settings-field">
-      <label htmlFor="default-protected-branches">Default protected branches</label>
-      <TextInput
-        id="default-protected-branches"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={() => void commit()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') void commit()
-        }}
-      />
-      <p className="settings-help">
-        Comma-separated. Applies to newly added repos only; existing repos keep their own list.
-      </p>
-      {error && <div className="error">{error}</div>}
-    </div>
+    <section aria-labelledby="new-repos-h" className="rounded-xl border bg-background">
+      <h2 id="new-repos-h" className="m-0 px-4 pt-3.5 text-sm font-semibold">
+        New repositories
+      </h2>
+      <div className="flex flex-col gap-1.5 px-4 py-3.5">
+        <Label htmlFor="default-protected-branches">Default protected branches</Label>
+        <Input
+          id="default-protected-branches"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void commit()
+          }}
+        />
+        <p className="m-0 text-xs text-muted-foreground">
+          Comma-separated. Applies to newly added repos only; existing repos keep their own list.
+        </p>
+        {error && <FormError>{error}</FormError>}
+      </div>
+    </section>
   )
 }
 
@@ -71,26 +80,30 @@ function AppearanceCard(): React.JSX.Element {
       <h2 id="appearance-h" className="m-0 px-4 pt-3.5 text-sm font-semibold">
         Appearance
       </h2>
-      <fieldset className="settings-field segmented px-4 py-3.5">
-        <legend>Theme</legend>
-        {THEME_OPTIONS.map((o) => (
-          <label key={o.value} className={prefs.theme === o.value ? 'selected' : undefined}>
-            <input
-              type="radio"
-              name="theme"
-              value={o.value}
-              checked={prefs.theme === o.value}
-              onChange={() => void update({ theme: o.value })}
-            />
-            {o.label}
-          </label>
-        ))}
-      </fieldset>
-      <div className="settings-field px-4 py-3.5">
-        <label htmlFor="terminal-font-size">Terminal font size</label>
-        <select
+      <Row title="Theme" description="System follows the operating system light/dark setting.">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          spacing={0}
+          aria-label="Theme"
+          value={prefs.theme}
+          onValueChange={(v) => {
+            if (v) void update({ theme: v as Theme })
+          }}
+        >
+          {THEME_OPTIONS.map((o) => (
+            <ToggleGroupItem key={o.value} value={o.value} className="data-[state=on]:bg-selected">
+              {o.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </Row>
+      <Row
+        title={<Label htmlFor="terminal-font-size">Terminal font size</Label>}
+        className="border-t"
+      >
+        <NativeSelect
           id="terminal-font-size"
-          className="ui-input"
           value={prefs.terminalFontSize}
           onChange={(e) => void update({ terminalFontSize: Number(e.target.value) })}
         >
@@ -99,9 +112,13 @@ function AppearanceCard(): React.JSX.Element {
               {n}
             </option>
           ))}
-        </select>
-      </div>
-      {error && <div className="error px-4 pb-3.5">{error}</div>}
+        </NativeSelect>
+      </Row>
+      {error && (
+        <div className="px-4 pb-3.5">
+          <FormError>{error}</FormError>
+        </div>
+      )}
     </section>
   )
 }
@@ -109,10 +126,10 @@ function AppearanceCard(): React.JSX.Element {
 export function GeneralSection(): React.JSX.Element {
   const { prefs } = useAppState()
   return (
-    <section className="settings-section">
-      <h3>General</h3>
+    <>
+      <SectionHeader title="General" />
       <AppearanceCard />
-      <BranchesField key={prefs.defaultProtectedBranches.join(',')} />
-    </section>
+      <BranchesCard key={prefs.defaultProtectedBranches.join(',')} />
+    </>
   )
 }
