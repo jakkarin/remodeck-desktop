@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import type {
+  CloneProgress,
   ExistingRepoInfo,
   PushLogEntry,
   PushOutcome,
@@ -14,6 +15,7 @@ import type { MirrorService } from '../mirror/mirrorService'
 import type { SandboxTarget } from '../sandbox/target'
 import { shPath, shQuote, validateSandboxPath } from '../sandbox/shell'
 import type { Store } from '../store/store'
+import { cloneProgressTracker } from './cloneProgress'
 
 const NOT_EMPTY_CODE = 3
 /** Target is a leftover of an earlier failed clone (bare `git init`): resume without re-initialising. */
@@ -215,7 +217,9 @@ export class SyncService {
    * GitHub -> host mirror -> freshly `git init`ed sandbox repo. Only touches origin remote refs, tags and the default branch.
    * Resumable: a target left by a failed clone (only `.git`, no commits, no origin remote) is reused without `git init`.
    */
-  async cloneToSandbox(ws: Workspace): Promise<void> {
+  async cloneToSandbox(ws: Workspace, onProgress?: (p: CloneProgress) => void): Promise<void> {
+    const progress = onProgress && cloneProgressTracker(onProgress)
+    progress?.at('fetch', 0)
     validateSandboxPath(ws.sandboxPath)
     const target = this.targetFor(ws.hostId)
     const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
@@ -242,13 +246,15 @@ export class SyncService {
     if (check.code !== 0 && check.code !== RESUMABLE_CODE) throw new Error(check.stderr)
     const resume = check.code === RESUMABLE_CODE
 
-    const { mirrorPath, defaultBranch } = await this.prepareMirror(repo)
+    const { mirrorPath, defaultBranch } = await this.prepareMirror(repo, progress?.feed)
+    progress?.at('push', 60)
 
     if (!resume) await this.sandboxRun(target, `set -e\np=${p}\nmkdir -p "$p"\ngit init "$p"\n`)
 
     const name = this.remoteName(ws.id)
     await this.mirror.addWorkspace(mirrorPath, ws.id, target.gitUrl(ws.sandboxPath))
-    await this.pushOriginRefs(mirrorPath, name)
+    await this.pushOriginRefs(mirrorPath, name, progress?.feed)
+    progress?.at('checkout', 95)
 
     const url = `https://github.com/${repo.owner}/${repo.name}.git`
     const remoteRef = shQuote(`refs/remotes/origin/${defaultBranch}`)
@@ -259,18 +265,23 @@ export class SyncService {
       `set -e\ncd ${p}\ngit remote add origin ${shQuote(url)}\n` +
         `if git show-ref --verify --quiet ${remoteRef}; then git checkout -q -b ${branch} ${originBranch}; fi\n`
     )
+    progress?.at('checkout', 100)
   }
 
   /**
    * Make sure the repo's mirror exists and is fresh, and learn GitHub's default branch (stored on the repo).
    * mirror.ensure/addWorkspace take the mirror lock themselves (not reentrant), so each section locks on its own.
    */
-  private async prepareMirror(repo: Repo): Promise<{ mirrorPath: string; defaultBranch: string }> {
+  private async prepareMirror(
+    repo: Repo,
+    onStderr?: (chunk: string) => void
+  ): Promise<{ mirrorPath: string; defaultBranch: string }> {
     const mirrorPath = this.store.mirrorPath(repo)
     await this.mirror.ensure(repo, mirrorPath)
     let defaultBranch = repo.defaultBranch
     await withLock(mirrorPath, async () => {
-      await this.git.run(mirrorPath, ['fetch', '--prune', 'origin'])
+      const progress = onStderr ? ['--progress'] : []
+      await this.git.run(mirrorPath, ['fetch', ...progress, '--prune', 'origin'], { onStderr })
       const head = await this.git.run(mirrorPath, ['ls-remote', '--symref', 'origin', 'HEAD'])
       const detected = parseSymrefHead(head.stdout)
       if (detected) {
@@ -282,7 +293,11 @@ export class SyncService {
   }
 
   /** Push the mirror's origin branches and tags to the sandbox repo `name` (a no-op while the mirror is empty). */
-  private async pushOriginRefs(mirrorPath: string, name: string): Promise<void> {
+  private async pushOriginRefs(
+    mirrorPath: string,
+    name: string,
+    onStderr?: (chunk: string) => void
+  ): Promise<void> {
     await withLock(mirrorPath, async () => {
       const refs = await this.git.run(mirrorPath, [
         'for-each-ref',
@@ -291,12 +306,17 @@ export class SyncService {
         'refs/tags'
       ])
       if (refs.stdout.trim() === '') return
-      await this.git.run(mirrorPath, [
-        'push',
-        name,
-        '+refs/remotes/origin/*:refs/remotes/origin/*',
-        'refs/tags/*:refs/tags/*'
-      ])
+      await this.git.run(
+        mirrorPath,
+        [
+          'push',
+          ...(onStderr ? ['--progress'] : []),
+          name,
+          '+refs/remotes/origin/*:refs/remotes/origin/*',
+          'refs/tags/*:refs/tags/*'
+        ],
+        { onStderr }
+      )
     })
   }
 

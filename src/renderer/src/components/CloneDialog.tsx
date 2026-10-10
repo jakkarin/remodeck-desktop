@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Workspace } from '../../../shared/types'
+import type { CloneProgress, Workspace } from '../../../shared/types'
 import { parseRepoInput } from '../../../shared/validate'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
@@ -13,11 +13,18 @@ import {
   DialogHeader,
   DialogTitle
 } from './ui/dialog'
-import { Field, FieldGroup, FieldLabel } from './ui/field'
+import { cn } from 'cn'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from './ui/field'
 import { Input } from './ui/input'
 import { NativeSelect, NativeSelectOption } from './ui/native-select'
 
 type GhRepo = { owner: string; name: string; defaultBranch: string }
+
+const PHASE_LABEL: Record<CloneProgress['phase'], string> = {
+  fetch: 'Fetching from GitHub',
+  push: 'Copying to the host',
+  checkout: 'Checking out'
+}
 
 export function CloneDialog({
   hostIds,
@@ -36,6 +43,7 @@ export function CloneDialog({
   const [path, setPath] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<CloneProgress | null>(null)
 
   useEffect(() => {
     let live = true
@@ -69,15 +77,31 @@ export function CloneDialog({
   }
 
   const submit = async (): Promise<void> => {
+    const target = path.trim()
     setBusy(true)
     setError(null)
+    setProgress(null)
+    const off = api.on('clone-progress', (h, p, next) => {
+      if (h === hostId && p === target) setProgress(next)
+    })
     try {
-      onCloned(await api.workspaces.clone(hostId, repoInput.trim(), path.trim()))
+      onCloned(await api.workspaces.clone(hostId, repoInput.trim(), target))
     } catch (e) {
       setError(errorMessage(e))
       setBusy(false)
+    } finally {
+      off()
     }
   }
+
+  // While the input is not exactly one of the repos, it filters the list.
+  const query = repoInput.trim().toLowerCase()
+  const exact = repos.some((r) => `${r.owner}/${r.name}`.toLowerCase() === query)
+  const shown =
+    exact || !query
+      ? repos
+      : repos.filter((r) => `${r.owner}/${r.name}`.toLowerCase().includes(query))
+  const percent = progress?.percent ?? 0
 
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
@@ -105,31 +129,6 @@ export function CloneDialog({
               </NativeSelect>
             </Field>
           )}
-          {listError && (
-            <Alert variant="destructive">
-              <AlertDescription>{listError}</AlertDescription>
-            </Alert>
-          )}
-          {repos.length > 0 && (
-            <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-              {repos.map((r) => {
-                const full = `${r.owner}/${r.name}`
-                const selected = repoInput === full
-                return (
-                  <Button
-                    key={full}
-                    variant={selected ? 'secondary' : 'outline'}
-                    size="sm"
-                    aria-pressed={selected}
-                    onClick={() => pick(r)}
-                    disabled={busy}
-                  >
-                    {full}
-                  </Button>
-                )
-              })}
-            </div>
-          )}
           <Field>
             <FieldLabel htmlFor="clone-repo">Repository</FieldLabel>
             <Input
@@ -139,6 +138,38 @@ export function CloneDialog({
               onChange={(e) => changeRepo(e.target.value)}
               disabled={busy}
             />
+            {listError && (
+              <FieldDescription className="text-destructive">{listError}</FieldDescription>
+            )}
+            {shown.length > 0 && (
+              <div
+                role="group"
+                aria-label="Your GitHub repositories"
+                className="mt-1 flex max-h-[84px] flex-wrap gap-1.5 overflow-y-auto [scrollbar-width:thin]"
+              >
+                {shown.map((r) => {
+                  const full = `${r.owner}/${r.name}`
+                  const selected = repoInput === full
+                  return (
+                    <button
+                      key={full}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => pick(r)}
+                      disabled={busy}
+                      className={cn(
+                        'h-6 rounded-md border px-2 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50',
+                        selected
+                          ? 'border-(--accent) bg-selected text-(--accent)'
+                          : 'border-border bg-background text-foreground/80 hover:bg-accent'
+                      )}
+                    >
+                      {full}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </Field>
           <Field>
             <FieldLabel htmlFor="clone-path">Path</FieldLabel>
@@ -150,7 +181,31 @@ export function CloneDialog({
               onChange={(e) => setPath(e.target.value)}
               disabled={busy}
             />
+            <FieldDescription>Filled from the repo name until you edit it.</FieldDescription>
           </Field>
+          {busy && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {progress ? PHASE_LABEL[progress.phase] : 'Starting'}…
+                </span>
+                <span className="font-medium tabular-nums">{percent}%</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Clone progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={percent}
+                className="h-1.5 overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  className="h-full rounded-full bg-(--accent) transition-[width] duration-200 ease-out"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -165,7 +220,7 @@ export function CloneDialog({
             onClick={() => void submit()}
             disabled={busy || !repoInput.trim() || !path.trim()}
           >
-            {busy ? 'Cloning...' : 'Clone'}
+            {busy ? `Cloning ${percent}%` : 'Clone'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -5,6 +5,7 @@ import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './cont
 import type { GitAccessStatus, GitToken, InstallOptions } from './gitAccess'
 import type {
   ApprovalDecision,
+  CloneProgress,
   ApprovalRequest,
   BranchInfo,
   CommitInfo,
@@ -128,6 +129,10 @@ export interface RemodeckApi {
   on(event: 'terminal-data', cb: (tabId: string, d: string) => void): () => void
   on(event: 'terminal-exit', cb: (tabId: string, code: number) => void): () => void
   on(event: 'approval-request', cb: (req: ApprovalRequest) => void): () => void
+  on(
+    event: 'clone-progress',
+    cb: (hostId: string, sandboxPath: string, p: CloneProgress) => void
+  ): () => void
   on(event: 'workspace-synced', cb: (id: string, info: SyncInfo) => void): () => void
   on(event: 'containers-changed', cb: (hostId: string, list: ContainerInfo[]) => void): () => void
   on(event: 'containers-live', cb: (hostId: string, live: boolean) => void): () => void
@@ -146,6 +151,7 @@ export type RemodeckEvent =
   | 'terminal-exit'
   | 'approval-request'
   | 'workspace-synced'
+  | 'clone-progress'
   | 'containers-changed'
   | 'containers-live'
   | 'containers-stats'
@@ -223,6 +229,7 @@ export const IPC_CHANNELS = {
     'terminal-exit': 'event:terminal-exit',
     'approval-request': 'event:approval-request',
     'workspace-synced': 'event:workspace-synced',
+    'clone-progress': 'event:clone-progress',
     'containers-changed': 'event:containers-changed',
     'containers-live': 'event:containers-live',
     'containers-stats': 'event:containers-stats'

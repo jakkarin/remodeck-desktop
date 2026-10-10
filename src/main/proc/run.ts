@@ -7,6 +7,8 @@ export type RunOpts = {
   input?: string | Buffer
   env?: Record<string, string>
   timeoutMs?: number
+  /** Called with each stderr chunk as it arrives (git writes progress there). */
+  onStderr?: (chunk: string) => void
 }
 
 /** Spawns a process without a shell. Rejects only on spawn failure or timeout. */
@@ -39,7 +41,10 @@ export function runProcess(cmd: string, args: string[], opts: RunOpts = {}): Pro
     }
 
     child.stdout.on('data', (d: Buffer) => out.push(d))
-    child.stderr.on('data', (d: Buffer) => err.push(d))
+    child.stderr.on('data', (d: Buffer) => {
+      err.push(d)
+      opts.onStderr?.(d.toString('utf8'))
+    })
     child.on('error', (e) => finish(() => reject(e)))
     child.on('close', (code) =>
       finish(() =>

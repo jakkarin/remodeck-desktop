@@ -93,6 +93,9 @@ export type WorktreeInfo = {
   dirty: number
 }
 
+/** Overall progress of a clone, 0–100, and the step it is on. */
+export type CloneProgress = { phase: 'fetch' | 'push' | 'checkout'; percent: number }
+
 export type SyncInfo = { kind: 'light' | 'full'; at: number; error?: string }
 
 export type HostState = 'disconnected' | 'connecting' | 'connected' | 'error'

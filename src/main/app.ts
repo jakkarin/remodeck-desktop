@@ -369,7 +369,7 @@ export async function createApp(opts: {
         const repo = store.upsertRepo(parsed.owner, parsed.name)
         const ws = store.addWorkspace(repo.id, hostId, sandboxPath)
         try {
-          await sync.cloneToSandbox(ws)
+          await sync.cloneToSandbox(ws, (p) => send(EV['clone-progress'], hostId, sandboxPath, p))
         } catch (err) {
           // Undo only our own records; never delete anything in the sandbox.
           store.removeWorkspace(ws.id)
