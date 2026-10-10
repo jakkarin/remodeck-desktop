@@ -213,14 +213,14 @@ describe('ContainersView', () => {
     await waitFor(() =>
       expect(api.containers.action).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'), 'stop')
     )
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('asks for a click confirm to Stop on a protected host', async () => {
     render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Stop web' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(screen.getByText('stop · web')).toBeInTheDocument()
     expect(api.containers.action).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
@@ -339,9 +339,9 @@ describe('ContainersView', () => {
     const { rerender } = render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Stop web' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     rerender(<ContainersView host={hostB} />)
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(api.containers.action).not.toHaveBeenCalled()
   })
 
@@ -390,7 +390,7 @@ describe('ContainersView', () => {
         action: 'up'
       })
     )
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('double-clicking compose Up opens one terminal while the first is pending', async () => {
@@ -411,10 +411,10 @@ describe('ContainersView', () => {
     render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Up shop' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(screen.getByText('up · shop')).toBeInTheDocument()
     expect(openHostTerminal).not.toHaveBeenCalled()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Up' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Up' }))
     await waitFor(() =>
       expect(openHostTerminal).toHaveBeenCalledWith('h1', {
         kind: 'compose',
@@ -428,14 +428,14 @@ describe('ContainersView', () => {
     const first = render(<ContainersView host={host} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
-    const click = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    const click = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Down' })
     expect(click).toBeEnabled()
     expect(openHostTerminal).not.toHaveBeenCalled()
     first.unmount()
     render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
-    const typed = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    const typed = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Down' })
     expect(typed).toBeDisabled()
     fireEvent.change(screen.getByLabelText('Type the host name to confirm'), {
       target: { value: 'Box' }

@@ -1,7 +1,20 @@
 import { useState } from 'react'
+import { TriangleAlertIcon } from 'lucide-react'
 import type { Host } from '../../../shared/types'
 import { errorMessage } from '../api'
-import { Button, TextInput } from './ui'
+import { Alert, AlertDescription } from './ui/alert'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle
+} from './ui/alert-dialog'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 export function ConfirmDanger({
   host,
@@ -34,14 +47,17 @@ export function ConfirmDanger({
     }
   }
   return (
-    <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-labelledby="confirm-danger-host">
-        <h2 id="confirm-danger-host" style={{ fontSize: '1.5em' }}>
-          {host.label}
-        </h2>
-        <p>{summary}</p>
+    <AlertDialog open onOpenChange={(open) => !open && !busy && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogMedia className="bg-destructive/10 text-destructive">
+            <TriangleAlertIcon />
+          </AlertDialogMedia>
+          <AlertDialogTitle className="text-base">{host.label}</AlertDialogTitle>
+          <AlertDialogDescription>{summary}</AlertDialogDescription>
+        </AlertDialogHeader>
         {mode === 'type' && (
-          <TextInput
+          <Input
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             aria-label="Type the host name to confirm"
@@ -49,16 +65,19 @@ export function ConfirmDanger({
             autoFocus
           />
         )}
-        {error && <div className="error">{error}</div>}
-        <div className="dialog-actions">
-          <Button onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={() => void confirm()} disabled={busy || !matches}>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          {/* Not AlertDialogAction: that closes on click, but we stay open until onConfirm settles. */}
+          <Button variant="destructive" onClick={() => void confirm()} disabled={busy || !matches}>
             {confirmLabel}
           </Button>
-        </div>
-      </div>
-    </div>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

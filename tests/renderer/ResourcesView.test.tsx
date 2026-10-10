@@ -126,7 +126,7 @@ describe('ResourcesView actions', () => {
   it('image Remove asks click on a normal host and calls removeResource with the tag', async () => {
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Remove nginx:latest' }))
-    const dialog = screen.getByRole('dialog')
+    const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText('remove image · nginx:latest')).toBeInTheDocument()
     expect(within(dialog).queryByLabelText(TYPE_LABEL)).toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
@@ -142,7 +142,7 @@ describe('ResourcesView actions', () => {
     ])
     render(<ResourcesView host={host} kind="volume" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Remove data' }))
-    const dialog = screen.getByRole('dialog')
+    const dialog = screen.getByRole('alertdialog')
     const confirm = within(dialog).getByRole('button', { name: 'Remove' })
     expect(confirm).toBeDisabled()
     fireEvent.change(within(dialog).getByLabelText(TYPE_LABEL), { target: { value: 'Box' } })
@@ -156,7 +156,7 @@ describe('ResourcesView actions', () => {
   it('protected host: image prune requires the typed host label', async () => {
     render(<ResourcesView host={prot} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
-    const dialog = screen.getByRole('dialog')
+    const dialog = screen.getByRole('alertdialog')
     expect(
       within(dialog).getByText('prune images — removes only untagged (dangling) images')
     ).toBeInTheDocument()
@@ -186,10 +186,8 @@ describe('ResourcesView actions', () => {
     vi.mocked(api.containers.prune).mockResolvedValue({ deleted: 3, reclaimed: 41943040 })
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Prune' }))
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Removed 3 items · reclaimed 40 MB'
-    )
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Removed 3 items · reclaimed 40 MB')
     await waitFor(() => expect(api.containers.resources).toHaveBeenCalledTimes(2))
   })
 
@@ -202,7 +200,7 @@ describe('ResourcesView actions', () => {
     for (const kind of ['volume', 'network'] as const) {
       const { unmount } = render(<ResourcesView host={host} kind={kind} containers={[]} />)
       fireEvent.click(await screen.findByRole('button', { name: `Prune ${kind}s` }))
-      expect(within(screen.getByRole('dialog')).getByText(want[kind])).toBeInTheDocument()
+      expect(within(screen.getByRole('alertdialog')).getByText(want[kind])).toBeInTheDocument()
       unmount()
     }
   })
@@ -215,16 +213,17 @@ describe('ResourcesView actions', () => {
     vi.mocked(api.containers.removeResource).mockReturnValue(new Promise<void>(() => {}))
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Remove prune:image' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(api.containers.removeResource).toHaveBeenCalled())
-    expect(screen.getByRole('button', { name: 'Prune images' })).toBeEnabled()
+    // The confirm stays open (removeResource never settles) and hides the page from the a11y tree.
+    expect(screen.getByRole('button', { name: 'Prune images', hidden: true })).toBeEnabled()
   })
 
   it('prune without reclaimed omits the space part', async () => {
     vi.mocked(api.containers.prune).mockResolvedValue({ deleted: 2, reclaimed: null })
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Prune' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
     expect(await screen.findByText('Removed 2 items')).toBeInTheDocument()
   })
 
@@ -233,10 +232,10 @@ describe('ResourcesView actions', () => {
     vi.mocked(api.containers.removeResource).mockRejectedValue(new Error(msg))
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Remove nginx:latest' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
     expect(await screen.findByText(msg)).toBeInTheDocument()
     await waitFor(() => expect(api.containers.resources).toHaveBeenCalledTimes(2))
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('busy: double-clicking Remove or Prune opens one confirm/one call', async () => {
@@ -248,8 +247,8 @@ describe('ResourcesView actions', () => {
     const rm = await screen.findByRole('button', { name: 'Remove nginx:latest' })
     fireEvent.click(rm)
     fireEvent.click(rm)
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1)
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(rm).toBeDisabled())
     fireEvent.click(rm)
     expect(api.containers.removeResource).toHaveBeenCalledTimes(1)
@@ -263,8 +262,8 @@ describe('ResourcesView actions', () => {
     const pr = screen.getByRole('button', { name: 'Prune images' })
     fireEvent.click(pr)
     fireEvent.click(pr)
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Prune' }))
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1)
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
     await waitFor(() => expect(pr).toBeDisabled())
     expect(api.containers.prune).toHaveBeenCalledTimes(1)
     finishPrune()

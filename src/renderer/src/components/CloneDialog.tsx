@@ -3,7 +3,19 @@ import type { Workspace } from '../../../shared/types'
 import { parseRepoInput } from '../../../shared/validate'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
-import { Button, TextInput } from './ui'
+import { Alert, AlertDescription } from './ui/alert'
+import { Button } from './ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from './ui/dialog'
+import { Field, FieldGroup, FieldLabel } from './ui/field'
+import { Input } from './ui/input'
+import { NativeSelect, NativeSelectOption } from './ui/native-select'
 
 type GhRepo = { owner: string; name: string; defaultBranch: string }
 
@@ -68,71 +80,95 @@ export function CloneDialog({
   }
 
   return (
-    <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-label="Clone">
-        <h2>Clone</h2>
-        {hostIds.length > 1 && (
-          <>
-            <label htmlFor="clone-host">Host</label>
-            <select
-              id="clone-host"
-              value={hostId}
-              onChange={(e) => setHostId(e.target.value)}
-              disabled={busy}
-            >
-              {hostIds.map((id) => (
-                <option key={id} value={id}>
-                  {hosts.find((h) => h.id === id)?.label ?? id}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        {listError && <div className="error">{listError}</div>}
-        {repos.length > 0 && (
-          <div className="repo-list">
-            {repos.map((r) => (
-              <Button
-                key={`${r.owner}/${r.name}`}
-                className={repoInput === `${r.owner}/${r.name}` ? 'active' : ''}
-                onClick={() => pick(r)}
+    <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Clone</DialogTitle>
+          <DialogDescription>Clone a repository onto a host as a new workspace.</DialogDescription>
+        </DialogHeader>
+        <FieldGroup>
+          {hostIds.length > 1 && (
+            <Field>
+              <FieldLabel htmlFor="clone-host">Host</FieldLabel>
+              <NativeSelect
+                id="clone-host"
+                className="w-full"
+                value={hostId}
+                onChange={(e) => setHostId(e.target.value)}
                 disabled={busy}
               >
-                {r.owner}/{r.name}
-              </Button>
-            ))}
-          </div>
-        )}
-        <label htmlFor="clone-repo">Repository</label>
-        <TextInput
-          id="clone-repo"
-          value={repoInput}
-          placeholder="URL or owner/name"
-          onChange={(e) => changeRepo(e.target.value)}
-          disabled={busy}
-        />
-        <label htmlFor="clone-path">Path</label>
-        <TextInput
-          id="clone-path"
-          value={path}
-          placeholder="~/repos/name"
-          onChange={(e) => setPath(e.target.value)}
-          disabled={busy}
-        />
-        {error && <div className="error">{error}</div>}
-        <div className="dialog-actions">
-          <Button onClick={onClose} disabled={busy}>
+                {hostIds.map((id) => (
+                  <NativeSelectOption key={id} value={id}>
+                    {hosts.find((h) => h.id === id)?.label ?? id}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
+          {listError && (
+            <Alert variant="destructive">
+              <AlertDescription>{listError}</AlertDescription>
+            </Alert>
+          )}
+          {repos.length > 0 && (
+            <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+              {repos.map((r) => {
+                const full = `${r.owner}/${r.name}`
+                const selected = repoInput === full
+                return (
+                  <Button
+                    key={full}
+                    variant={selected ? 'secondary' : 'outline'}
+                    size="sm"
+                    aria-pressed={selected}
+                    onClick={() => pick(r)}
+                    disabled={busy}
+                  >
+                    {full}
+                  </Button>
+                )
+              })}
+            </div>
+          )}
+          <Field>
+            <FieldLabel htmlFor="clone-repo">Repository</FieldLabel>
+            <Input
+              id="clone-repo"
+              value={repoInput}
+              placeholder="URL or owner/name"
+              onChange={(e) => changeRepo(e.target.value)}
+              disabled={busy}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="clone-path">Path</FieldLabel>
+            <Input
+              id="clone-path"
+              className="font-mono"
+              value={path}
+              placeholder="~/repos/name"
+              onChange={(e) => setPath(e.target.value)}
+              disabled={busy}
+            />
+          </Field>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </FieldGroup>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button
-            variant="primary"
             onClick={() => void submit()}
             disabled={busy || !repoInput.trim() || !path.trim()}
           >
             {busy ? 'Cloning...' : 'Clone'}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -22,7 +22,7 @@ function setup(mode: 'click' | 'type', onConfirm = vi.fn().mockResolvedValue(und
 describe('ConfirmDanger', () => {
   it('is named by the host label and shows the summary', () => {
     setup('click')
-    expect(screen.getByRole('dialog', { name: 'Box' })).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Box' })).toBeInTheDocument()
     expect(screen.getByText('Remove container web')).toBeInTheDocument()
   })
 
@@ -51,7 +51,7 @@ describe('ConfirmDanger', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     expect(await screen.findByText(/boom/)).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog', { name: 'Box' })).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Box' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled()
   })
 })

@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
 const include = (globs: string[]) => globs.flatMap((g) => [`${g}.test.ts`, `${g}.test.tsx`])
@@ -16,6 +17,7 @@ export default defineConfig({
       },
       {
         esbuild: { jsx: 'automatic' },
+        resolve: { alias: { '@renderer': resolve('src/renderer/src') } },
         test: {
           name: 'renderer',
           environment: 'jsdom',

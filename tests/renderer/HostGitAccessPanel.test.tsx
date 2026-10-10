@@ -92,7 +92,7 @@ describe('HostGitAccessPanel', () => {
     expect(screen.getByText(WARNING)).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
-    const dialog = screen.getByRole('dialog')
+    const dialog = screen.getByRole('alertdialog')
     expect(api.gitAccess.install).not.toHaveBeenCalled()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }))
     await waitFor(() =>
@@ -110,7 +110,7 @@ describe('HostGitAccessPanel', () => {
     expect(pathBox).not.toBeChecked()
     fireEvent.click(pathBox)
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
-    const dialog = screen.getByRole('dialog')
+    const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText(/top of ~\/\.bashrc/)).toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }))
     await waitFor(() =>
@@ -213,7 +213,11 @@ describe('HostGitAccessPanel', () => {
   })
 
   it('asks to put remodeck first when gh answers before it, and passes the answer', async () => {
-    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, otherHelpers: ['gh'], helperOrder: 'behind' })
+    vi.mocked(api.gitAccess.status).mockResolvedValue({
+      ...okStatus,
+      otherHelpers: ['gh'],
+      helperOrder: 'behind'
+    })
     vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
     renderPanel(installedHost)
     const box = await screen.findByRole('checkbox', { name: HELPER_BOX })
@@ -221,14 +225,20 @@ describe('HostGitAccessPanel', () => {
     fireEvent.click(box)
     fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
     await waitFor(() =>
-      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: false, helperFirst: true })
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], {
+        pathBlock: false,
+        helperFirst: true
+      })
     )
   })
 
   it('shows the saved choice ticked and lets the user turn it off', async () => {
     vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, otherHelpers: ['gh'] })
     vi.mocked(api.gitAccess.install).mockResolvedValue(okStatus)
-    const host: Host = { ...installedHost, gitAccess: { ...installedHost.gitAccess!, helperFirst: true } }
+    const host: Host = {
+      ...installedHost,
+      gitAccess: { ...installedHost.gitAccess!, helperFirst: true }
+    }
     renderPanel(host)
     expect(
       await screen.findByText(
@@ -240,12 +250,19 @@ describe('HostGitAccessPanel', () => {
     fireEvent.click(box)
     fireEvent.click(screen.getByRole('button', { name: 'Update host' }))
     await waitFor(() =>
-      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], { pathBlock: false, helperFirst: false })
+      expect(api.gitAccess.install).toHaveBeenCalledWith('h1', ['t1'], {
+        pathBlock: false,
+        helperFirst: false
+      })
     )
   })
 
   it('reports a helper reset that hides remodeck', async () => {
-    vi.mocked(api.gitAccess.status).mockResolvedValue({ ...okStatus, otherHelpers: ['gh'], helperOrder: 'missing' })
+    vi.mocked(api.gitAccess.status).mockResolvedValue({
+      ...okStatus,
+      otherHelpers: ['gh'],
+      helperOrder: 'missing'
+    })
     renderPanel(installedHost)
     expect(await screen.findByText(/hides remodeck's helper/)).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: HELPER_BOX })).toBeInTheDocument()
@@ -284,12 +301,14 @@ describe('HostGitAccessPanel', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Install' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Install' })
+    )
     expect(
       await screen.findByText('boom Try Update host again or Remove from host.')
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Remove from host' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(api.gitAccess.remove).toHaveBeenCalledWith('h1'))
   })
 
@@ -316,7 +335,7 @@ describe('HostGitAccessPanel', () => {
     await screen.findByRole('checkbox', { name: /github.com\/acme/ })
     fireEvent.click(screen.getByRole('button', { name: 'Remove from host' }))
     expect(api.gitAccess.remove).not.toHaveBeenCalled()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(api.gitAccess.remove).toHaveBeenCalledWith('h1'))
     await waitFor(() => expect(refresh).toHaveBeenCalled())
   })
@@ -359,7 +378,9 @@ describe('HostGitAccessPanel', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Install' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Install' })
+    )
     expect(
       await screen.findByText(/^Status check failed \(exit 1\): boom Try Update host again/)
     ).toBeInTheDocument()
@@ -375,7 +396,9 @@ describe('HostGitAccessPanel', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: /github.com\/acme/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Install' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Install' })
+    )
     expect(await screen.findByText(/^boom Try Update host again/)).toBeInTheDocument()
     expect(refresh).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument()
