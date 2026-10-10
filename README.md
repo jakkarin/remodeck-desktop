@@ -61,10 +61,16 @@ UI tokens and reusable component usage: [Neutral design guidelines](docs/design-
   When another credential helper (such as `gh auth setup-git`) is configured, you can tick an option to have
   remodeck's helper asked first; the other helpers stay as fallback for repos without a remodeck token.
   It only changes remodeck's own included file and moves its `include.path` line to the end of your global git config.
+  People who log in to the host as the same Linux user share one install. They can read and use each other's tokens,
+  Install or Update host from another person's remodeck replaces the tokens there with their own selection, and their
+  Remove from host deletes everything. Give each person their own Linux user to keep tokens apart.
   — ค่าเริ่มต้นยังไม่มี token ใน sandbox แต่ถ้า opt-in ต่อ host token จะถูกเก็บเป็น plain text บน host นั้น
   และ process ใดที่รันเป็น user เดียวกันอ่านได้ การป้องกันจริงมาจาก scope/วันหมดอายุของ token และ ruleset ของ GitHub
   ถ้าติ๊กยินยอมตอน install จะเพิ่ม `~/.local/bin` ไว้หน้า `PATH` ที่บนสุดของ `~/.bashrc` และลบออกให้ตอน Remove
   ถ้ามี credential helper อื่นอยู่ (เช่น `gh auth setup-git`) ติ๊กให้ helper ของ remodeck ถูกถามก่อนได้ helper เดิมยังเป็น fallback
+  คนที่ login เข้า host ด้วย Linux user เดียวกันจะใช้ชุดติดตั้งเดียวกัน อ่านและใช้ token ของกันได้
+  ถ้าอีกคนกด Install หรือ Update host จาก remodeck ของเขา token บน host จะถูกแทนด้วยของเขา และ Remove from host จะลบทั้งหมด
+  ถ้าต้องการแยก token ให้แต่ละคนใช้ Linux user ของตัวเอง
 - Every push (bridge or Review) is logged to `push-log.jsonl`.
 - Zero footprint: nothing is written to the repo's working tree or commits; in the sandbox the app only
   does `git init`, sets `remote origin`, and updates `refs/remotes/origin/*` and tags. Removing a
