@@ -41,7 +41,7 @@ function TerminalPane({
     const term = new Terminal({
       fontSize: fontSizeRef.current,
       fontFamily:
-        getComputedStyle(document.documentElement).getPropertyValue('--font-code').trim() ||
+        getComputedStyle(document.documentElement).getPropertyValue('--font-terminal').trim() ||
         undefined,
       cursorBlink: true,
       theme: readTheme()

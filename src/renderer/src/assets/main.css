@@ -4,6 +4,8 @@
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 @import 'shadcn/tailwind.css';
 @import './tokens.css';
 @import './legacy.css' layer(legacy);
@@ -48,6 +50,14 @@
   --color-border: var(--border);
   --color-input: var(--border);
   --color-ring: var(--accent);
+  --color-ground: var(--ground);
+  --color-selected: var(--selected-bg);
+  --color-selected-foreground: var(--selected-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-bg);
+  --color-warning: var(--attention);
+  --color-warning-soft: var(--attention-bg);
+  --color-destructive-soft: var(--danger-bg);
 
   --radius-sm: 4px;
   --radius-md: 6px;
