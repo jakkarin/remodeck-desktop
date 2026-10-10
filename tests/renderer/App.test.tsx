@@ -376,4 +376,19 @@ describe('App module switch', () => {
     await screen.findByRole('listbox', { name: 'Branches' })
     expect(screen.getByRole('button', { name: 'Close one' })).toBe(tab)
   })
+
+  it('never puts the terminal portal inside a fade', async () => {
+    setup([host], [ws], { state: 'connected' })
+    const { container } = render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    const portal = container.querySelector('.terminal-portal')!
+    expect(portal.closest('[data-fade-in]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Containers' }))
+    await screen.findByText('permission denied on docker.sock')
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(container.querySelector('.terminal-portal')).toBe(portal)
+    expect(portal.closest('[data-fade-in]')).toBeNull()
+    expect(portal.closest('[style*="opacity"]')).toBeNull()
+  })
 })

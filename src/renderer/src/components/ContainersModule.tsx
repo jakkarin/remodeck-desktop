@@ -1,3 +1,4 @@
+import { FadeIn } from './FadeIn'
 import { useRef, useState } from 'react'
 import { CircleAlert, Container } from 'lucide-react'
 import { useAppState } from '../state'
@@ -91,7 +92,9 @@ export function ContainersModule({
       style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
     >
       <div style={{ flex: 1, minHeight: 0 }}>
-        <ContainersView key={host.id} host={host} />
+        <FadeIn className="h-full min-h-0">
+          <ContainersView key={host.id} host={host} />
+        </FadeIn>
       </div>
       {!bottomCollapsed && (
         <div

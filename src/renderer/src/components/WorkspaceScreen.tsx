@@ -1,3 +1,4 @@
+import { FadeIn } from './FadeIn'
 import { useState, type ReactNode } from 'react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
@@ -86,35 +87,39 @@ export function WorkspaceScreen({
           bottom={bottom}
           bottomCollapsed={bottomCollapsed}
           left={
-            <BranchPane
-              branches={d.branches}
-              worktrees={d.worktrees}
-              selected={d.branch?.name ?? null}
-              isNew={d.isNew}
-              connected={connected}
-              error={branchesError}
-              onSelect={d.selectBranch}
-              onOpenTerminal={(p) => void open(p)}
-              onRebuild={rebuildFn}
-            />
+            <FadeIn className="h-full min-h-0">
+              <BranchPane
+                branches={d.branches}
+                worktrees={d.worktrees}
+                selected={d.branch?.name ?? null}
+                isNew={d.isNew}
+                connected={connected}
+                error={branchesError}
+                onSelect={d.selectBranch}
+                onOpenTerminal={(p) => void open(p)}
+                onRebuild={rebuildFn}
+              />
+            </FadeIn>
           }
           middle={
-            <ChangesPane
-              workspaceId={workspaceId}
-              branch={d.branch}
-              commits={d.commits}
-              files={d.files}
-              commit={d.commit}
-              file={d.file?.path ?? null}
-              connected={connected}
-              error={d.changesError}
-              onSelectCommit={d.selectCommit}
-              onSelectFile={d.selectFile}
-              onRebuild={rebuildFn}
-            />
+            <FadeIn className="h-full min-h-0">
+              <ChangesPane
+                workspaceId={workspaceId}
+                branch={d.branch}
+                commits={d.commits}
+                files={d.files}
+                commit={d.commit}
+                file={d.file?.path ?? null}
+                connected={connected}
+                error={d.changesError}
+                onSelectCommit={d.selectCommit}
+                onSelectFile={d.selectFile}
+                onRebuild={rebuildFn}
+              />
+            </FadeIn>
           }
           right={
-            <div className="flex h-full min-h-0 flex-col">
+            <FadeIn className="flex h-full min-h-0 flex-col">
               {diffError && (
                 <Banner tone="danger" action={rebuildAction(diffError, rebuildFn)}>
                   {diffError}
@@ -134,7 +139,7 @@ export function WorkspaceScreen({
                   <div className="p-3.5 text-muted-foreground">Select a file to view its diff</div>
                 </>
               )}
-            </div>
+            </FadeIn>
           }
         />
       </div>
