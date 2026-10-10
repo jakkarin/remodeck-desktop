@@ -1,5 +1,6 @@
 import type { ContainerInfo, ContainerState } from '../../shared/containers'
-import type { BadgeTone } from './components/ui'
+
+type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger'
 
 export const isActiveContainer = (c: ContainerInfo): boolean =>
   c.state === 'running' || c.state === 'restarting' || c.state === 'paused'
