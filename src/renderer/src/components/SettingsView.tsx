@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from 'cn'
 import type { SettingsSection } from '../settingsOpener'
 import { GeneralSection } from './settings/GeneralSection'
@@ -21,18 +21,25 @@ export function SettingsView({
   initialRepoId?: string
 }): React.JSX.Element {
   const [section, setSection] = useState<SettingsSection>(initialSection)
+  const navRef = useRef<HTMLElement>(null)
+  // the control that opened Settings unmounts or hides, so hand focus to the page
+  useEffect(() => {
+    navRef.current?.focus()
+  }, [])
   return (
     <section
       aria-label="Settings"
       className="flex min-h-0 flex-1 flex-col overflow-auto bg-ground sm:flex-row"
     >
       <nav
+        ref={navRef}
+        tabIndex={-1}
         aria-label="Settings sections"
-        className="flex shrink-0 flex-row flex-wrap gap-0.5 border-b bg-background p-3 sm:w-[200px] sm:flex-col sm:flex-nowrap sm:border-r sm:border-b-0"
+        className="flex shrink-0 flex-row flex-wrap outline-none gap-0.5 border-b bg-background p-3 sm:w-[200px] sm:flex-col sm:flex-nowrap sm:border-r sm:border-b-0"
       >
-        <h2 className="m-0 w-full px-2 pb-2 text-xs font-semibold text-muted-foreground">
+        <div className="m-0 w-full px-2 pb-2 text-xs font-semibold text-muted-foreground">
           Settings
-        </h2>
+        </div>
         {SECTIONS.map((s) => (
           <button
             key={s.id}

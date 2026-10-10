@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { cn } from 'cn'
 import { createPortal } from 'react-dom'
 import { ApprovalModal } from './components/ApprovalModal'
 import { ActivityBar } from './components/ActivityBar'
@@ -41,6 +42,11 @@ function Layout(): React.JSX.Element {
     setSettings({ section, repoId })
     selectModule('settings')
   }
+  // Settings keeps the last real module mounted (hidden) so its state survives the visit.
+  const [workModule, setWorkModule] = useState<'git' | 'containers'>(
+    activeModule === 'containers' ? 'containers' : 'git'
+  )
+  if (activeModule !== 'settings' && activeModule !== workModule) setWorkModule(activeModule)
   const [terminalNode] = useState(() => {
     const el = document.createElement('div')
     el.className = 'terminal-portal'
@@ -60,9 +66,26 @@ function Layout(): React.JSX.Element {
       <div className={active?.protected ? 'app protected' : 'app'}>
         <TopBar />
         <div className="app-body">
-          <ActivityBar onOpenSettings={() => openSettings('general')} />
+          <ActivityBar
+            onOpenSettings={() => {
+              if (activeModule !== 'settings') openSettings('general')
+            }}
+          />
           <main className="main">
-            {activeModule === 'settings' ? (
+            <div className={cn('h-full min-h-0', activeModule === 'settings' && 'hidden')}>
+              {workModule === 'git' ? (
+                <GitModule
+                  bottom={<TerminalSlot node={terminalNode} />}
+                  bottomCollapsed={collapsed}
+                />
+              ) : (
+                <ContainersModule
+                  bottom={<TerminalSlot node={terminalNode} />}
+                  bottomCollapsed={collapsed}
+                />
+              )}
+            </div>
+            {activeModule === 'settings' && (
               <FadeIn className="flex h-full min-h-0 flex-col">
                 <SettingsView
                   key={`${settings.section}:${settings.repoId ?? ''}`}
@@ -70,16 +93,6 @@ function Layout(): React.JSX.Element {
                   initialRepoId={settings.repoId}
                 />
               </FadeIn>
-            ) : activeModule === 'git' ? (
-              <GitModule
-                bottom={<TerminalSlot node={terminalNode} />}
-                bottomCollapsed={collapsed}
-              />
-            ) : (
-              <ContainersModule
-                bottom={<TerminalSlot node={terminalNode} />}
-                bottomCollapsed={collapsed}
-              />
             )}
           </main>
         </div>

@@ -191,6 +191,54 @@ describe('App layout', () => {
     expect(screen.queryByRole('region', { name: 'Settings' })).not.toBeInTheDocument()
   })
 
+  it('moves focus into the Settings page when it opens', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('navigation', { name: 'Settings sections' })).toHaveFocus()
+  })
+
+  it('keeps Git state (terminal tab, dismissed warning) through a Settings visit', async () => {
+    setup([host], [ws], { state: 'connected' })
+    vi.mocked(api.hosts.probeGit).mockResolvedValue({
+      version: '2',
+      remoteHttp: false,
+      forward: true
+    })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' }))
+    const dismiss = await screen.findByRole('button', { name: 'Dismiss' })
+    fireEvent.click(dismiss)
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    expect(screen.queryByRole('region', { name: 'Settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'one' })).toBeVisible()
+    expect(terminals).toHaveLength(1)
+    expect(disposed.every((d) => d.mock.calls.length === 0)).toBe(true)
+  })
+
+  it('clicking rail Settings while already on Settings keeps the current section', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+    fireEvent.click(within(nav).getByRole('button', { name: 'Push log' }))
+    expect(within(nav).getByRole('button', { name: 'Push log' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(
+      within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', {
+        name: 'Push log'
+      })
+    ).toHaveAttribute('aria-current', 'page')
+  })
+
   it('switching host hides but keeps the other host terminals', async () => {
     const host2: Host = { id: 'h2', sshHost: 'box2', label: 'Box2', protected: false }
     const ws2: Workspace = { id: 'w2', repoId: 'r1', hostId: 'h2', sandboxPath: '~/repos/api' }

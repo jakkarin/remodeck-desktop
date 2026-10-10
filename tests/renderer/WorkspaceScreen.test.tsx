@@ -384,6 +384,35 @@ describe('ChangesPane push bar isolation', () => {
   })
 })
 
+describe('ChangesPane file list identity', () => {
+  it('swaps the file rows at once when the branch changes, without exit animation', () => {
+    const props = {
+      commits: [commit],
+      commit: null,
+      file: null,
+      connected: true,
+      error: null,
+      onSelectCommit: vi.fn(),
+      onSelectFile: vi.fn(),
+      onRebuild: vi.fn()
+    }
+    const { rerender } = render(
+      <ChangesPane workspaceId="w1" branch={branch()} files={[file('old.ts')]} {...props} />
+    )
+    expect(screen.getByText('old.ts')).toBeInTheDocument()
+    rerender(
+      <ChangesPane
+        workspaceId="w1"
+        branch={branch({ name: 'fix/b' })}
+        files={[file('new.ts')]}
+        {...props}
+      />
+    )
+    expect(screen.getByText('new.ts')).toBeInTheDocument()
+    expect(screen.queryByText('old.ts')).toBeNull()
+  })
+})
+
 describe('WorkspaceScreen connection banner states', () => {
   it('disables the button while connecting', async () => {
     renderScreen({ state: 'connecting' })

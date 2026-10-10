@@ -60,7 +60,12 @@ export function ChangesPane({
         ) : (
           <>
             <CommitList commits={commits} selected={commit} onSelect={onSelectCommit} />
-            <FileList files={files} selected={file} onSelect={onSelectFile} />
+            <FileList
+              key={`${branch.name}|${commit ?? ''}`}
+              files={files}
+              selected={file}
+              onSelect={onSelectFile}
+            />
           </>
         )}
       </div>
