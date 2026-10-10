@@ -167,24 +167,6 @@ textarea:not(:where([data-slot]))::placeholder {
   word-break: break-word;
   margin: 4px 0;
 }
-.confirm-existing p {
-  font-size: 12px;
-  margin: 6px 0;
-  word-break: break-word;
-}
-.confirm-existing .confirm-target {
-  font-weight: 600;
-}
-.warning {
-  color: var(--attention);
-  background: var(--attention-bg);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2);
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 4px 0;
-}
 .warnings {
   margin: 4px 0;
   padding-left: 16px;

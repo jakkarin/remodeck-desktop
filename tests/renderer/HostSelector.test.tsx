@@ -193,7 +193,7 @@ describe('HostSelector', () => {
     open()
     openRowMenu('Beta')
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove host…' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Remove host' })
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove host' })
     await waitFor(panelGone)
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())

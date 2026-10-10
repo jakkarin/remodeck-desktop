@@ -142,7 +142,7 @@ describe('WorkspaceSwitcher', () => {
     const v = renderWith({ h1: up, h2: up })
     openRowMenu('acme/api')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove workspace' }))
-    const dialog = screen.getByRole('dialog', { name: 'Remove workspace' })
+    const dialog = screen.getByRole('alertdialog', { name: 'Remove workspace' })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())
     expect(api.workspaces.remove).toHaveBeenCalledWith('w1', false)
