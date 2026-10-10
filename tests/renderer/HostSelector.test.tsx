@@ -84,6 +84,11 @@ describe('HostSelector', () => {
     expect(screen.getByRole('button', { name: 'Switch host' })).toHaveTextContent('protected')
   })
 
+  it('trigger exposes the active host state', () => {
+    renderWith({ h1: up, h2: up })
+    expect(screen.getByTitle('connected')).toBeInTheDocument()
+  })
+
   it('trigger shows no protected badge for a normal host', () => {
     renderWith({ h1: up, h2: up })
     expect(screen.getByRole('button', { name: 'Switch host' })).not.toHaveTextContent('protected')
@@ -222,10 +227,16 @@ describe('HostSelector', () => {
     })
     const v = renderWith({ h1: up, h2: up })
     open()
+    const trigger = screen.getByRole('button', { name: 'Switch host' })
+    const focusSpy = vi.spyOn(trigger, 'focus')
     fireEvent.click(screen.getByRole('button', { name: 'Settings for Alpha' }))
     const dialog = screen.getByRole('dialog', { name: 'Host settings' })
     // the popover closes so it does not stay open behind the dialog
     await waitFor(panelGone)
+    // and does not pull focus back from the dialog to the trigger
+    await new Promise((r) => setTimeout(r, 50))
+    expect(focusSpy).not.toHaveBeenCalled()
+    expect(trigger).not.toHaveFocus()
     fireEvent.change(within(dialog).getByLabelText('Label'), { target: { value: ' Work ' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() =>

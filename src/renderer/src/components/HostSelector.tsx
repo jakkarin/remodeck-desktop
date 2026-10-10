@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
@@ -33,9 +33,10 @@ const STATE_TEXT: Record<HostState, string> = {
   error: 'error'
 }
 
-function StatusDot({ state }: { state: HostState }): React.JSX.Element {
+function StatusDot({ state, title }: { state: HostState; title?: string }): React.JSX.Element {
   return (
     <span
+      title={title}
       data-status={state}
       className={cn(
         'size-2 shrink-0 rounded-full',
@@ -63,6 +64,12 @@ const rowButton =
 export function HostSelector(): React.JSX.Element {
   const { hosts, statuses, workspaces, activeHostId, selectHost, setStatus } = useAppState()
   const [open, setOpen] = useState(false)
+  // a dialog is taking focus: do not hand it back to the trigger on close
+  const dialogOpening = useRef(false)
+  const closeForDialog = (): void => {
+    dialogOpening.current = true
+    setOpen(false)
+  }
   const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [removingHost, setRemovingHost] = useState<Host | null>(null)
@@ -89,10 +96,16 @@ export function HostSelector(): React.JSX.Element {
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(o) => {
+          if (o) dialogOpening.current = false
+          setOpen(o)
+        }}
+      >
         <PopoverTrigger asChild>
           <Button variant="ghost" aria-label="Switch host" className="gap-2 px-2">
-            {active ? <StatusDot state={activeState} /> : <Server size={14} />}
+            {active ? <StatusDot state={activeState} title={activeState} /> : <Server size={14} />}
             <span>{active ? active.label : 'Select host'}</span>
             {active?.protected && <ProtectedBadge />}
             <ChevronDown size={14} className="text-muted-foreground" />
@@ -100,6 +113,10 @@ export function HostSelector(): React.JSX.Element {
         </PopoverTrigger>
         <PopoverContent
           align="start"
+          onCloseAutoFocus={(e) => {
+            if (dialogOpening.current) e.preventDefault()
+            dialogOpening.current = false
+          }}
           className="w-[340px] gap-0 rounded-xl bg-popover p-1.5 shadow-lg data-open:duration-[180ms] data-closed:duration-[120ms]"
         >
           <div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
@@ -173,7 +190,7 @@ export function HostSelector(): React.JSX.Element {
                   aria-label={`Settings for ${host.label}`}
                   className="text-muted-foreground"
                   onClick={() => {
-                    setOpen(false)
+                    closeForDialog()
                     setEditingHost(host)
                   }}
                 >
@@ -201,7 +218,7 @@ export function HostSelector(): React.JSX.Element {
                       title={hasWorkspaces ? 'Remove the workspaces on this host first' : undefined}
                       className="data-disabled:pointer-events-auto"
                       onSelect={() => {
-                        setOpen(false)
+                        closeForDialog()
                         setRemovingHost(host)
                       }}
                     >
@@ -218,7 +235,7 @@ export function HostSelector(): React.JSX.Element {
             variant="ghost"
             className="h-auto justify-start gap-2.5 rounded-lg px-2.5 py-2 text-xs font-normal"
             onClick={() => {
-              setOpen(false)
+              closeForDialog()
               setAdding(true)
             }}
           >
