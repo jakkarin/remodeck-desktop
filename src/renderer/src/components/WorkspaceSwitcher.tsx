@@ -5,6 +5,7 @@ import type { Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { useOpenSettings } from '../settingsOpener'
+import { useReturnFocus } from '../useReturnFocus'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -36,6 +37,8 @@ export function WorkspaceSwitcher(): React.JSX.Element {
   const [addingExisting, setAddingExisting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [removingWs, setRemovingWs] = useState<{ ws: Workspace; label: string } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  useReturnFocus(cloning || addingExisting || removingWs !== null, triggerRef)
 
   const labelOf = (w: Workspace): string => {
     const repo = repos.find((r) => r.id === w.repoId)
@@ -79,7 +82,12 @@ export function WorkspaceSwitcher(): React.JSX.Element {
         }}
       >
         <PopoverTrigger asChild>
-          <Button variant="ghost" aria-label="Switch workspace" className="gap-2 px-2">
+          <Button
+            ref={triggerRef}
+            variant="ghost"
+            aria-label="Switch workspace"
+            className="gap-2 px-2"
+          >
             <FolderGit2 size={14} />
             <span>{active ? labelOf(active) : 'Select workspace'}</span>
             <ChevronDown size={14} className="text-muted-foreground" />
@@ -111,7 +119,7 @@ export function WorkspaceSwitcher(): React.JSX.Element {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && visible[0]) {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing && visible[0]) {
                   e.preventDefault()
                   choose(visible[0].id)
                 }

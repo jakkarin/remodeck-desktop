@@ -141,7 +141,14 @@ function CheckRow({
   )
 }
 
-export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element {
+export function HostGitAccessPanel({
+  host,
+  onClose
+}: {
+  host: Host
+  /** Closes the surrounding dialog; called before leaving for Settings. */
+  onClose?(): void
+}): React.JSX.Element {
   const { hosts, refresh } = useAppState()
   const openSettings = useOpenSettings()
   // The dialog's host prop can lag behind a refresh, so prefer the live record.
@@ -311,7 +318,13 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
             </p>
           ))}
           <div>
-            <Button variant="outline" onClick={() => openSettings('gitTokens')}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                onClose?.()
+                openSettings('gitTokens')
+              }}
+            >
               Manage tokens
             </Button>
           </div>

@@ -161,6 +161,17 @@ describe('WorkspaceSwitcher', () => {
     expect(within(dialog).queryByLabelText('Host')).toBeNull()
   })
 
+  it('returns focus to the Switch workspace trigger when the dialog closes', async () => {
+    renderWith({ h1: up })
+    fireEvent.click(screen.getByRole('button', { name: /Clone repo/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Clone' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Clone' })).toBeNull())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Switch workspace' })).toHaveFocus()
+    )
+  })
+
   it('Add existing repo selects the new workspace on success', async () => {
     vi.mocked(api.workspaces.addExisting).mockResolvedValue({
       id: 'w9',
@@ -201,8 +212,24 @@ describe('WorkspaceSwitcher', () => {
     await waitFor(() => expect(panelOpen()).toBe(false))
     fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
     expect(panelOpen()).toBe(true)
+    // Radix arms its outside-click listener on the next tick
+    await new Promise((r) => setTimeout(r, 10))
+    fireEvent.pointerDown(document.body)
+    fireEvent.click(document.body)
+    await waitFor(() => expect(panelOpen()).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
+    expect(panelOpen()).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /^acme\/api/ }))
     await waitFor(() => expect(panelOpen()).toBe(false))
+  })
+
+  it('Enter during IME composition does not pick a workspace', () => {
+    const v = renderWith({ h1: up }, relist)
+    const box = screen.getByRole('textbox', { name: 'Find workspace' })
+    fireEvent.keyDown(box, { key: 'Enter', isComposing: true })
+    expect(v.selectWorkspace).not.toHaveBeenCalled()
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(v.selectWorkspace).toHaveBeenCalled()
   })
 
   it('filters workspaces by label, case-insensitive', () => {

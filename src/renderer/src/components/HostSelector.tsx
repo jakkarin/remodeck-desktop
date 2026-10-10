@@ -12,6 +12,7 @@ import { cn } from 'cn'
 import type { Host, HostState, HostStatus } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { useReturnFocus } from '../useReturnFocus'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -74,6 +75,8 @@ export function HostSelector(): React.JSX.Element {
   const [actionError, setActionError] = useState<string | null>(null)
   const [removingHost, setRemovingHost] = useState<Host | null>(null)
   const [editingHost, setEditingHost] = useState<Host | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  useReturnFocus(adding || removingHost !== null || editingHost !== null, triggerRef)
 
   const active = hosts.find((h) => h.id === activeHostId)
   const activeState = active ? (statuses[active.id] ?? DISCONNECTED).state : 'disconnected'
@@ -104,7 +107,7 @@ export function HostSelector(): React.JSX.Element {
         }}
       >
         <PopoverTrigger asChild>
-          <Button variant="ghost" aria-label="Switch host" className="gap-2 px-2">
+          <Button ref={triggerRef} variant="ghost" aria-label="Switch host" className="gap-2 px-2">
             {active ? <StatusDot state={activeState} title={activeState} /> : <Server size={14} />}
             <span>{active ? active.label : 'Select host'}</span>
             {active?.protected && <ProtectedBadge />}

@@ -59,11 +59,11 @@ const installedHost: Host = {
 
 const refresh = vi.fn().mockResolvedValue(undefined)
 
-function renderPanel(host: Host, hosts: Host[] = [host]): void {
+function renderPanel(host: Host, hosts: Host[] = [host], onClose?: () => void): void {
   const value = { refresh, hosts } as unknown as AppState
   render(
     <AppStateContext.Provider value={value}>
-      <HostGitAccessPanel host={host} />
+      <HostGitAccessPanel host={host} onClose={onClose} />
     </AppStateContext.Provider>
   )
 }
@@ -164,6 +164,15 @@ describe('HostGitAccessPanel', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
     expect(await screen.findByText('No tokens yet.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Manage tokens' })).toBeInTheDocument()
+  })
+
+  it('Manage tokens closes the surrounding dialog before opening Settings', async () => {
+    vi.mocked(api.gitTokens.list).mockResolvedValue([])
+    const onClose = vi.fn()
+    renderPanel(plainHost, [plainHost], onClose)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Enable git access on this host' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage tokens' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('loads status for an installed host and pre-checks installed tokens', async () => {

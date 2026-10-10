@@ -87,7 +87,7 @@ export function HostSettingsDialog({
           </div>
         </FieldGroup>
         <Separator />
-        <HostGitAccessPanel host={host} />
+        <HostGitAccessPanel host={host} onClose={onClose} />
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
