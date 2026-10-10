@@ -20,13 +20,6 @@ export function Button({
   )
 }
 
-type IconButtonProps = Omit<ButtonProps, 'aria-label'> & { 'aria-label': string }
-
-/** An accessible name is required for icon-only actions. */
-export function IconButton({ className = '', ...props }: IconButtonProps): React.JSX.Element {
-  return <Button variant="ghost" {...props} className={`icon-btn ${className}`.trim()} />
-}
-
 export function TextInput({
   className = '',
   ...props

@@ -179,7 +179,8 @@ describe('ResourcesView actions', () => {
     const [first] = within(screen.getByRole('region', { name: 'Networks' })).getAllByRole(
       'listitem'
     )
-    expect(first.querySelector('.resource-actions')?.children).toHaveLength(1)
+    // The row's last cell is the action slot: one empty placeholder for the built-in row.
+    expect(first.lastElementChild?.children).toHaveLength(1)
   })
 
   it('prune shows the result line and reloads', async () => {
