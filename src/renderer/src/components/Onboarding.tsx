@@ -1,4 +1,4 @@
-import { Check, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from './ui/button'
 import { MonoLine } from './StatePanel'
 
@@ -19,9 +19,9 @@ export function Onboarding({ onAddHost }: { onAddHost(): void }): React.JSX.Elem
           <li className="flex gap-3.5 border-b border-border p-4 last:border-b-0">
             <span
               aria-hidden="true"
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-success-soft text-success"
+              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
             >
-              <Check size={13} strokeWidth={2.6} />
+              1
             </span>
             <div className="flex flex-1 flex-col gap-1">
               <span className="font-medium">An SSH alias that works</span>

@@ -253,7 +253,6 @@ Use one real host with `git`, `gh` and Claude Code or Codex. Create fine-grained
 | G.4 | Open a terminal from remodeck on the same host and push → it still goes through the Git Bridge and asks for approval                                                                                                                             | ☐      |
 | G.5 | Replace one token in Settings → reopen Host settings → the row shows "Changed since install"; Update host clears it                                                                                                                              | ☐      |
 | G.6 | Remove from host and confirm → push and `gh pr create` from the same repos now fail, and `~/.config/remodeck/git-access`, `~/.local/bin/gh` (ours) and the `include.path` line in `~/.gitconfig` are gone                                        | ☐      |
-
 | G.7 | On a host where `gh auth setup-git` was already run, enable Git access and Install → the status list warns that credential helper "gh" for github.com is asked before remodeck's and may answer with its own login | ☐ |
 | G.8 | On a host without git, Install → it fails, the error ends with "Try Update host again or Remove from host.", and Remove from host is offered and works | ☐ |
 | G.9 | Try to remove a host (Settings → Hosts) that still has git access → refused with "Remove git access from this host first"; after Remove from host the host can be removed | ☐ |
