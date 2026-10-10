@@ -34,6 +34,30 @@ const openSettings = vi.fn()
 const down: HostStatus = { state: 'disconnected' }
 const up: HostStatus = { state: 'connected' }
 
+const repo = (id: string, owner: string, name: string): AppState['repos'][number] => ({
+  id,
+  owner,
+  name,
+  defaultBranch: 'main',
+  protectedBranches: [],
+  alwaysAllowPush: false,
+  enforceRules: false
+})
+const relist: Partial<AppState> = {
+  repos: [repo('r2', 'relist', 'relist-api'), repo('r3', 'relist', 'relist-panel')],
+  workspaces: [
+    { id: 'w2', repoId: 'r2', hostId: 'h1', sandboxPath: '~/repos/relist-api' },
+    { id: 'w3', repoId: 'r3', hostId: 'h1', sandboxPath: '~/repos/relist-panel' }
+  ],
+  activeWorkspaceId: 'w2'
+}
+/** Radix opens dropdown menus on pointerdown or Enter; jsdom lacks PointerEvent, so use the keyboard. */
+const openRowMenu = (label: string): void => {
+  fireEvent.keyDown(screen.getByRole('button', { name: `Workspace menu ${label}` }), {
+    key: 'Enter'
+  })
+}
+
 function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState> = {}): AppState {
   const value: AppState = {
     hosts: [
@@ -41,17 +65,7 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
       { id: 'h2', sshHost: 'b', label: 'Beta', protected: false }
     ],
     statuses,
-    repos: [
-      {
-        id: 'r1',
-        owner: 'acme',
-        name: 'api',
-        defaultBranch: 'main',
-        protectedBranches: [],
-        alwaysAllowPush: false,
-        enforceRules: false
-      }
-    ],
+    repos: [repo('r1', 'acme', 'api')],
     workspaces: [{ id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' }],
     activeHostId: 'h1',
     selectHost: vi.fn(),
@@ -94,40 +108,40 @@ describe('WorkspaceSwitcher', () => {
         ]
       }
     )
-    expect(screen.getByText('acme/api · ~/repos/api')).toBeInTheDocument()
-    expect(screen.queryByText('acme/api · ~/other/api')).toBeNull()
+    expect(screen.getByText('~/repos/api')).toBeInTheDocument()
+    expect(screen.queryByText('~/other/api')).toBeNull()
     expect(screen.queryByText('Alpha')).toBeNull()
     expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
   })
 
   it('dims workspaces of a disconnected host but still selects them', () => {
     const v = renderWith({ h1: down, h2: up })
-    const item = screen.getByText('acme/api · ~/repos/api').closest('li') as HTMLElement
-    expect(item).toHaveClass('dim')
-    fireEvent.click(screen.getByText('acme/api · ~/repos/api'))
+    const row = screen.getByRole('button', { name: /^acme\/api/ })
+    expect(row.parentElement).toHaveClass('opacity-55')
+    fireEvent.click(row)
     expect(v.selectWorkspace).toHaveBeenCalledWith('w1')
   })
 
   it('workspace menu rebuilds the mirror', async () => {
     vi.mocked(api.workspaces.rebuildMirror).mockResolvedValue(undefined)
     renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Rebuild mirror' }))
+    openRowMenu('acme/api')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rebuild mirror' }))
     await waitFor(() => expect(api.workspaces.rebuildMirror).toHaveBeenCalledWith('r1', 'w1'))
   })
 
   it('workspace menu Repo settings opens settings at that repo', () => {
     renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Repo settings…' }))
+    openRowMenu('acme/api')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Repo settings…' }))
     expect(openSettings).toHaveBeenCalledWith('repositories', 'r1')
   })
 
   it('workspace menu removes the workspace', async () => {
     vi.mocked(api.workspaces.remove).mockResolvedValue(undefined)
     const v = renderWith({ h1: up, h2: up })
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove workspace' }))
+    openRowMenu('acme/api')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove workspace' }))
     const dialog = screen.getByRole('dialog', { name: 'Remove workspace' })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())
@@ -178,20 +192,73 @@ describe('WorkspaceSwitcher', () => {
     expect(screen.queryByRole('dialog', { name: 'Add existing repo' })).toBeNull()
   })
 
-  it('closes on Escape, on an outside pointerdown, and after choosing a workspace', () => {
+  it('closes on Escape, on an outside pointerdown, and after choosing a workspace', async () => {
     renderWith({ h1: up, h2: up })
-    const panelOpen = (): boolean => screen.queryByText('acme/api · ~/repos/api') !== null
+    const panelOpen = (): boolean =>
+      screen.queryByRole('textbox', { name: 'Find workspace' }) !== null
     expect(panelOpen()).toBe(true)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(panelOpen()).toBe(false)
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(panelOpen()).toBe(false))
     fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
     expect(panelOpen()).toBe(true)
-    fireEvent.pointerDown(screen.getByText('acme/api · ~/repos/api'))
-    expect(panelOpen()).toBe(true)
-    fireEvent.pointerDown(document.body)
-    expect(panelOpen()).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: /^acme\/api/ }))
+    await waitFor(() => expect(panelOpen()).toBe(false))
+  })
+
+  it('filters workspaces by label, case-insensitive', () => {
+    renderWith({ h1: up }, relist)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Find workspace' }), {
+      target: { value: 'API' }
+    })
+    expect(screen.getByRole('button', { name: /^relist\/relist-api/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^relist\/relist-panel/ })).not.toBeInTheDocument()
+  })
+
+  it('filters by sandbox path', () => {
+    renderWith({ h1: up }, relist)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Find workspace' }), {
+      target: { value: 'repos/relist-pan' }
+    })
+    expect(screen.getByRole('button', { name: /^relist\/relist-panel/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^relist\/relist-api/ })).not.toBeInTheDocument()
+  })
+
+  it('shows "No matching workspaces" when nothing matches', () => {
+    renderWith({ h1: up }, relist)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Find workspace' }), {
+      target: { value: 'zzz' }
+    })
+    expect(screen.getByText('No matching workspaces')).toBeInTheDocument()
+  })
+
+  it('Enter on the search field opens the first match', async () => {
+    const v = renderWith({ h1: up }, relist)
+    const input = screen.getByRole('textbox', { name: 'Find workspace' })
+    fireEvent.change(input, { target: { value: 'panel' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(v.selectWorkspace).toHaveBeenCalledWith('w3')
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Find workspace' })).toBeNull()
+    )
+  })
+
+  it('search is cleared when the popover reopens', async () => {
+    renderWith({ h1: up }, relist)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Find workspace' }), {
+      target: { value: 'zzz' }
+    })
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Find workspace' }), { key: 'Escape' })
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Find workspace' })).toBeNull()
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }))
-    fireEvent.click(screen.getByText('acme/api · ~/repos/api'))
-    expect(panelOpen()).toBe(false)
+    expect(screen.getByRole('textbox', { name: 'Find workspace' })).toHaveValue('')
+  })
+
+  it('rows are keyboard-reachable buttons', () => {
+    renderWith({ h1: up }, relist)
+    const row = screen.getByRole('button', { name: /^relist\/relist-api/ })
+    expect(row.tagName).toBe('BUTTON')
+    expect(row).toHaveAttribute('aria-current', 'true')
   })
 })

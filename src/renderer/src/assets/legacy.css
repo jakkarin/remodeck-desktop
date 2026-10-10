@@ -118,14 +118,6 @@ textarea:not(:where([data-slot]))::placeholder {
 .app.protected {
   box-shadow: inset 0 3px 0 var(--danger);
 }
-.protected-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  color: var(--danger);
-}
-
 .pad {
   padding: var(--space-2) var(--space-3);
 }
@@ -199,25 +191,6 @@ textarea:not(:where([data-slot]))::placeholder {
   color: var(--attention);
   font-size: 12px;
 }
-.workspaces {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-}
-.workspaces li {
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  word-break: break-all;
-}
-.workspaces li:hover {
-  background: var(--bg-hover);
-}
-.workspaces li.active {
-  background: var(--selected-bg);
-  color: var(--selected-fg);
-}
-
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -681,71 +654,6 @@ textarea:not(:where([data-slot]))::placeholder {
   to {
     transform: rotate(360deg);
   }
-}
-
-.switcher {
-  position: relative;
-}
-.switcher-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.switcher-panel {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 30;
-  width: min(380px, calc(100vw - 24px));
-  max-height: 70vh;
-  overflow-y: auto;
-  background: var(--bg-subtle);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-popover);
-}
-.switcher-panel .host-row .host-label {
-  flex: 1;
-}
-.switcher-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-}
-.switcher-panel .workspaces li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.switcher-panel .workspaces li .ws-label {
-  flex: 1;
-}
-.switcher-panel .workspaces li.active {
-  background: var(--selected-bg);
-  color: var(--selected-fg);
-}
-.workspaces li.dim {
-  opacity: 0.55;
-}
-.menu {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 6px;
-  background: var(--bg-control);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.menu button {
-  text-align: left;
-  justify-content: flex-start;
-  background: transparent;
-  border-color: transparent;
 }
 
 @media (max-width: 640px) {

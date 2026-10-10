@@ -290,8 +290,10 @@ describe('App prefs', () => {
     vi.mocked(api.repos.list).mockResolvedValue([{ ...repo, id: 'r0', name: 'other' }, repo])
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Switch workspace' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Repo settings…' }))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Workspace menu acme/api' }), {
+      key: 'Enter'
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Repo settings…' }))
     const dialog = await screen.findByRole('region', { name: 'Settings' })
     expect(within(dialog).getByRole('button', { name: 'Repositories' })).toHaveAttribute(
       'aria-current',
