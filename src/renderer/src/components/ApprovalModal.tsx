@@ -2,7 +2,15 @@ import { useContext, useEffect, useState } from 'react'
 import type { ApprovalDecision, ApprovalRequest, RefUpdate } from '../../../shared/types'
 import { api } from '../api'
 import { AppStateContext } from '../state'
-import { Button } from './ui'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from './ui/alert-dialog'
+import { Button } from './ui/button'
 
 /** Main denies on its own after this long; the modal drops the request at the same point. */
 const APPROVAL_TIMEOUT_MS = 60_000
@@ -45,27 +53,47 @@ export function ApprovalModal(): React.JSX.Element | null {
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" role="dialog" aria-label="Push approval">
-        <h3>Push approval requested</h3>
-        <p>
-          {req.repoLabel} <span className="dim">({req.tabLabel})</span>
-        </p>
-        <ul className="approval-updates">
+    <AlertDialog open>
+      <AlertDialogContent
+        aria-label="Push approval"
+        aria-labelledby={undefined}
+        className="sm:max-w-md"
+        // An approval must be answered with a button; Escape never dismisses it.
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Push approval requested</AlertDialogTitle>
+          <AlertDialogDescription>
+            {req.repoLabel} <span className="text-muted-foreground">({req.tabLabel})</span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <ul className="m-0 flex list-none flex-col gap-1 rounded-lg bg-ground p-2">
           {req.updates.map((u) => (
             <li key={u.ref}>
-              <code>{formatUpdate(u)}</code>
+              <code className="font-mono text-xs">{formatUpdate(u)}</code>
             </li>
           ))}
         </ul>
-        {queue.length > 1 && <p className="dim">{queue.length - 1} more waiting</p>}
-        <div className="modal-actions">
-          <Button onClick={() => respond('once')}>Allow once</Button>
-          <Button onClick={() => respond('session')}>Allow for this session</Button>
-          <Button onClick={() => respond('always')}>Always allow for this repo</Button>
-          <Button onClick={() => respond('deny')}>Deny</Button>
-        </div>
-      </div>
-    </div>
+        {queue.length > 1 && (
+          <p className="m-0 text-xs text-muted-foreground">{queue.length - 1} more waiting</p>
+        )}
+        <AlertDialogFooter className="sm:flex-col sm:justify-stretch">
+          <Button className="w-full" onClick={() => respond('once')}>
+            Allow once
+          </Button>
+          <div className="flex gap-1.5">
+            <Button variant="outline" className="flex-1" onClick={() => respond('session')}>
+              Allow for this session
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => respond('always')}>
+              Always allow for this repo
+            </Button>
+          </div>
+          <Button variant="destructive" className="w-full" onClick={() => respond('deny')}>
+            Deny
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

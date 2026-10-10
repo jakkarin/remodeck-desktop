@@ -173,53 +173,6 @@ textarea:not(:where([data-slot]))::placeholder {
   color: var(--attention);
   font-size: 12px;
 }
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--backdrop);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-}
-.dialog {
-  width: min(420px, calc(100vw - 32px));
-  max-height: 80vh;
-  overflow-y: auto;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  box-shadow: var(--shadow-dialog);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-/* Children keep their height and the dialog scrolls; shrinking lets tall sections overlap the actions. */
-.dialog > * {
-  flex-shrink: 0;
-}
-.dialog h2 {
-  margin: 0 0 4px;
-  font-size: var(--text-title);
-}
-.dialog label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: var(--fg-muted);
-}
-.dialog label.checkbox {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
 .repo-list {
   display: flex;
   flex-wrap: wrap;
@@ -348,34 +301,6 @@ textarea:not(:where([data-slot]))::placeholder {
   font-size: var(--text-base);
   box-shadow: var(--shadow-popover);
 }
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--backdrop);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.modal {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) 20px;
-  width: min(480px, calc(100vw - 32px));
-  max-height: 85vh;
-  overflow: auto;
-  box-shadow: var(--shadow-dialog);
-}
-.modal-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-.approval-updates {
-  padding-left: 18px;
-}
 .dim {
   color: var(--fg-muted);
 }
@@ -423,26 +348,6 @@ textarea:not(:where([data-slot]))::placeholder {
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
-}
-.git-access-tokens {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-/* a plain link-like action, not a full-width row of the flex column */
-.git-access-manage {
-  align-self: flex-start;
-}
-.git-access-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
 }
 .settings h3 {
   margin: 0;

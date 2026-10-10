@@ -45,19 +45,20 @@ describe('ApprovalModal', () => {
 
   it('renders the update and advances the queue after a decision', () => {
     render(<ApprovalModal />)
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
     act(() => {
       handler!(req('1'))
       handler!(req('2'))
     })
     expect(screen.getByText('refs/heads/feat: a1b2c3d → e4f5a6b')).toBeInTheDocument()
     expect(screen.getByText(/tab-1/)).toBeInTheDocument()
+    expect(screen.getByText('1 more waiting')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Allow for this session'))
     expect(api.approval.respond).toHaveBeenCalledWith('1', 'session')
     expect(screen.getByText(/tab-2/)).toBeInTheDocument()
     fireEvent.click(screen.getByText('Deny'))
     expect(api.approval.respond).toHaveBeenCalledWith('2', 'deny')
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('maps buttons to decisions and shows (new branch) for zero old sha', () => {
@@ -93,17 +94,31 @@ describe('ApprovalModal', () => {
     expect(refresh).toHaveBeenCalledOnce()
   })
 
+  it('cannot be dismissed with Escape or a click outside', () => {
+    render(<ApprovalModal />)
+    act(() => {
+      handler!(req('1'))
+    })
+    const dialog = screen.getByRole('alertdialog', { name: 'Push approval' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    fireEvent.pointerDown(document.body)
+    fireEvent.click(document.body)
+    expect(screen.getByRole('alertdialog', { name: 'Push approval' })).toBeInTheDocument()
+    expect(api.approval.respond).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Push approval requested' })).toBeInTheDocument()
+  })
+
   it('auto-dismisses a request after 60 seconds', () => {
     vi.useFakeTimers()
     render(<ApprovalModal />)
     act(() => {
       handler!(req('1'))
     })
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Push approval' })).toBeInTheDocument()
     act(() => {
       vi.advanceTimersByTime(60_000)
     })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(api.approval.respond).not.toHaveBeenCalled()
   })
 })
