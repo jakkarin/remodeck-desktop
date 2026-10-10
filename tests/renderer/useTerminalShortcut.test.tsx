@@ -43,15 +43,23 @@ describe('useTerminalShortcut', () => {
     target.remove()
   })
 
-  it('ignores a plain backtick, Ctrl+Shift+`, Ctrl+Alt+`, Meta and repeats', () => {
+  it('ignores a plain backtick, Ctrl+Shift+`, Ctrl+Alt+`, Meta', () => {
     const { onToggle, inner, press, target } = setup()
     press({})
     press({ ctrlKey: true, shiftKey: true })
     press({ ctrlKey: true, altKey: true })
     press({ ctrlKey: true, metaKey: true })
-    press({ ctrlKey: true, repeat: true })
     expect(onToggle).not.toHaveBeenCalled()
-    expect(inner).toHaveBeenCalledTimes(5)
+    expect(inner).toHaveBeenCalledTimes(4)
+    target.remove()
+  })
+
+  it('swallows a repeated Ctrl+` without toggling again', () => {
+    const { onToggle, inner, press, target } = setup()
+    const e = press({ ctrlKey: true, repeat: true })
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(inner).not.toHaveBeenCalled()
+    expect(e.defaultPrevented).toBe(true)
     target.remove()
   })
 

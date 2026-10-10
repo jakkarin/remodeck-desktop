@@ -12,11 +12,10 @@ export function useTerminalShortcut(onToggle: () => void, enabled = true): void 
   useEffect(() => {
     if (!enabled) return
     const handler = (e: KeyboardEvent): void => {
-      if (e.repeat) return
       if (!e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.code !== 'Backquote') return
       e.preventDefault()
       e.stopPropagation()
-      toggleRef.current()
+      if (!e.repeat) toggleRef.current()
     }
     window.addEventListener('keydown', handler, { capture: true })
     return () => window.removeEventListener('keydown', handler, { capture: true })

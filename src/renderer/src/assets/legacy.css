@@ -429,9 +429,6 @@ textarea:not(:where([data-slot]))::placeholder {
 .split-sep-v {
   cursor: col-resize;
 }
-.split-sep-h {
-  cursor: row-resize;
-}
 
 .topbar-spacer {
   flex: 1;
