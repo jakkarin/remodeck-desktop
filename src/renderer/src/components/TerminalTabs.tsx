@@ -3,13 +3,14 @@ import { Terminal, type ITheme } from '@xterm/xterm'
 import { watchColorScheme, xtermTheme } from '../theme'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { ChevronDown, ChevronUp, Loader2, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, Plus, SquareTerminal, X } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { createBusyIndicator } from '../busyIndicator'
 import { attachClipboard, attachImageDrop } from '../terminalClipboard'
 import { onTerminalOpened, openTerminal } from '../terminalEvents'
-import { Button, IconButton } from './ui'
+import { cn } from 'cn'
+import { Button } from './ui/button'
 
 type Tab = { tabId: string; label: string; hostId: string; exited: boolean }
 
@@ -119,12 +120,16 @@ function TerminalPane({
   }, [active])
 
   return (
-    <div className="terminal-pane" style={{ display: active ? 'block' : 'none' }}>
-      <div className="terminal-host" ref={host} />
+    <div className="absolute inset-2" style={{ display: active ? 'block' : 'none' }}>
+      <div className="absolute inset-0" ref={host} />
       {uploading && (
-        <div className="terminal-busy" role="status" aria-live="polite">
-          <div className="terminal-busy-box">
-            <Loader2 size={16} className="spinning" aria-hidden="true" />
+        <div
+          className="absolute inset-0 z-5 flex items-center justify-center bg-(--backdrop)"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground shadow-(--shadow-popover)">
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
             <span>Uploading image…</span>
           </div>
         </div>
@@ -236,43 +241,68 @@ export function TerminalTabs({
       ? undefined
       : 'Host is not connected'
   return (
-    <div className="terminal-panel" id="terminal-panel">
-      <div className="terminal-tabbar">
-        <span className="terminal-title">Terminal</span>
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-(--bg-inset)"
+      id="terminal-panel"
+    >
+      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1.5 pl-3">
+        <SquareTerminal size={14} className="text-muted-foreground" aria-hidden="true" />
+        <span className="mr-2 ml-1 font-semibold text-foreground">Terminal</span>
         {tabs
           .filter((t) => t.hostId === activeHostId)
-          .map((t) => (
-            <div key={t.tabId} className={`terminal-tab${t.tabId === activeId ? ' active' : ''}`}>
-              <Button
-                className="terminal-tab-label"
-                onClick={() => setActiveByHost((prev) => ({ ...prev, [t.hostId]: t.tabId }))}
+          .map((t) => {
+            const isActive = t.tabId === activeId
+            return (
+              <div
+                key={t.tabId}
+                className={cn(
+                  'flex h-7 items-center gap-0.5 rounded-md pr-1 text-xs',
+                  isActive ? 'bg-selected text-selected-foreground' : 'text-muted-foreground'
+                )}
               >
-                {t.label}
-                {t.exited ? ` ${CLOSED}` : ''}
-              </Button>
-              <IconButton aria-label={`Close ${t.label}`} onClick={() => close(t.tabId)}>
-                ×
-              </IconButton>
-            </div>
-          ))}
-        <IconButton
+                <Button
+                  variant="ghost"
+                  className={cn('h-7 px-2.5 hover:bg-transparent', isActive && 'font-semibold')}
+                  onClick={() => setActiveByHost((prev) => ({ ...prev, [t.hostId]: t.tabId }))}
+                >
+                  {t.label}
+                  {t.exited ? ` ${CLOSED}` : ''}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Close ${t.label}`}
+                  onClick={() => close(t.tabId)}
+                >
+                  <X aria-hidden="true" />
+                </Button>
+              </div>
+            )
+          })}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground"
           aria-label="New terminal"
           disabled={!hostUp}
           title={plusTitle}
           onClick={() => void openNew()}
         >
           <Plus size={14} />
-        </IconButton>
-        {openError && <span className="error">{openError}</span>}
-        <span className="topbar-spacer" />
-        <IconButton
+        </Button>
+        {openError && <span className="text-xs text-destructive">{openError}</span>}
+        <span className="flex-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground"
           aria-label={collapsed ? 'Expand terminal' : 'Collapse terminal'}
           onClick={onToggle}
         >
           {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </IconButton>
+        </Button>
       </div>
-      <div className="terminal-body" style={{ display: collapsed ? 'none' : undefined }}>
+      <div className="relative min-h-0 flex-1" style={{ display: collapsed ? 'none' : undefined }}>
         {tabs.map((t) => (
           <TerminalPane
             key={t.tabId}

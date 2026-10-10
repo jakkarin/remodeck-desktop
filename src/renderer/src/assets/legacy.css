@@ -232,69 +232,6 @@ textarea:not(:where([data-slot]))::placeholder {
   color: var(--success);
 }
 
-.terminal-panel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.terminal-tabbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  background: var(--bg-subtle);
-  border-bottom: 1px solid var(--border);
-}
-.terminal-tab {
-  display: flex;
-  align-items: center;
-}
-.terminal-tab.active .terminal-tab-label {
-  font-weight: 600;
-  background: var(--selected-bg);
-  color: var(--selected-fg);
-}
-.terminal-tab-label {
-  background: transparent;
-  border-color: transparent;
-}
-.terminal-tab {
-  gap: 2px;
-}
-.terminal-body {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-.terminal-pane {
-  position: absolute;
-  inset: var(--space-2);
-}
-.terminal-host {
-  position: absolute;
-  inset: 0;
-}
-.terminal-busy {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--backdrop);
-  z-index: 5;
-}
-.terminal-busy-box {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-subtle);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  box-shadow: var(--shadow-popover);
-}
 .dim {
   color: var(--fg-muted);
 }
@@ -598,10 +535,6 @@ textarea:not(:where([data-slot]))::placeholder {
 }
 .pane-header-actions {
   flex-shrink: 0;
-}
-.terminal-title {
-  padding: 0 6px;
-  color: var(--fg-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

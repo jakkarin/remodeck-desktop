@@ -10,6 +10,7 @@ import { TerminalTabs } from './components/TerminalTabs'
 import { Toaster } from './components/Toaster'
 import { TopBar } from './components/TopBar'
 import { AppStateProvider, useAppState } from './state'
+import { useTerminalShortcut } from './useTerminalShortcut'
 import { SettingsOpenerContext, type SettingsSection } from './settingsOpener'
 
 /**
@@ -50,6 +51,8 @@ function Layout(): React.JSX.Element {
     saveCollapsed(!collapsed)
     setCollapsed(!collapsed)
   }
+
+  useTerminalShortcut(toggle, activeModule !== 'settings')
 
   return (
     <SettingsOpenerContext.Provider value={openSettings}>

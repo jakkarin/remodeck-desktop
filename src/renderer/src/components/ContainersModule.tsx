@@ -98,7 +98,7 @@ export function ContainersModule({
           role="separator"
           aria-orientation="horizontal"
           aria-label="Resize terminal"
-          className="split-sep split-sep-h"
+          className="cursor-row-resize touch-none rounded-full transition-colors hover:bg-(--accent)/40"
           style={{ height: 6, flexShrink: 0 }}
           onPointerDown={resizeBottom}
         />
