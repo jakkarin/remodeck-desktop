@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>remodeck — Settings, Push log</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F5}
+a{color:#245FA8}a:hover{color:#1B4A84}
+button{font:inherit;cursor:pointer}
+select{font:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #18181B; background: #F4F4F5; min-height: 900px; display: flex; flex-direction: column;">
+
+  <header style="height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #FFFFFF; border-bottom: 1px solid #E4E4E7;">
+    <div style="width: 22px; height: 22px; border-radius: 6px; background: #18181B; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; margin-right: 8px;">r</div>
+    <span style="font-weight: 600;">Settings</span>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap;">
+    <nav aria-label="Modules" style="width: 52px; flex: 0 0 52px; background: #FFFFFF; border-right: 1px solid #E4E4E7; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0;">
+      <button aria-label="Git" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+      </button>
+      <button aria-label="Containers" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </button>
+      <div style="flex: 1;"></div>
+      <button aria-label="Settings" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: #E8EEF7; color: #245FA8; display: flex; align-items: center; justify-content: center; position: relative;">
+        <span style="position: absolute; left: -8px; top: 9px; width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: #245FA8;"></span>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      </button>
+    </nav>
+
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-wrap: wrap; gap: 24px; padding: 24px;">
+      <nav aria-label="Settings sections" style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 2px;">
+        <a href="SettingsGeneral.dc.html" style="padding: 7px 10px; border-radius: 7px; color: #3F3F46; text-decoration: none;">General</a>
+        <a href="SettingsRepos.dc.html" style="padding: 7px 10px; border-radius: 7px; color: #3F3F46; text-decoration: none;">Repositories</a>
+        <a href="SettingsTokens.dc.html" style="padding: 7px 10px; border-radius: 7px; color: #3F3F46; text-decoration: none;">Git tokens</a>
+        <a href="#" aria-current="page" style="padding: 7px 10px; border-radius: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px #E4E4E7; color: #18181B; font-weight: 500; text-decoration: none;">Push log</a>
+      </nav>
+
+      <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1 1 300px;">
+            <h1 style="margin: 0; font-size: 20px; font-weight: 600;">Push log</h1>
+            <p style="margin: 4px 0 0; color: #63636B;">Every push that went through this PC, from Review or the Git Bridge.</p>
+          </div>
+          <label for="pl-repo" style="color: #3F3F46;">Repo</label>
+          <select id="pl-repo" style="height: 30px; padding: 0 8px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B;"><option>All</option></select>
+          <button style="height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>Refresh
+          </button>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; overflow-x: auto;">
+          <table style="width: 100%; min-width: 820px; border-collapse: collapse;">
+            <thead>
+              <tr style="text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B;">
+                <th style="padding: 10px 16px; border-bottom: 1px solid #F0F0F2; font-weight: 600;">Time</th>
+                <th style="padding: 10px 12px; border-bottom: 1px solid #F0F0F2; font-weight: 600;">Repo</th>
+                <th style="padding: 10px 12px; border-bottom: 1px solid #F0F0F2; font-weight: 600;">Channel</th>
+                <th style="padding: 10px 12px; border-bottom: 1px solid #F0F0F2; font-weight: 600;">Refs</th>
+                <th style="padding: 10px 12px; border-bottom: 1px solid #F0F0F2; font-weight: 600;">Result</th>
+                <th style="padding: 10px 16px 10px 12px; border-bottom: 1px solid #F0F0F2; font-weight: 600;">Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 10px 16px; border-bottom: 1px solid #F4F4F5; white-space: nowrap; color: #3F3F46;">Today 14:06</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;">relist/relist-panel</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #245FA8; background: #E8EEF7; padding: 2px 8px; border-radius: 999px;">bridge</span></td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5; font-family: 'Geist Mono', monospace; font-size: 12px;">feat/listing-filters</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #1F7A45; background: #E6F4EA; padding: 2px 8px; border-radius: 999px;">ok</span></td>
+                <td style="padding: 10px 16px 10px 12px; border-bottom: 1px solid #F4F4F5; color: #63636B;">approved once</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 16px; border-bottom: 1px solid #F4F4F5; white-space: nowrap; color: #3F3F46;">Today 13:41</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;">relist/relist-panel</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #52525B; background: #F4F4F5; padding: 2px 8px; border-radius: 999px;">review</span></td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5; font-family: 'Geist Mono', monospace; font-size: 12px;">fix/price-rounding</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #1F7A45; background: #E6F4EA; padding: 2px 8px; border-radius: 999px;">ok</span></td>
+                <td style="padding: 10px 16px 10px 12px; border-bottom: 1px solid #F4F4F5; color: #63636B;"></td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 16px; border-bottom: 1px solid #F4F4F5; white-space: nowrap; color: #3F3F46;">Today 11:02</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;">relist/relist-api</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #245FA8; background: #E8EEF7; padding: 2px 8px; border-radius: 999px;">bridge</span></td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5; font-family: 'Geist Mono', monospace; font-size: 12px;">main</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #B42318; background: #FCE8E8; padding: 2px 8px; border-radius: 999px;">blocked</span></td>
+                <td style="padding: 10px 16px 10px 12px; border-bottom: 1px solid #F4F4F5; color: #63636B;">main is a protected branch</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 16px; border-bottom: 1px solid #F4F4F5; white-space: nowrap; color: #3F3F46;">Yesterday 18:20</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;">relist/relist-api</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #245FA8; background: #E8EEF7; padding: 2px 8px; border-radius: 999px;">bridge</span></td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5; font-family: 'Geist Mono', monospace; font-size: 12px;">agent/rate-limit</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #8A5A00; background: #FDF3DC; padding: 2px 8px; border-radius: 999px;">denied</span></td>
+                <td style="padding: 10px 16px 10px 12px; border-bottom: 1px solid #F4F4F5; color: #63636B;">denied by you</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 16px; border-bottom: 1px solid #F4F4F5; white-space: nowrap; color: #3F3F46;">Yesterday 16:55</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;">relist/relist-panel</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #52525B; background: #F4F4F5; padding: 2px 8px; border-radius: 999px;">review</span></td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5; font-family: 'Geist Mono', monospace; font-size: 12px;">chore/bump-deps</td>
+                <td style="padding: 10px 12px; border-bottom: 1px solid #F4F4F5;"><span style="font-size: 11px; font-weight: 500; color: #B42318; background: #FCE8E8; padding: 2px 8px; border-radius: 999px;">rejected</span></td>
+                <td style="padding: 10px 16px 10px 12px; border-bottom: 1px solid #F4F4F5; color: #63636B;">non-fast-forward</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 16px; white-space: nowrap; color: #3F3F46;">Yesterday 09:12</td>
+                <td style="padding: 10px 12px;">jakkarin/regit-desktop</td>
+                <td style="padding: 10px 12px;"><span style="font-size: 11px; font-weight: 500; color: #245FA8; background: #E8EEF7; padding: 2px 8px; border-radius: 999px;">bridge</span></td>
+                <td style="padding: 10px 12px; font-family: 'Geist Mono', monospace; font-size: 12px;">feat/target-git-access</td>
+                <td style="padding: 10px 12px;"><span style="font-size: 11px; font-weight: 500; color: #B42318; background: #FCE8E8; padding: 2px 8px; border-radius: 999px;">error</span></td>
+                <td style="padding: 10px 16px 10px 12px; color: #63636B;">Could not resolve host: github.com</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>remodeck — Host and repo dialogs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#245FA8}a:hover{color:#1B4A84}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 1280px; height: 1000px; box-sizing: border-box; padding: 40px; background: #DCDCE0; font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #18181B; display: flex; gap: 28px; align-items: flex-start;">
+
+  <!-- Column 1 -->
+  <div style="width: 360px; display: flex; flex-direction: column; gap: 28px;">
+    <div role="dialog" aria-labelledby="addhost-title" style="background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h2 id="addhost-title" style="margin: 0; font-size: 15px; font-weight: 600;">Add host</h2>
+        <p style="margin: 2px 0 0; color: #63636B;">Use an alias from your <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">~/.ssh/config</span>.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="h-alias" style="font-weight: 500;">SSH host alias</label>
+        <input id="h-alias" value="staging" style="height: 30px; padding: 0 10px; border: 1px solid #245FA8; box-shadow: 0 0 0 3px #DCE6F4; border-radius: 7px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #18181B;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="h-label" style="font-weight: 500;">Label <span style="color: #63636B; font-weight: 400;">optional</span></label>
+        <input id="h-label" placeholder="staging" style="height: 30px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; color: #18181B;">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button style="height: 30px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Cancel</button>
+        <button style="height: 30px; padding: 0 14px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Add host</button>
+      </div>
+    </div>
+
+    <div role="dialog" aria-labelledby="addrepo-title" style="background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h2 id="addrepo-title" style="margin: 0; font-size: 15px; font-weight: 600;">Add existing repo</h2>
+        <p style="margin: 2px 0 0; color: #63636B;">A repo that’s already cloned on the host.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="r-host" style="font-weight: 500;">Host</label>
+        <select id="r-host" style="height: 30px; padding: 0 8px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B;"><option>ubuntu</option></select>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="r-path" style="font-weight: 500;">Path</label>
+        <input id="r-path" value="~/work/relist-api" style="height: 30px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #18181B;">
+      </div>
+      <div style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 9px; background: #F4F4F5;">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F7A45" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 1px;"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-weight: 500;">relist/relist-api</span>
+          <span style="font-size: 12px; color: #63636B;">This workspace will be linked to github.com/relist/relist-api</span>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button style="height: 30px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Cancel</button>
+        <button style="height: 30px; padding: 0 14px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Confirm &amp; Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Column 2: Host settings -->
+  <div role="dialog" aria-labelledby="hs-title" style="width: 440px; background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); display: flex; flex-direction: column;">
+    <div style="padding: 18px 18px 0; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h2 id="hs-title" style="margin: 0; font-size: 15px; font-weight: 600; flex: 1;">Host settings</h2>
+        <button aria-label="Close" style="width: 26px; height: 26px; border: none; background: transparent; border-radius: 6px; color: #63636B; display: flex; align-items: center; justify-content: center;">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="hs-ssh" style="font-weight: 500;">SSH host</label>
+          <input id="hs-ssh" value="ubuntu" readonly style="height: 30px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #F4F4F5; font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="hs-label" style="font-weight: 500;">Label</label>
+          <input id="hs-label" value="ubuntu" style="height: 30px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; color: #18181B;">
+        </div>
+      </div>
+      <label style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid #E4E4E7; border-radius: 9px;">
+        <input type="checkbox" style="accent-color: #245FA8; margin-top: 2px;">
+        <span style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-weight: 500;">Protected host</span>
+          <span style="font-size: 12px; color: #63636B;">Require typing the host name before dangerous commands</span>
+        </span>
+      </label>
+    </div>
+
+    <div style="margin: 16px 18px 0; padding-top: 14px; border-top: 1px solid #F0F0F2; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 600; flex: 1;">Git access on this host</span>
+        <span style="font-size: 11px; font-weight: 500; color: #8A5A00; background: #FDF3DC; padding: 2px 8px; border-radius: 999px;">Update available</span>
+      </div>
+      <ul aria-label="Git access status" style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+        <li style="display: flex; gap: 8px; align-items: center;"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F7A45" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Credential helper installed</li>
+        <li style="display: flex; gap: 8px; align-items: center;"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F7A45" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Git include active</li>
+        <li style="display: flex; gap: 8px; align-items: center;"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F7A45" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Active in login shells</li>
+        <li style="display: flex; gap: 8px; align-items: flex-start; color: #8A5A00;"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Not active in non-login shells. Put ~/.local/bin first in PATH</li>
+      </ul>
+      <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #3F3F46;">
+        <input type="checkbox" checked style="accent-color: #245FA8; margin-top: 1px;">Add ~/.local/bin to PATH in ~/.bashrc so non-login shells use the gh wrapper
+      </label>
+
+      <div aria-label="Tokens for this host" style="border: 1px solid #E4E4E7; border-radius: 9px; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #F0F0F2;">
+          <span style="font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 500; flex: 1;">relist</span>
+          <span style="font-size: 12px; color: #63636B;">org token</span>
+          <span style="font-size: 11px; font-weight: 500; color: #1F7A45; background: #E6F4EA; padding: 1px 6px; border-radius: 999px;">On host</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px;">
+          <span style="font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 500; flex: 1;">jakkarin/regit-desktop</span>
+          <span style="font-size: 12px; color: #63636B;">personal</span>
+          <span style="font-size: 11px; font-weight: 500; color: #8A5A00; background: #FDF3DC; padding: 1px 6px; border-radius: 999px;">Changed since install</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 9px; background: #FDF3DC; color: #5C3D00; font-size: 12px;">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px; margin-top: 1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <span>Tokens are stored in plain text on this host. Anything running as this user can read them. Terminals opened from remodeck keep using the Git Bridge and push approval.</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button style="height: 30px; padding: 0 12px; border: none; border-radius: 8px; background: #245FA8; color: #FFFFFF; font-weight: 500;">Update host</button>
+        <button style="height: 30px; padding: 0 12px; border: 1px solid #F3D0CC; border-radius: 8px; background: #FFFFFF; color: #B42318; font-weight: 500;">Remove from host</button>
+      </div>
+    </div>
+
+    <div style="margin-top: 18px; padding: 12px 18px; border-top: 1px solid #F0F0F2; display: flex; align-items: center; gap: 8px;">
+      <button style="height: 30px; padding: 0 10px; border: none; border-radius: 8px; background: transparent; color: #B42318; font-weight: 500;">Remove host…</button>
+      <div style="flex: 1;"></div>
+      <button style="height: 30px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Cancel</button>
+      <button style="height: 30px; padding: 0 14px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Save</button>
+    </div>
+  </div>
+
+  <!-- Column 3: removes -->
+  <div style="width: 320px; display: flex; flex-direction: column; gap: 28px;">
+    <div role="alertdialog" aria-labelledby="rmws-title" style="background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+      <h2 id="rmws-title" style="margin: 0; font-size: 15px; font-weight: 600;">Remove workspace</h2>
+      <p style="margin: 0; color: #3F3F46;">Remove workspace <span style="font-weight: 500;">jakkarin/regit-desktop</span> from remodeck — no files in the sandbox are deleted.</p>
+      <label style="display: flex; align-items: center; gap: 8px; color: #3F3F46;"><input type="checkbox" style="accent-color: #B42318;">Also delete the mirror on this PC</label>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button style="height: 30px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Cancel</button>
+        <button style="height: 30px; padding: 0 14px; border: none; border-radius: 8px; background: #B42318; color: #FFFFFF; font-weight: 500;">Remove</button>
+      </div>
+    </div>
+
+    <div role="alertdialog" aria-labelledby="rmhost-title" style="background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+      <h2 id="rmhost-title" style="margin: 0; font-size: 15px; font-weight: 600;">Remove host</h2>
+      <p style="margin: 0; color: #3F3F46;">Remove host <span style="font-weight: 500;">staging</span> from remodeck — no files in the sandbox are deleted.</p>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button style="height: 30px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Cancel</button>
+        <button style="height: 30px; padding: 0 14px; border: none; border-radius: 8px; background: #B42318; color: #FFFFFF; font-weight: 500;">Remove</button>
+      </div>
+      <span style="font-size: 12px; color: #63636B;">If the host still has workspaces, the Remove item in the host menu is disabled with “Remove the workspaces on this host first”.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
