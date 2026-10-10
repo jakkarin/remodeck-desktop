@@ -7,7 +7,7 @@ import { Trash2 } from 'lucide-react'
 import { formatMem } from '../containerPresentation'
 import { dangerLevel, type DangerAction } from '../danger'
 import { ConfirmDanger } from './ConfirmDanger'
-import { ErrorBanner } from './ErrorBanner'
+import { Banner } from './Banner'
 import { Badge, Button, IconButton, TextInput } from './ui'
 import { GroupPanel, ItemRow } from './ui/GroupedList'
 
@@ -133,7 +133,7 @@ export function ResourcesView({
   if (current.error !== null) {
     return (
       <div>
-        <ErrorBanner message={`Cannot load ${title} on ${host.label}`} />
+        <Banner tone="danger">{`Cannot load ${title} on ${host.label}`}</Banner>
         <div className="error">{current.error}</div>
         <Button
           onClick={() => {
@@ -160,7 +160,7 @@ export function ResourcesView({
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>
-      {actionError && <ErrorBanner message={actionError} />}
+      {actionError && <Banner tone="danger">{actionError}</Banner>}
       {info && (
         <div className="muted" role="status">
           {info}

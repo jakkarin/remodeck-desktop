@@ -17,7 +17,7 @@ import { openHostTerminal } from '../terminalEvents'
 import { useContainers } from '../useContainers'
 import { useContainerStats } from '../useContainerStats'
 import { ConfirmDanger } from './ConfirmDanger'
-import { ErrorBanner } from './ErrorBanner'
+import { Banner } from './Banner'
 import { Badge, Button, TextInput } from './ui'
 import { GroupPanel } from './ui/GroupedList'
 import { ContainerItem } from './ContainerItem'
@@ -202,7 +202,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       <div className="containers-view">
         {tabStrip}
         <div className="containers-body">
-          <ErrorBanner message={`Cannot connect to docker on ${host.label}`} />
+          <Banner tone="danger">{`Cannot connect to docker on ${host.label}`}</Banner>
           <div className="error">{error}</div>
           <Button onClick={retry}>Retry</Button>
         </div>
@@ -286,7 +286,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
               </label>
               {!live && <Badge tone="warning">Live updates paused</Badge>}
             </div>
-            {actionError && <ErrorBanner message={actionError} />}
+            {actionError && <Banner tone="danger">{actionError}</Banner>}
             {list.length === 0 && <div className="muted">{`No containers on ${host.label}`}</div>}
             {list.length > 0 && visible.length === 0 && (
               <div className="muted">No containers match the filter</div>

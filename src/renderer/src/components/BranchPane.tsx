@@ -1,7 +1,8 @@
 import { GitBranch, SquareTerminal } from 'lucide-react'
 import type { BranchInfo, WorktreeInfo } from '../../../shared/types'
 import { IconButton, PaneHeader, Badge } from './ui'
-import { ErrorBanner } from './ErrorBanner'
+import { Banner } from './Banner'
+import { rebuildAction } from './rebuildAction'
 
 const baseName = (p: string): string => p.split(/[\\/]/).filter(Boolean).pop() ?? p
 
@@ -38,7 +39,11 @@ export function BranchPane({
   return (
     <div className="pane">
       <PaneHeader icon={<GitBranch size={14} />}>Branches</PaneHeader>
-      {error && <ErrorBanner message={error} onRebuild={onRebuild} />}
+      {error && (
+        <Banner tone="danger" action={rebuildAction(error, onRebuild)}>
+          {error}
+        </Banner>
+      )}
       <div
         className="branch-list"
         role="listbox"

@@ -66,7 +66,10 @@ describe('GitModule', () => {
   it('shows the no-git message and re-probes with force', () => {
     const v = makeState({ gitCaps: { h1: null } })
     render(ui(v))
-    expect(screen.getByText(/Git was not found on this host/)).toBeInTheDocument()
+    expect(screen.getByText('Git was not found on this host')).toBeInTheDocument()
+    expect(screen.getByText('Install it first, then check again.')).toBeInTheDocument()
+    expect(screen.getByText('sudo apt install git')).toBeInTheDocument()
+    expect(screen.getByText('sudo dnf install git')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
     expect(v.probeGit).toHaveBeenCalledWith('h1', true)
   })
@@ -88,7 +91,7 @@ describe('GitModule', () => {
     render(ui(v))
     fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
     expect(await screen.findByText('ssh dropped')).toBeInTheDocument()
-    expect(screen.getByText(/Git was not found on this host/)).toBeInTheDocument()
+    expect(screen.getByText('Git was not found on this host')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Check again' })).toBeEnabled()
   })
 
@@ -115,7 +118,7 @@ describe('GitModule', () => {
     vi.mocked(api.hosts.connect).mockResolvedValue(up)
     const v = makeState({ statuses: { h1: down } })
     render(ui(v))
-    expect(screen.getByText('Box is not connected')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Box is not connected' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
     expect(api.hosts.connect).toHaveBeenCalledWith('h1')
     expect(v.probeGit).not.toHaveBeenCalled()
@@ -135,5 +138,7 @@ describe('GitModule', () => {
   it('shows the empty state when the host has no workspace', () => {
     render(ui(makeState({ gitCaps: { h1: caps }, workspaces: [], activeWorkspaceId: null })))
     expect(screen.getByText('No workspaces yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clone repo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add existing repo' })).toBeInTheDocument()
   })
 })

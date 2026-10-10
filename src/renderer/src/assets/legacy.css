@@ -657,13 +657,6 @@ textarea:not(:where([data-slot]))::placeholder {
   min-height: 0;
   overflow-y: auto;
 }
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  border-bottom: 1px solid var(--danger);
-}
 .banner {
   display: block;
   margin: 6px 10px;

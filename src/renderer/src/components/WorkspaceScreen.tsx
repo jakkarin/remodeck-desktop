@@ -7,7 +7,8 @@ import { Button, PaneHeader } from './ui'
 import { BranchPane } from './BranchPane'
 import { ChangesPane } from './ChangesPane'
 import { DiffPane } from './DiffPane'
-import { ErrorBanner } from './ErrorBanner'
+import { Banner } from './Banner'
+import { rebuildAction } from './rebuildAction'
 import { SplitLayout } from './SplitLayout'
 
 /**
@@ -108,7 +109,11 @@ export function WorkspaceScreen({
         }
         right={
           <div className="pane">
-            {diffError && <ErrorBanner message={diffError} onRebuild={rebuildFn} />}
+            {diffError && (
+              <Banner tone="danger" action={rebuildAction(diffError, rebuildFn)}>
+                {diffError}
+              </Banner>
+            )}
             {d.file && d.diffText !== null ? (
               <DiffPane
                 key={`${d.branch?.name}|${d.commit}|${d.file.path}`}

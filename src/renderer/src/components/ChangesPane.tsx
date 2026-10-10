@@ -1,7 +1,8 @@
 import type { BranchInfo, CommitInfo, FileChange } from '../../../shared/types'
 import { PaneHeader } from './ui'
 import { CommitList } from './CommitList'
-import { ErrorBanner } from './ErrorBanner'
+import { Banner } from './Banner'
+import { rebuildAction } from './rebuildAction'
 import { FileList } from './FileList'
 import { PushBar } from './PushBar'
 
@@ -42,7 +43,11 @@ export function ChangesPane({
     <div className="pane changes-pane">
       <PaneHeader>{`${branch.name} → ${branch.base.replace(/^origin\//, '')}`}</PaneHeader>
       <div className="pane-scroll">
-        {error && <ErrorBanner message={error} onRebuild={onRebuild} />}
+        {error && (
+          <Banner tone="danger" action={rebuildAction(error, onRebuild)}>
+            {error}
+          </Banner>
+        )}
         {branch.rewritten && (
           <div className="badge warn banner">
             history rewritten — this branch was rewritten in the sandbox since the last Sync
