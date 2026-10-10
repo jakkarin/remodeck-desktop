@@ -13,6 +13,13 @@ import {
   type Repo,
   type Workspace
 } from '../../shared/types'
+import {
+  compareScopes,
+  normalizeScopePath,
+  validateScope,
+  type GitToken,
+  type HostGitAccess
+} from '../../shared/gitAccess'
 import { INVALID_SSH_HOST, isValidSshHost } from '../../shared/validate'
 
 const newId = (): string => randomUUID().slice(0, 8)
@@ -46,6 +53,32 @@ function loadPrefs(raw: unknown): Prefs {
       ...DEFAULT_PREFS.defaultProtectedBranches
     ]
   }
+}
+
+/** Keeps gitAccess only when it is an object with an `installed` object. */
+function loadHost(h: Host): Host {
+  const { gitAccess, ...rest } = h
+  const ok =
+    gitAccess &&
+    typeof gitAccess === 'object' &&
+    gitAccess.installed &&
+    typeof gitAccess.installed === 'object'
+  return { ...rest, protected: h.protected === true, ...(ok ? { gitAccess } : {}) }
+}
+
+/** Drops anything that is not a token object with a valid scope, then sorts by scope. */
+function loadGitTokens(raw: unknown): GitToken[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter(
+      (t): t is GitToken =>
+        !!t &&
+        typeof t === 'object' &&
+        typeof t.host === 'string' &&
+        typeof t.path === 'string' &&
+        validateScope(t.host, t.path) === null
+    )
+    .sort(compareScopes)
 }
 
 export class Store {
@@ -109,9 +142,66 @@ export class Store {
     return next
   }
 
+  /** One token per host + path scope: an existing scope keeps its id and is rotated. */
+  upsertGitToken(t: Omit<GitToken, 'id' | 'updatedAt'>): GitToken {
+    const host = typeof t.host === 'string' ? t.host.trim().toLowerCase() : ''
+    const scopePath = typeof t.path === 'string' ? normalizeScopePath(t.path) : ''
+    const err = validateScope(host, scopePath)
+    if (err) throw new Error(err)
+    const label = typeof t.label === 'string' ? t.label.trim() : ''
+    if (label === '') throw new Error('Token label must not be empty')
+    const i = this.cfg.gitTokens.findIndex((x) => x.host === host && x.path === scopePath)
+    const token: GitToken = {
+      ...t,
+      host,
+      path: scopePath,
+      label,
+      id: i >= 0 ? this.cfg.gitTokens[i].id : newId(),
+      updatedAt: new Date().toISOString()
+    }
+    if (i >= 0) this.cfg.gitTokens[i] = token
+    else this.cfg.gitTokens.push(token)
+    this.cfg.gitTokens.sort(compareScopes)
+    this.save()
+    return token
+  }
+
+  setGitTokenLabel(id: string, label: string): GitToken {
+    const i = this.cfg.gitTokens.findIndex((x) => x.id === id)
+    if (i < 0) throw new Error(`Unknown git token ${id}`)
+    const trimmed = typeof label === 'string' ? label.trim() : ''
+    if (trimmed === '') throw new Error('Token label must not be empty')
+    const next: GitToken = { ...this.cfg.gitTokens[i], label: trimmed }
+    this.cfg.gitTokens[i] = next
+    this.save()
+    return next
+  }
+
+  /** Hosts are left alone: stale detection flags installs of a removed token. */
+  removeGitToken(id: string): void {
+    if (!this.cfg.gitTokens.some((x) => x.id === id)) throw new Error(`Unknown git token ${id}`)
+    this.cfg.gitTokens = this.cfg.gitTokens.filter((x) => x.id !== id)
+    this.save()
+  }
+
+  setHostGitAccess(hostId: string, access: HostGitAccess | null): Host {
+    const i = this.cfg.hosts.findIndex((h) => h.id === hostId)
+    if (i < 0) throw new Error(`Unknown host ${hostId}`)
+    const next: Host = { ...this.cfg.hosts[i] }
+    if (access === null) delete next.gitAccess
+    else next.gitAccess = access
+    this.cfg.hosts[i] = next
+    this.save()
+    return next
+  }
+
   removeHost(id: string): void {
     if (this.cfg.workspaces.some((w) => w.hostId === id)) {
       throw new Error(`Host ${id} still has workspaces`)
+    }
+    // its tokens would stay on the target with no way left to remove them
+    if (this.cfg.hosts.some((h) => h.id === id && h.gitAccess !== undefined)) {
+      throw new Error('Remove git access from this host first')
     }
     this.cfg.hosts = this.cfg.hosts.filter((h) => h.id !== id)
     this.save()
@@ -204,14 +294,15 @@ export class Store {
     try {
       const raw = JSON.parse(fs.readFileSync(this.configPath, 'utf8')) as Partial<Config>
       return {
-        hosts: (raw.hosts ?? []).map((h) => ({ ...h, protected: h.protected === true })),
+        hosts: (raw.hosts ?? []).map(loadHost),
         repos: raw.repos ?? [],
         workspaces: raw.workspaces ?? [],
-        prefs: loadPrefs(raw.prefs)
+        prefs: loadPrefs(raw.prefs),
+        gitTokens: loadGitTokens(raw.gitTokens)
       }
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT')
-        return { hosts: [], repos: [], workspaces: [], prefs: loadPrefs(undefined) }
+        return { hosts: [], repos: [], workspaces: [], prefs: loadPrefs(undefined), gitTokens: [] }
       throw err
     }
   }

@@ -1,6 +1,14 @@
 // Shared between main and renderer: types only, no node imports.
 
-export type Host = { id: string; sshHost: string; label: string; protected: boolean }
+import type { GitToken, HostGitAccess } from './gitAccess'
+
+export type Host = {
+  id: string
+  sshHost: string
+  label: string
+  protected: boolean
+  gitAccess?: HostGitAccess
+}
 
 export type Repo = {
   id: string
@@ -38,7 +46,13 @@ export const DEFAULT_PREFS: Prefs = {
   defaultProtectedBranches: ['main', 'master']
 }
 
-export type Config = { hosts: Host[]; repos: Repo[]; workspaces: Workspace[]; prefs: Prefs }
+export type Config = {
+  hosts: Host[]
+  repos: Repo[]
+  workspaces: Workspace[]
+  prefs: Prefs
+  gitTokens: GitToken[]
+}
 
 export type RefUpdate = { oldSha: string; newSha: string; ref: string }
 

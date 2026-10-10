@@ -73,7 +73,9 @@ function fakeApi(): MainApi {
     },
     approval: { respond: vi.fn() },
     prefs: { get: fn(), update: fn() },
-    pushLog: { read: fn() }
+    pushLog: { read: fn() },
+    gitTokens: { list: fn(), add: fn(), replace: fn(), setLabel: fn(), remove: fn() },
+    gitAccess: { status: fn(), install: fn(), remove: fn() }
   } as unknown as MainApi
 }
 
@@ -132,5 +134,30 @@ describe('IPC contract', () => {
     expect(api.terminal.resize).toHaveBeenCalledWith('t1', 120, 40)
     ipc.listened.get(IPC_CHANNELS.approval.respond)![0]({}, 'r1', 'once')
     expect(api.approval.respond).toHaveBeenCalledWith('r1', 'once')
+  })
+
+  it('registers the git token and git access channels', () => {
+    const ipc = fakeIpcMain()
+    registerHandlers(ipc, fakeApi())
+    for (const ch of [
+      'gitTokens:list',
+      'gitTokens:add',
+      'gitTokens:replace',
+      'gitTokens:setLabel',
+      'gitTokens:remove',
+      'gitAccess:status',
+      'gitAccess:install',
+      'gitAccess:remove'
+    ]) {
+      expect(ipc.handled.has(ch)).toBe(true)
+    }
+  })
+
+  it('throws when the api lacks the gitTokens group', () => {
+    const api = fakeApi() as unknown as Record<string, unknown>
+    delete api.gitTokens
+    expect(() => registerHandlers(fakeIpcMain(), api as unknown as MainApi)).toThrow(
+      'MainApi is missing gitTokens.list'
+    )
   })
 })

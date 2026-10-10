@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
+import { HostGitAccessPanel } from './HostGitAccessPanel'
 import { Button, TextInput } from './ui'
 
 export function HostSettingsDialog({
@@ -54,6 +55,7 @@ export function HostSettingsDialog({
         <div id="host-protected-hint" className="muted">
           Require typing the host name before dangerous commands
         </div>
+        <HostGitAccessPanel host={host} />
         {error && <div className="error">{error}</div>}
         <div className="dialog-actions">
           <Button onClick={onClose} disabled={busy}>

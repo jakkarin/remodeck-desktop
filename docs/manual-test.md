@@ -171,6 +171,18 @@ Still manual:
 - How the Electron UI renders (xterm, the popup, the buttons).
 - Real GitHub (credential manager, opening the PR) and case 7.
 
+`tests/e2e/gitAccess.e2e.test.ts` runs git access against the same Debian image over real ssh, through `TargetAccessService`.
+Tokens go straight into the store, so the GitHub API is not called. `gh` is a stub that prints the token it receives and
+answers as `gh auth git-credential`. 8/8 passed (whole e2e run: 30/30). It checks:
+- Longest-prefix token choice through `git credential fill`.
+- Owner-only modes on the token files.
+- A plain `ssh host 'cd repo && gh'` (sshd runs `bash -c`, which on Debian reads `~/.bashrc`): gets no token before the PATH block and the repo's token after it. Status also flips to active in non-login shells.
+- The PATH block sits above Debian's non-interactive guard. The mode of `~/.bashrc` is kept, and a symlinked one is not edited.
+- With the lines `gh auth setup-git` writes, status reports `behind` and gh answers first. With helper-first ticked, remodeck answers and gh is the fallback. After a later `setup-git`, status reports `missing`, and one update (with the saved choice) fixes it.
+- Remove leaves `~/.bashrc` identical to Debian's skeleton and keeps gh's block in `~/.gitconfig`.
+
+Not covered there: real `gh`, real GitHub push and PR, zsh/fish.
+
 
 ### UI redesign (manual)
 
@@ -207,3 +219,27 @@ Check in real Electron, after the move to the three-column workspace:
 | C.20 | A list taller than the window scrolls under the tab bar (Containers, Images, Volumes and Networks); compose project names sit at the left edge | ☐ |
 | C.21 | Click the terminal collapse button → the terminal folds down to its tab bar at the bottom of the window and expands again; drag the bar above the terminal to resize it → switch to the Git page and back → both pages keep the same terminal height, also after restarting the app | ☐ |
 | C.22 | Open a container's details → drag the bar between the list and the panel → the panel resizes (no narrower than 280px, and the list keeps at least 320px); close and reopen the panel or restart the app → the width is kept; below 720px wide the bar disappears | ☐ |
+
+### Git access on target hosts (manual)
+
+Use one real host with `git`, `gh` and Claude Code or Codex. Create fine-grained tokens (Contents RW, Pull requests RW, short expiry) for org A, org B and one repo of org A (the override).
+
+| # | Step | Result |
+| --- | --- | --- |
+| G.1 | Settings → Git tokens: add a token for org A, one for org B and one for a single repo of org A → the repo override is listed under org A | ☐ |
+| G.2 | Host settings → enable Git access on this host → the plain-text warning shows; select all three tokens, Install, confirm → status shows helper, include and gh wrapper active (login and non-login shell) | ☐ |
+| G.3 | On the host, open a plain SSH session (not a remodeck terminal) and have Claude Code or Codex clone, commit, push a branch and open a PR in a repo of org A, a repo of org B, and the override repo → all three succeed, each with its own token | ☐ |
+| G.4 | Open a terminal from remodeck on the same host and push → it still goes through the Git Bridge and asks for approval | ☐ |
+| G.5 | Replace one token in Settings → reopen Host settings → the row shows "Changed since install"; Update host clears it | ☐ |
+| G.6 | Remove from host and confirm → push and `gh pr create` from the same repos now fail, and `~/.config/remodeck/git-access`, `~/.local/bin/gh` (ours) and the `include.path` line in `~/.gitconfig` are gone | ☐ |
+
+| G.7 | On a host where `gh auth setup-git` was already run, enable Git access and Install → the status list warns that credential helper "gh" for github.com is asked before remodeck's and may answer with its own login | ☐ |
+| G.8 | On a host without git, Install → it fails, the error ends with "Try Update host again or Remove from host.", and Remove from host is offered and works | ☐ |
+| G.9 | Try to remove a host (Settings → Hosts) that still has git access → refused with "Remove git access from this host first"; after Remove from host the host can be removed | ☐ |
+| G.10 | In a remodeck terminal on a host with git access, run `gh pr list` in a repo whose `origin` is a github.com URL of org A → it uses the token for org A (the repo comes from the configured origin) | ☐ |
+| G.11 | On a host where status says "Not active in non-login shells", tick "Add ~/.local/bin to PATH in ~/.bashrc…" and Update host → the top of `~/.bashrc` has the remodeck block, status shows "Active in non-login shells" and "PATH line in ~/.bashrc added by remodeck"; Update host again does not add a second block | ☐ |
+| G.12 | Leave the PATH box unticked and Install → `~/.bashrc` is byte-for-byte unchanged | ☐ |
+| G.13 | Remove from host after G.11 → the block is gone and the rest of `~/.bashrc` is unchanged | ☐ |
+| G.14 | After G.7, tick "Ask remodeck's credential helper before the others…" and Update host → the gh row now says it is asked after remodeck's; push to an org A repo uses the org A token, and push to a repo with no remodeck token still works through `gh auth` | ☐ |
+| G.15 | After G.14, run `gh auth setup-git` again on the host → status shows that a later reset hides remodeck's helper; Update host (box still ticked) → back to "asked after remodeck's" | ☐ |
+| G.16 | Untick the box from G.14 and Update host → the gh row warns again that it is asked before remodeck's; Remove from host leaves the `[credential]` block of gh in `~/.gitconfig` untouched | ☐ |

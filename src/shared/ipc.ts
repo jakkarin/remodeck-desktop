@@ -2,6 +2,7 @@
 import type { ContainerStats } from './containerDetails'
 import type { PruneResult, ResourceKind, ResourceRow } from './resources'
 import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './containers'
+import type { GitAccessStatus, GitToken, InstallOptions } from './gitAccess'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -106,6 +107,23 @@ export interface RemodeckApi {
     update(patch: Partial<Prefs>): Promise<Prefs>
   }
   pushLog: { read(limit: number): Promise<PushLogEntry[]> }
+  /** Token values never leave the main process; every method returns metadata only. */
+  gitTokens: {
+    list(): Promise<GitToken[]>
+    add(input: { host: string; path: string; label: string; token: string }): Promise<GitToken>
+    replace(id: string, token: string): Promise<GitToken>
+    setLabel(id: string, label: string): Promise<GitToken>
+    remove(id: string): Promise<void>
+  }
+  gitAccess: {
+    status(hostId: string): Promise<GitAccessStatus>
+    /**
+     * opts.pathBlock: the user agreed to edit ~/.bashrc so non-login shells find the gh wrapper.
+     * opts.helperFirst: ask remodeck's helper before other credential helpers; omitted keeps the host's choice.
+     */
+    install(hostId: string, tokenIds: string[], opts?: InstallOptions): Promise<GitAccessStatus>
+    remove(hostId: string): Promise<void>
+  }
   on(event: 'host-status', cb: (hostId: string, s: HostStatus) => void): () => void
   on(event: 'terminal-data', cb: (tabId: string, d: string) => void): () => void
   on(event: 'terminal-exit', cb: (tabId: string, code: number) => void): () => void
@@ -187,6 +205,18 @@ export const IPC_CHANNELS = {
   approval: { respond: 'approval:respond' },
   prefs: { get: 'prefs:get', update: 'prefs:update' },
   pushLog: { read: 'pushLog:read' },
+  gitTokens: {
+    list: 'gitTokens:list',
+    add: 'gitTokens:add',
+    replace: 'gitTokens:replace',
+    setLabel: 'gitTokens:setLabel',
+    remove: 'gitTokens:remove'
+  },
+  gitAccess: {
+    status: 'gitAccess:status',
+    install: 'gitAccess:install',
+    remove: 'gitAccess:remove'
+  },
   events: {
     'host-status': 'event:host-status',
     'terminal-data': 'event:terminal-data',

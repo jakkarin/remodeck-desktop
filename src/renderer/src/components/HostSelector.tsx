@@ -126,6 +126,7 @@ export function HostSelector(): React.JSX.Element {
                     <Button
                       onClick={() => {
                         setMenu(null)
+                        setOpen(false)
                         setEditingHost(host)
                       }}
                     >
@@ -146,6 +147,7 @@ export function HostSelector(): React.JSX.Element {
                       title={hasWorkspaces ? 'Remove the workspaces on this host first' : undefined}
                       onClick={() => {
                         setMenu(null)
+                        setOpen(false)
                         setRemovingHost(host)
                       }}
                     >
@@ -161,7 +163,13 @@ export function HostSelector(): React.JSX.Element {
           })}
           {actionError && <div className="error pad">{actionError}</div>}
           <div className="switcher-footer">
-            <Button onClick={() => setAdding(true)}>
+            <Button
+              onClick={() => {
+                // the dialog renders inside the switcher, so clicks in it never count as outside
+                setOpen(false)
+                setAdding(true)
+              }}
+            >
               <Plus size={14} /> Add host
             </Button>
           </div>

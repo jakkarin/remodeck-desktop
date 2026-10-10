@@ -13,10 +13,11 @@ type AnyFn = (...args: unknown[]) => unknown
 export function registerHandlers(ipcMain: IpcMainLike, api: MainApi): void {
   for (const [group, methods] of Object.entries(IPC_CHANNELS)) {
     if (group === 'events') continue
-    const target = api[group as keyof MainApi] as unknown as Record<string, AnyFn>
+    const target = api[group as keyof MainApi] as unknown as Record<string, AnyFn> | undefined
     for (const [method, channel] of Object.entries(methods as Record<string, string>)) {
-      const fn = target[method]
-      if (typeof fn !== 'function') throw new Error(`MainApi is missing ${group}.${method}`)
+      const fn = target?.[method]
+      if (!target || typeof fn !== 'function')
+        throw new Error(`MainApi is missing ${group}.${method}`)
       if (SEND_CHANNELS.has(channel)) {
         // No reply channel: swallow errors so a bad renderer message cannot crash the main process.
         ipcMain.on(channel, (_event, ...args) => {

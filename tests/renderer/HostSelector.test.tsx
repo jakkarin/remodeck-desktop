@@ -155,6 +155,7 @@ describe('HostSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Host menu Beta' }))
     fireEvent.click(screen.getByRole('button', { name: 'Remove host' }))
     const dialog = screen.getByRole('dialog', { name: 'Remove host' })
+    expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())
     expect(api.hosts.remove).toHaveBeenCalledWith('h2')
@@ -182,6 +183,8 @@ describe('HostSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
     fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))
     const dialog = screen.getByRole('dialog', { name: 'Host settings' })
+    // the panel closes so it does not stay open behind the dialog
+    expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
     fireEvent.change(within(dialog).getByLabelText('Label'), { target: { value: ' Work ' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() =>
@@ -195,6 +198,7 @@ describe('HostSelector', () => {
     open()
     fireEvent.click(screen.getByRole('button', { name: /Add host/ }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Host menu Alpha' })).toBeNull()
   })
 
   it('closes on Escape and on an outside pointerdown', () => {
