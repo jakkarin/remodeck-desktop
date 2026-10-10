@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { GitBranch } from 'lucide-react'
 import { useAppState } from '../state'
-import { Button } from './ui'
 import { Button as ShButton } from './ui/button'
 import { AddExistingDialog } from './AddExistingDialog'
 import { AddHostDialog } from './AddHostDialog'
 import { CloneDialog } from './CloneDialog'
 import { ConnectPanel } from './ConnectPanel'
+import { Onboarding } from './Onboarding'
 import { StatePanel } from './StatePanel'
 
 /** Spec §4: nothing to show yet — no hosts, or hosts without a workspace. */
@@ -20,13 +20,10 @@ export function EmptyState(): React.JSX.Element {
 
   if (!host) {
     return (
-      <div className="empty-state">
-        <h2>Add your first sandbox</h2>
-        <Button variant="primary" onClick={() => setAdding(true)}>
-          Add host
-        </Button>
+      <>
+        <Onboarding onAddHost={() => setAdding(true)} />
         {adding && <AddHostDialog onClose={() => setAdding(false)} />}
-      </div>
+      </>
     )
   }
 

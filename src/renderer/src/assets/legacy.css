@@ -167,12 +167,6 @@ textarea:not(:where([data-slot]))::placeholder {
   word-break: break-word;
   margin: 4px 0;
 }
-.warnings {
-  margin: 4px 0;
-  padding-left: 16px;
-  color: var(--attention);
-  font-size: 12px;
-}
 .repo-list {
   display: flex;
   flex-wrap: wrap;
@@ -793,16 +787,6 @@ textarea:not(:where([data-slot]))::placeholder {
 }
 .diff-more {
   margin: 6px 0 0 var(--space-3);
-}
-.empty-state {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: var(--space-5);
-  text-align: center;
 }
 .terminal-title {
   padding: 0 6px;

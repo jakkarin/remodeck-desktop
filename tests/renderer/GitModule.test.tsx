@@ -114,6 +114,25 @@ describe('GitModule', () => {
     expect(screen.getByText('workspace-screen w1')).toBeInTheDocument()
   })
 
+  it('dismissing a warning hides it, and another host with the same caps still shows it', () => {
+    const forwardOff: GitCapability = { version: '2.40', remoteHttp: true, forward: false }
+    const v = makeState({ gitCaps: { h1: forwardOff, h2: forwardOff } })
+    const { rerender } = render(ui(v))
+    expect(screen.getByText(/AllowTcpForwarding disabled/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText(/AllowTcpForwarding disabled/)).toBeNull()
+    rerender(
+      ui({
+        ...v,
+        hosts: [...v.hosts, { id: 'h2', sshHost: 'b', label: 'Other', protected: false }],
+        statuses: { ...v.statuses, h2: up },
+        activeHostId: 'h2',
+        activeWorkspaceId: null
+      })
+    )
+    expect(screen.getByText(/AllowTcpForwarding disabled/)).toBeInTheDocument()
+  })
+
   it('asks to connect when the host is disconnected', () => {
     vi.mocked(api.hosts.connect).mockResolvedValue(up)
     const v = makeState({ statuses: { h1: down } })

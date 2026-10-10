@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { useAppState } from '../state'
 import { useProbeOnce } from '../useProbeOnce'
 import { Button } from './ui/button'
+import { Banner } from './Banner'
 import { ConnectPanel } from './ConnectPanel'
 import { MonoLine, StatePanel } from './StatePanel'
 import { EmptyState } from './EmptyState'
@@ -28,6 +30,8 @@ export function GitModule({
   const needsProbe = connected && caps === undefined
 
   const { probe, probing, probeError } = useProbeOnce(hostId, needsProbe, probeGit)
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set())
+  const dismiss = (key: string): void => setDismissed((prev) => new Set(prev).add(key))
 
   if (!host || hostId === null) return <EmptyState />
 
@@ -77,11 +81,15 @@ export function GitModule({
   const active = workspaces.find((w) => w.id === activeWorkspaceId && w.hostId === hostId)
   return (
     <>
-      {(!caps.remoteHttp || !caps.forward) && (
-        <ul className="warnings">
-          {!caps.remoteHttp && <li>{NO_HTTP}</li>}
-          {!caps.forward && <li>{NO_FORWARD}</li>}
-        </ul>
+      {!caps.remoteHttp && !dismissed.has(`${hostId}:http`) && (
+        <Banner tone="warning" onDismiss={() => dismiss(`${hostId}:http`)}>
+          {NO_HTTP}
+        </Banner>
+      )}
+      {!caps.forward && !dismissed.has(`${hostId}:forward`) && (
+        <Banner tone="warning" onDismiss={() => dismiss(`${hostId}:forward`)}>
+          {NO_FORWARD}
+        </Banner>
       )}
       {active ? (
         <WorkspaceScreen
