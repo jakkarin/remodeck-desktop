@@ -66,6 +66,22 @@
   --radius-2xl: 14px;
 }
 
+/* Tailwind v4 preflight defaults border and outline colors to currentColor; use the token instead
+   (shadcn's reference base does the same). */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
+
+  * {
+    outline-color: color-mix(in oklab, var(--color-ring) 50%, transparent);
+  }
+}
+
 /* Raw names that shadcn components reference through var() rather than a utility. */
 :root {
   --foreground: var(--fg);
