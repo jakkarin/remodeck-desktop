@@ -24,7 +24,9 @@ vi.mock('../../src/renderer/src/api', () => ({
       diff: vi.fn().mockResolvedValue('')
     },
     terminal: { open: vi.fn(), close: vi.fn() },
-    prefs: { get: vi.fn(), update: vi.fn() }
+    prefs: { get: vi.fn(), update: vi.fn() },
+    gitAccess: { status: vi.fn(), install: vi.fn(), remove: vi.fn() },
+    gitTokens: { list: vi.fn().mockResolvedValue([]) }
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
@@ -263,6 +265,24 @@ describe('App prefs', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Light' }))
     await waitFor(() => expect(api.prefs.update).toHaveBeenCalledWith({ theme: 'light' }))
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe('light'))
+  })
+
+  it('Manage tokens in Host settings closes the dialog and opens Git tokens', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch host' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for Box' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Host settings' })
+    fireEvent.click(
+      within(dialog).getByRole('checkbox', { name: 'Enable git access on this host' })
+    )
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Manage tokens' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Git tokens' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
   })
 
   it('Repo settings in the workspace menu opens settings at that repo', async () => {
