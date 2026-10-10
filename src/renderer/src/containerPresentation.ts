@@ -22,3 +22,6 @@ export const formatMem = (bytes: number): string => {
   const mb = Math.round(bytes / 1048576)
   return mb < 1024 ? `${mb} MB` : `${(bytes / 1073741824).toFixed(1)} GB`
 }
+
+/** States moving toward another state; the status dot pulses for these only. */
+export const isTransitional = (s: ContainerState): boolean => s === 'restarting' || s === 'removing'

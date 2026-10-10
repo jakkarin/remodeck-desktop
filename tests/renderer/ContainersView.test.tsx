@@ -133,6 +133,42 @@ describe('ContainersView', () => {
     expect(screen.getAllByText('8080→80/tcp, 443/tcp').length).toBeGreaterThan(0)
   })
 
+  it('pulses the status only for transitional states', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [
+        mk('flap', { state: 'restarting', status: 'Restarting' }),
+        mk('going', { state: 'removing', status: 'Removal In Progress' }),
+        mk('web'),
+        mk('hold', { state: 'paused', status: 'Up (Paused)' })
+      ],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByLabelText('Show stopped'))
+    const pulse = (name: string): boolean =>
+      screen
+        .getByRole('button', { name: `Details for ${name}` })
+        .closest('li')!
+        .querySelector('[data-pulse="true"]') !== null
+    expect(pulse('flap')).toBe(true)
+    expect(pulse('going')).toBe(true)
+    expect(pulse('web')).toBe(false)
+    expect(pulse('hold')).toBe(false)
+  })
+
+  it('summarises a compose project as N of M running', async () => {
+    render(<ContainersView host={host} />)
+    expect(await screen.findByText('compose · 1 of 2 running')).toBeInTheDocument()
+  })
+
+  it('labels the table columns', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    for (const h of ['Name', 'Image', 'Ports', 'CPU', 'Memory'])
+      expect(screen.getAllByText(h).length).toBeGreaterThan(0)
+  })
+
   it('shows stopped containers with the checkbox', async () => {
     render(<ContainersView host={host} />)
     await screen.findByText('web')
