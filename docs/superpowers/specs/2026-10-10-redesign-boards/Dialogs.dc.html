@@ -21,41 +21,6 @@ input,select{font:inherit}
 
   <div style="display: flex; gap: 32px; align-items: flex-start;">
 
-    <!-- Clone -->
-    <div role="dialog" aria-labelledby="clone-title" style="width: 380px; background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); padding: 18px; display: flex; flex-direction: column; gap: 16px;">
-      <div style="display: flex; align-items: flex-start; gap: 8px;">
-        <div style="flex: 1;">
-          <h2 id="clone-title" style="margin: 0; font-size: 15px; font-weight: 600;">Clone</h2>
-          <p style="margin: 2px 0 0; color: #63636B;">Clone a repository onto a host as a new workspace.</p>
-        </div>
-        <button aria-label="Close" style="width: 26px; height: 26px; border: none; background: transparent; border-radius: 6px; color: #63636B; display: flex; align-items: center; justify-content: center;">
-          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <label for="d-host" style="font-weight: 500;">Host</label>
-        <select id="d-host" style="height: 30px; padding: 0 8px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B;"><option>ubuntu</option></select>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <label for="d-repo" style="font-weight: 500;">Repository</label>
-        <input id="d-repo" value="relist/relist-panel" style="height: 30px; padding: 0 10px; border: 1px solid #245FA8; box-shadow: 0 0 0 3px #DCE6F4; border-radius: 7px; color: #18181B;">
-        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-          <button style="height: 24px; padding: 0 8px; border: 1px solid #E4E4E7; border-radius: 6px; background: #FFFFFF; font-size: 12px; color: #3F3F46;">jakkarin/regit-desktop</button>
-          <button aria-pressed="true" style="height: 24px; padding: 0 8px; border: 1px solid #245FA8; border-radius: 6px; background: #E8EEF7; font-size: 12px; color: #1B4A84;">relist/relist-panel</button>
-          <button style="height: 24px; padding: 0 8px; border: 1px solid #E4E4E7; border-radius: 6px; background: #FFFFFF; font-size: 12px; color: #3F3F46;">relist/relist-api</button>
-        </div>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <label for="d-path" style="font-weight: 500;">Path</label>
-        <input id="d-path" value="~/repos/relist-panel" style="height: 30px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #18181B;">
-        <span style="font-size: 12px; color: #63636B;">Filled from the repo name until you edit it.</span>
-      </div>
-      <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <button style="height: 30px; padding: 0 12px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Cancel</button>
-        <button style="height: 30px; padding: 0 14px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Clone</button>
-      </div>
-    </div>
-
     <!-- Confirm danger -->
     <div role="alertdialog" aria-labelledby="danger-title" aria-describedby="danger-desc" style="width: 360px; background: #FFFFFF; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06); overflow: hidden;">
       <div style="height: 4px; background: #B42318;"></div>

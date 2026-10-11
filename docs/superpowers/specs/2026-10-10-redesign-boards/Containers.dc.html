@@ -96,15 +96,35 @@ input{font:inherit}
               <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">212 MB</span>
               <span style="font-size: 12px; color: #63636B;">3h</span>
             </button>
-            <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: transparent; text-align: left; color: #18181B;">
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45;"></span>
-              <span style="font-weight: 500;">relist-web-1</span>
-              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">relist/web:dev</span>
-              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">3000→3000</span>
-              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">1.1%</span>
-              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">148 MB</span>
-              <span style="font-size: 12px; color: #63636B;">3h</span>
-            </button>
+            <div style="position: relative;">
+              <button style="width: 100%; display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: #F4F4F5; text-align: left; color: #18181B;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45;"></span>
+                <span style="font-weight: 500;">relist-web-1</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">relist/web:dev</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">3000→3000</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">1.1%</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">148 MB</span>
+                <span style="font-size: 12px; color: #63636B;">3h</span>
+              </button>
+              <!-- Shown on row hover or keyboard focus; covers the right end of the row -->
+              <div role="group" aria-label="Actions for relist-web-1" style="position: absolute; top: 0; bottom: 0; right: 0; display: flex; align-items: center; gap: 2px; padding: 0 8px 0 16px; border-radius: 0 7px 7px 0; background: #F4F4F5;">
+                <button aria-label="Logs relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg>
+                </button>
+                <button aria-label="Shell relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+                </button>
+                <button aria-label="Stop relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
+                </button>
+                <button aria-label="Restart relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </button>
+                <button aria-label="Remove relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #B42318; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
             <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: transparent; text-align: left; color: #18181B;">
               <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45;"></span>
               <span style="font-weight: 500;">relist-db-1</span>
@@ -174,6 +194,9 @@ input{font:inherit}
             </button>
             <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B; font-size: 12px;">
               <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell
+            </button>
+            <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B; font-size: 12px;">
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg>Logs
             </button>
             <button style="height: 28px; padding: 0 10px; border: 1px solid #F3D0CC; border-radius: 7px; background: #FFFFFF; color: #B42318; font-size: 12px;">Remove</button>
           </div>

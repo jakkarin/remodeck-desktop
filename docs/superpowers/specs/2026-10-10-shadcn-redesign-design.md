@@ -19,7 +19,8 @@ in `Motion.dc.html`. Behavior stays the same except for the features listed unde
 | `Containers` | Containers list, compose groups, details panel |
 | `Images` | Images / Volumes / Networks |
 | `Switchers` | Host menu and workspace menu |
-| `Dialogs` | Clone, push approval, confirm danger |
+| `Dialogs` | Push approval, confirm danger, toasts |
+| `Clone` | Clone dialog: GitHub repo picker (filter, list, URL tab) and clone progress |
 | `HostDialogs` | Add host, Add existing repo, Host settings (+ Git access), Remove workspace, Remove host |
 | `Onboarding` | First run (no hosts) |
 | `HostStates` | Not connected, connect failed, git not found, connected with no workspaces, banners |
