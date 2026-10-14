@@ -32,6 +32,10 @@ npm run dev      # start the app (dev build)
 npm test         # unit + integration tests (Vitest)
 ```
 
+On Windows, local sandbox tests require Git Bash at `C:/Program Files/Git/bin/bash.exe`.
+`LocalTarget` uses an isolated HOME, XDG config and working directory, refuses real user homes,
+and stops before the test script if Bash does not honor the selected HOME. It never falls back to WSL.
+
 Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 
 UI tokens and reusable component usage: [Neutral design guidelines](docs/design-guidelines.md).
