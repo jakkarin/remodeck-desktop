@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>remodeck — Host states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F5}
+a{color:#245FA8}a:hover{color:#1B4A84}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #18181B; background: #F4F4F5; min-height: 900px; display: flex; flex-direction: column;">
+
+  <header style="height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #FFFFFF; border-bottom: 1px solid #E4E4E7;">
+    <div style="width: 22px; height: 22px; border-radius: 6px; background: #18181B; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; margin-right: 8px;">r</div>
+    <button style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #E4E4E7; background: #FFFFFF; border-radius: 8px; color: #18181B;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #A1A1AA; box-sizing: border-box;"></span><span style="font-weight: 500;">prod-01</span>
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#63636B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap;">
+    <nav aria-label="Modules" style="width: 52px; flex: 0 0 52px; background: #FFFFFF; border-right: 1px solid #E4E4E7; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0;">
+      <button aria-label="Git" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: #E8EEF7; color: #245FA8; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+      </button>
+      <button aria-label="Containers" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </button>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; padding: 24px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start;">
+
+      <!-- Not connected -->
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; min-height: 300px; display: flex; flex-direction: column;">
+        <span style="padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B; border-bottom: 1px solid #F0F0F2;">Not connected</span>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 11px; background: #F4F4F5; color: #52525B; display: flex; align-items: center; justify-content: center;">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+          </div>
+          <span style="font-size: 15px; font-weight: 600;">prod-01 is not connected</span>
+          <span style="color: #63636B;">Connects over <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">ssh prod</span></span>
+          <button style="height: 32px; padding: 0 16px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Connect</button>
+        </div>
+      </section>
+
+      <!-- Connect failed -->
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; min-height: 300px; display: flex; flex-direction: column;">
+        <span style="padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B; border-bottom: 1px solid #F0F0F2;">Connect failed</span>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 11px; background: #FCE8E8; color: #B42318; display: flex; align-items: center; justify-content: center;">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          </div>
+          <span style="font-size: 15px; font-weight: 600;">Couldn’t reach prod-01</span>
+          <code style="max-width: 420px; font-family: 'Geist Mono', monospace; font-size: 12px; padding: 8px 12px; border-radius: 8px; background: #FCE8E8; color: #7A2626; text-align: left;">prod: Permission denied (publickey).</code>
+          <div style="display: flex; gap: 8px;">
+            <button style="height: 32px; padding: 0 16px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Retry</button>
+            <button style="height: 32px; padding: 0 14px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Host settings</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- No git -->
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; min-height: 300px; display: flex; flex-direction: column;">
+        <span style="padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B; border-bottom: 1px solid #F0F0F2;">Git not found</span>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 11px; background: #FDF3DC; color: #8A5A00; display: flex; align-items: center; justify-content: center;">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <span style="font-size: 15px; font-weight: 600;">Git was not found on this host</span>
+          <span style="color: #63636B;">Install it first, then check again.</span>
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: stretch;">
+            <code style="font-family: 'Geist Mono', monospace; font-size: 12px; padding: 6px 10px; border-radius: 7px; background: #18181B; color: #E4E4E7;">sudo apt install git</code>
+            <code style="font-family: 'Geist Mono', monospace; font-size: 12px; padding: 6px 10px; border-radius: 7px; background: #18181B; color: #E4E4E7;">sudo dnf install git</code>
+          </div>
+          <button style="height: 32px; padding: 0 14px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Check again</button>
+        </div>
+      </section>
+
+      <!-- No workspaces -->
+      <section style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; min-height: 300px; display: flex; flex-direction: column;">
+        <span style="padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B; border-bottom: 1px solid #F0F0F2;">Connected, no workspaces</span>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center;">
+          <div style="width: 40px; height: 40px; border-radius: 11px; background: #E8EEF7; color: #245FA8; display: flex; align-items: center; justify-content: center;">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+          </div>
+          <span style="font-size: 15px; font-weight: 600;">No workspaces yet</span>
+          <span style="color: #63636B;">Clone from GitHub, or add a repo already on the host.</span>
+          <div style="display: flex; gap: 8px;">
+            <button style="height: 32px; padding: 0 16px; border: none; border-radius: 8px; background: #18181B; color: #FFFFFF; font-weight: 500;">Clone repo</button>
+            <button style="height: 32px; padding: 0 14px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF; color: #18181B; font-weight: 500;">Add existing repo</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inline banners -->
+      <section style="grid-column: 1 / -1; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; display: flex; flex-direction: column;">
+        <span style="padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B; border-bottom: 1px solid #F0F0F2;">Banners inside a workspace</span>
+        <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: #F4F4F5;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #8A5A00; box-shadow: 0 0 0 4px #F5E7C6;"></span>
+            <span style="flex: 1;">Connecting to ubuntu…</span>
+          </div>
+          <div role="alert" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: #FCE8E8; color: #7A2626;">
+            <span style="flex: 1;">ubuntu is not connected · <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">Connection reset by peer</span></span>
+            <button style="height: 26px; padding: 0 10px; border: 1px solid #F3D0CC; border-radius: 6px; background: #FFFFFF; color: #B42318; font-size: 12px; font-weight: 500;">Retry</button>
+          </div>
+          <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: #FDF3DC; color: #5C3D00;">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span style="flex: 1;">sshd has AllowTcpForwarding disabled — push/pull from the app terminal will not work</span>
+            <button aria-label="Dismiss" style="width: 24px; height: 24px; border: none; background: transparent; border-radius: 6px; color: #5C3D00; display: flex; align-items: center; justify-content: center;">
+              <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

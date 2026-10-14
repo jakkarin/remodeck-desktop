@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ExistingRepoInfo, Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
-import { Button, TextInput } from './ui'
+import { Alert, AlertDescription } from './ui/alert'
+import { Button } from './ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Field, FieldGroup, FieldLabel } from './ui/field'
+import { Input } from './ui/input'
+import { NativeSelect, NativeSelectOption } from './ui/native-select'
 
 export function AddExistingDialog({
   hostIds,
@@ -20,15 +25,6 @@ export function AddExistingDialog({
   const [info, setInfo] = useState<ExistingRepoInfo | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (busy) return
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [busy, onClose])
 
   const check = async (): Promise<void> => {
     setBusy(true)
@@ -66,83 +62,101 @@ export function AddExistingDialog({
   const locked = busy || info !== null
 
   return (
-    <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-label="Add existing repo">
-        <h2>Add existing repo</h2>
-        {hostIds.length > 1 && (
-          <>
-            <label htmlFor="existing-host">Host</label>
-            <select
-              id="existing-host"
-              value={hostId}
+    <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
+      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>Add existing repo</DialogTitle>
+        </DialogHeader>
+        <FieldGroup>
+          {hostIds.length > 1 && (
+            <Field>
+              <FieldLabel htmlFor="existing-host">Host</FieldLabel>
+              <NativeSelect
+                id="existing-host"
+                className="w-full"
+                value={hostId}
+                onChange={(e) => {
+                  setHostId(e.target.value)
+                  setInfo(null)
+                }}
+                disabled={locked}
+              >
+                {hostIds.map((id) => (
+                  <NativeSelectOption key={id} value={id}>
+                    {hosts.find((h) => h.id === id)?.label ?? id}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
+          <Field>
+            <FieldLabel htmlFor="existing-path">Path</FieldLabel>
+            <Input
+              id="existing-path"
+              className="font-mono"
+              value={path}
+              placeholder="~/work/my-app"
               onChange={(e) => {
-                setHostId(e.target.value)
+                setPath(e.target.value)
                 setInfo(null)
               }}
               disabled={locked}
-            >
-              {hostIds.map((id) => (
-                <option key={id} value={id}>
-                  {hosts.find((h) => h.id === id)?.label ?? id}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        <label htmlFor="existing-path">Path</label>
-        <TextInput
-          id="existing-path"
-          value={path}
-          placeholder="~/work/my-app"
-          onChange={(e) => {
-            setPath(e.target.value)
-            setInfo(null)
-          }}
-          disabled={locked}
-          autoFocus
-        />
-        {info && (
-          <div className="confirm-existing">
-            <p className="confirm-target">
-              {`This workspace will be linked to github.com/${info.owner}/${info.name}`}
-            </p>
-            <p>
-              remodeck will fetch this repo with your GitHub credentials, then push all of its branches/tags
-              into the sandbox
-            </p>
-            {!info.known && (
-              <div className="warning">
-                This repo has not been used in remodeck before — make sure it is the one you intend
-              </div>
-            )}
-            {info.alwaysAllowPush && (
-              <div className="warning">
-                This repo has Always allow push on — agents in the sandbox can push without approval
-              </div>
-            )}
-          </div>
-        )}
-        {error && <div className="error">{error}</div>}
-        <div className="dialog-actions">
-          <Button onClick={onClose} disabled={busy}>
+              autoFocus
+            />
+          </Field>
+          {info && (
+            <div className="flex flex-col gap-2 text-sm">
+              <p className="font-semibold break-words">
+                {`This workspace will be linked to github.com/${info.owner}/${info.name}`}
+              </p>
+              <p className="text-muted-foreground break-words">
+                remodeck will fetch this repo with your GitHub credentials, then push all of its
+                branches/tags into the sandbox
+              </p>
+              {!info.known && (
+                <Alert className="bg-warning-soft text-warning">
+                  <AlertDescription className="text-warning">
+                    This repo has not been used in remodeck before — make sure it is the one you
+                    intend
+                  </AlertDescription>
+                </Alert>
+              )}
+              {info.alwaysAllowPush && (
+                <Alert className="bg-warning-soft text-warning">
+                  <AlertDescription className="text-warning">
+                    This repo has Always allow push on — agents in the sandbox can push without
+                    approval
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </FieldGroup>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           {info ? (
             <>
-              <Button onClick={back} disabled={busy}>
+              <Button variant="outline" onClick={back} disabled={busy}>
                 Back
               </Button>
-              <Button variant="primary" onClick={() => void confirm()} disabled={busy}>
+              <Button onClick={() => void confirm()} disabled={busy}>
                 {busy ? 'Adding...' : 'Confirm & Add'}
               </Button>
             </>
           ) : (
-            <Button variant="primary" onClick={() => void check()} disabled={busy || !path.trim()}>
+            <Button onClick={() => void check()} disabled={busy || !path.trim()}>
               {busy ? 'Checking...' : 'Check'}
             </Button>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

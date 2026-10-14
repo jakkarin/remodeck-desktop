@@ -4,6 +4,10 @@ import { LAYOUT_KEY, MIN_BOTTOM, MIN_COL, readLayout, type LayoutState } from '.
 
 const SEP = 6
 
+// Pane slots are cards on the ground color; the 6px separators between them stay transparent.
+const CARD = 'min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-background'
+const SEP_BASE = 'touch-none rounded-full transition-colors hover:bg-(--accent)/40'
+
 type Handle = 'left' | 'middle' | 'bottom'
 
 interface Props {
@@ -60,11 +64,12 @@ export function SplitLayout({
     window.addEventListener('pointerup', onUp)
   }, [])
 
-  const rows = bottomCollapsed ? 'minmax(0, 1fr) auto' : `minmax(0, 1fr) 6px ${sizes.bottom}px`
+  // The gap row stays when collapsed so the dock header keeps the same spacing as the panes.
+  const rows = `minmax(0, 1fr) 6px ${bottomCollapsed ? 'auto' : `${sizes.bottom}px`}`
 
   return (
     <div
-      className="split-root"
+      className="grid h-full min-h-0"
       ref={rootRef}
       data-testid="split-root"
       style={{
@@ -72,29 +77,29 @@ export function SplitLayout({
         gridTemplateRows: rows
       }}
     >
-      <div className="split-slot" style={{ gridColumn: 1, gridRow: 1 }}>
+      <div className={CARD} style={{ gridColumn: 1, gridRow: 1 }}>
         {left}
       </div>
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize branches"
-        className="split-sep split-sep-v"
+        className={`${SEP_BASE} cursor-col-resize`}
         style={{ gridColumn: 2, gridRow: 1 }}
         onPointerDown={(e) => startDrag('left', e)}
       />
-      <div className="split-slot" style={{ gridColumn: 3, gridRow: 1 }}>
+      <div className={CARD} style={{ gridColumn: 3, gridRow: 1 }}>
         {middle}
       </div>
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize changes"
-        className="split-sep split-sep-v"
+        className={`${SEP_BASE} cursor-col-resize`}
         style={{ gridColumn: 4, gridRow: 1 }}
         onPointerDown={(e) => startDrag('middle', e)}
       />
-      <div className="split-slot" style={{ gridColumn: 5, gridRow: 1 }}>
+      <div className={CARD} style={{ gridColumn: 5, gridRow: 1 }}>
         {right}
       </div>
       {!bottomCollapsed && (
@@ -102,15 +107,12 @@ export function SplitLayout({
           role="separator"
           aria-orientation="horizontal"
           aria-label="Resize terminal"
-          className="split-sep split-sep-h"
+          className={`${SEP_BASE} cursor-row-resize`}
           style={{ gridColumn: '1 / -1', gridRow: 2 }}
           onPointerDown={(e) => startDrag('bottom', e)}
         />
       )}
-      <div
-        className="split-slot split-bottom"
-        style={{ gridColumn: '1 / -1', gridRow: bottomCollapsed ? 2 : 3 }}
-      >
+      <div className="min-h-0 min-w-0 overflow-hidden" style={{ gridColumn: '1 / -1', gridRow: 3 }}>
         {bottom}
       </div>
     </div>

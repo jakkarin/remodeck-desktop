@@ -44,6 +44,7 @@ function fakeApi(): MainApi {
       remove: fn(),
       sync: fn(),
       branches: fn(),
+      baseBranches: fn(),
       commits: fn(),
       files: fn(),
       setActive: vi.fn(),

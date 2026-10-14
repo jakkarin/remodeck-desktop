@@ -18,13 +18,16 @@ vi.mock('../../src/renderer/src/api', () => ({
       list: vi.fn(),
       setActive: vi.fn(),
       branches: vi.fn().mockResolvedValue([]),
+      baseBranches: vi.fn().mockResolvedValue([]),
       worktrees: vi.fn().mockResolvedValue([]),
       commits: vi.fn().mockResolvedValue([]),
       files: vi.fn().mockResolvedValue([]),
       diff: vi.fn().mockResolvedValue('')
     },
     terminal: { open: vi.fn(), close: vi.fn() },
-    prefs: { get: vi.fn(), update: vi.fn() }
+    prefs: { get: vi.fn(), update: vi.fn() },
+    gitAccess: { status: vi.fn(), install: vi.fn(), remove: vi.fn() },
+    gitTokens: { list: vi.fn().mockResolvedValue([]) }
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
@@ -176,7 +179,65 @@ describe('App layout', () => {
     const git = await screen.findByRole('button', { name: 'Git' })
     expect(git).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument()
+  })
+
+  it('rail Settings is pressed while the settings page shows, and Git returns', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Switch host' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    expect(screen.queryByRole('region', { name: 'Settings' })).not.toBeInTheDocument()
+  })
+
+  it('moves focus into the Settings page when it opens', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('navigation', { name: 'Settings sections' })).toHaveFocus()
+  })
+
+  it('keeps Git state (terminal tab, dismissed warning) through a Settings visit', async () => {
+    setup([host], [ws], { state: 'connected' })
+    vi.mocked(api.hosts.probeGit).mockResolvedValue({
+      version: '2',
+      remoteHttp: false,
+      forward: true
+    })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' }))
+    const dismiss = await screen.findByRole('button', { name: 'Dismiss' })
+    fireEvent.click(dismiss)
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    expect(screen.queryByRole('region', { name: 'Settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'one' })).toBeVisible()
+    expect(terminals).toHaveLength(1)
+    expect(disposed.every((d) => d.mock.calls.length === 0)).toBe(true)
+  })
+
+  it('clicking rail Settings while already on Settings keeps the current section', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+    fireEvent.click(within(nav).getByRole('button', { name: 'Push log' }))
+    expect(within(nav).getByRole('button', { name: 'Push log' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(
+      within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', {
+        name: 'Push log'
+      })
+    ).toHaveAttribute('aria-current', 'page')
   })
 
   it('switching host hides but keeps the other host terminals', async () => {
@@ -249,11 +310,28 @@ describe('App prefs', () => {
     vi.mocked(api.prefs.update).mockResolvedValue({ ...DEFAULT_PREFS, theme: 'light' })
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    const dialog = screen.getByRole('dialog', { name: 'Settings' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Appearance' }))
+    const dialog = await screen.findByRole('region', { name: 'Settings' })
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Light' }))
     await waitFor(() => expect(api.prefs.update).toHaveBeenCalledWith({ theme: 'light' }))
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe('light'))
+  })
+
+  it('Manage tokens in Host settings closes the dialog and opens Git tokens', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch host' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for Box' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Host settings' })
+    fireEvent.click(
+      within(dialog).getByRole('checkbox', { name: 'Enable git access on this host' })
+    )
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Manage tokens' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Git tokens' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
   })
 
   it('Repo settings in the workspace menu opens settings at that repo', async () => {
@@ -261,9 +339,11 @@ describe('App prefs', () => {
     vi.mocked(api.repos.list).mockResolvedValue([{ ...repo, id: 'r0', name: 'other' }, repo])
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Switch workspace' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace menu acme/api' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Repo settings…' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Settings' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Workspace menu acme/api' }), {
+      key: 'Enter'
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Repo settings…' }))
+    const dialog = await screen.findByRole('region', { name: 'Settings' })
     expect(within(dialog).getByRole('button', { name: 'Repositories' })).toHaveAttribute(
       'aria-current',
       'page'
@@ -286,8 +366,7 @@ describe('App prefs', () => {
     await waitFor(() => expect(terminals).toHaveLength(1))
     expect(terminals[0].options.fontSize).toBe(15)
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    const dialog = screen.getByRole('dialog', { name: 'Settings' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Appearance' }))
+    const dialog = await screen.findByRole('region', { name: 'Settings' })
     fireEvent.change(within(dialog).getByLabelText('Terminal font size'), {
       target: { value: '18' }
     })
@@ -330,5 +409,35 @@ describe('App module switch', () => {
     expect(terminals).toHaveLength(1)
     expect(disposed.every((d) => d.mock.calls.length === 0)).toBe(true)
     expect(api.terminal.close).not.toHaveBeenCalled()
+  })
+
+  it('keeps the same terminal tab present across Git, Containers, Git', async () => {
+    setup([host], [ws], { state: 'connected' })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    act(() => {
+      announceTerminal({ tabId: 't1', label: 'one', hostId: 'h1' })
+    })
+    const tab = screen.getByRole('button', { name: 'Close one' })
+    fireEvent.click(screen.getByRole('button', { name: 'Containers' }))
+    await screen.findByText('permission denied on docker.sock')
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(screen.getByRole('button', { name: 'Close one' })).toBe(tab)
+  })
+
+  it('never puts the terminal portal inside a fade', async () => {
+    setup([host], [ws], { state: 'connected' })
+    const { container } = render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New terminal' })).toBeEnabled())
+    const portal = container.querySelector('.terminal-portal')!
+    expect(portal.closest('[data-fade-in]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Containers' }))
+    await screen.findByText('permission denied on docker.sock')
+    fireEvent.click(screen.getByRole('button', { name: 'Git' }))
+    await screen.findByRole('listbox', { name: 'Branches' })
+    expect(container.querySelector('.terminal-portal')).toBe(portal)
+    expect(portal.closest('[data-fade-in]')).toBeNull()
+    expect(portal.closest('[style*="opacity"]')).toBeNull()
   })
 })

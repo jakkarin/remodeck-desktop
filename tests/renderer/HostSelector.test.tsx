@@ -62,6 +62,11 @@ function renderWith(statuses: Record<string, HostStatus>, over: Partial<AppState
 const open = (): void => {
   fireEvent.click(screen.getByRole('button', { name: 'Switch host' }))
 }
+/** Radix opens dropdown menus on pointerdown or Enter; jsdom lacks PointerEvent, so use the keyboard. */
+const openRowMenu = (label: string): void => {
+  fireEvent.keyDown(screen.getByRole('button', { name: `Host menu ${label}` }), { key: 'Enter' })
+}
+const panelGone = (): void => expect(screen.queryByRole('button', { name: 'Add host…' })).toBeNull()
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -77,6 +82,11 @@ describe('HostSelector', () => {
       { hosts: [{ id: 'h1', sshHost: 'a', label: 'Alpha', protected: true }] }
     )
     expect(screen.getByRole('button', { name: 'Switch host' })).toHaveTextContent('protected')
+  })
+
+  it('trigger exposes the active host state', () => {
+    renderWith({ h1: up, h2: up })
+    expect(screen.getByTitle('connected')).toBeInTheDocument()
   })
 
   it('trigger shows no protected badge for a normal host', () => {
@@ -106,21 +116,41 @@ describe('HostSelector', () => {
   it('lists hosts with status dots and marks the active one', () => {
     renderWith({ h1: up, h2: { state: 'error', error: 'boom' } })
     open()
-    const alpha = screen.getByRole('button', { name: 'Alpha' }).closest('section')
-    const beta = screen.getByRole('button', { name: 'Beta' }).closest('section') as HTMLElement
-    expect(alpha).toHaveClass('active')
-    expect(beta).not.toHaveClass('active')
-    expect(alpha?.querySelector('.dot')).toHaveClass('connected')
-    expect(beta.querySelector('.dot')).toHaveClass('error')
+    const alpha = screen.getByRole('button', { name: 'Alpha' })
+    const beta = screen.getByRole('button', { name: 'Beta' })
+    expect(alpha).toHaveAttribute('aria-current', 'true')
+    expect(beta).not.toHaveAttribute('aria-current')
+    expect(alpha.querySelector('[data-status]')).toHaveAttribute('data-status', 'connected')
+    expect(beta.querySelector('[data-status]')).toHaveAttribute('data-status', 'error')
     expect(screen.getByText('boom')).toBeInTheDocument()
   })
 
-  it('clicking another host selects it and closes the panel', () => {
+  it('shows ssh host and state text on the second line', () => {
+    renderWith({ h1: up, h2: down })
+    open()
+    expect(screen.getByText('ssh a · connected')).toBeInTheDocument()
+    expect(screen.getByText('ssh b · not connected')).toBeInTheDocument()
+  })
+
+  it('pulses the dot only while connecting', () => {
+    renderWith({ h1: { state: 'connecting' }, h2: up })
+    open()
+    expect(screen.getByText('ssh a · connecting…')).toBeInTheDocument()
+    const dots = [...document.querySelectorAll('[data-status]')]
+    expect(dots.some((d) => d.getAttribute('data-status') === 'connecting')).toBe(true)
+    for (const d of dots) {
+      expect(d.classList.contains('animate-pulse')).toBe(
+        d.getAttribute('data-status') === 'connecting'
+      )
+    }
+  })
+
+  it('clicking another host selects it and closes the panel', async () => {
     const v = renderWith({ h1: up, h2: up })
     open()
     fireEvent.click(screen.getByRole('button', { name: 'Beta' }))
     expect(v.selectHost).toHaveBeenCalledWith('h2')
-    expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
+    await waitFor(panelGone)
   })
 
   it('shows Connect only when disconnected and Retry only on error', () => {
@@ -139,23 +169,32 @@ describe('HostSelector', () => {
     await waitFor(() => expect(v.setStatus).toHaveBeenCalledWith('h1', up))
   })
 
-  it('Remove host is disabled with a tooltip while it has workspaces', () => {
+  it('Retry on an error host calls api.hosts.connect', async () => {
+    vi.mocked(api.hosts.connect).mockResolvedValue(up)
+    const v = renderWith({ h1: { state: 'error', error: 'boom' }, h2: up })
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(api.hosts.connect).toHaveBeenCalledWith('h1')
+    await waitFor(() => expect(v.setStatus).toHaveBeenCalledWith('h1', up))
+  })
+
+  it('Remove host is disabled with a tooltip while it has workspaces', async () => {
     renderWith({ h1: up, h2: up })
     open()
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
-    const btn = screen.getByRole('button', { name: 'Remove host' })
-    expect(btn).toBeDisabled()
-    expect(btn).toHaveAttribute('title')
+    openRowMenu('Alpha')
+    const item = await screen.findByRole('menuitem', { name: 'Remove host…' })
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    expect(item).toHaveAttribute('title')
   })
 
   it('Remove host works for an empty host', async () => {
     vi.mocked(api.hosts.remove).mockResolvedValue(undefined)
     const v = renderWith({ h1: up, h2: up })
     open()
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Beta' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove host' }))
-    const dialog = screen.getByRole('dialog', { name: 'Remove host' })
-    expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
+    openRowMenu('Beta')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove host…' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove host' })
+    await waitFor(panelGone)
     fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())
     expect(api.hosts.remove).toHaveBeenCalledWith('h2')
@@ -164,14 +203,22 @@ describe('HostSelector', () => {
   it('Disconnect is offered for a connected host', async () => {
     vi.mocked(api.hosts.disconnect).mockResolvedValue(undefined)
     vi.mocked(api.hosts.status).mockResolvedValue(down)
-    const v = renderWith({ h1: up, h2: up })
+    const v = renderWith({ h1: up, h2: down })
     open()
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
+    openRowMenu('Alpha')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Disconnect' }))
     await waitFor(() => expect(v.setStatus).toHaveBeenCalledWith('h1', down))
   })
 
-  it('Host settings saves the new label', async () => {
+  it('Disconnect is not offered for a disconnected host', async () => {
+    renderWith({ h1: up, h2: down })
+    open()
+    openRowMenu('Beta')
+    await screen.findByRole('menuitem', { name: 'Remove host…' })
+    expect(screen.queryByRole('menuitem', { name: 'Disconnect' })).toBeNull()
+  })
+
+  it('Settings for <host> opens the dialog, closes the panel and saves the new label', async () => {
     vi.mocked(api.hosts.update).mockResolvedValue({
       id: 'h1',
       sshHost: 'a',
@@ -180,11 +227,16 @@ describe('HostSelector', () => {
     })
     const v = renderWith({ h1: up, h2: up })
     open()
-    fireEvent.click(screen.getByRole('button', { name: 'Host menu Alpha' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Host settings…' }))
+    const trigger = screen.getByRole('button', { name: 'Switch host' })
+    const focusSpy = vi.spyOn(trigger, 'focus')
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for Alpha' }))
     const dialog = screen.getByRole('dialog', { name: 'Host settings' })
-    // the panel closes so it does not stay open behind the dialog
-    expect(screen.queryByRole('button', { name: /Add host/ })).toBeNull()
+    // the popover closes so it does not stay open behind the dialog
+    await waitFor(panelGone)
+    // and does not pull focus back from the dialog to the trigger
+    await new Promise((r) => setTimeout(r, 50))
+    expect(focusSpy).not.toHaveBeenCalled()
+    expect(trigger).not.toHaveFocus()
     fireEvent.change(within(dialog).getByLabelText('Label'), { target: { value: ' Work ' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() =>
@@ -193,24 +245,35 @@ describe('HostSelector', () => {
     await waitFor(() => expect(v.refresh).toHaveBeenCalled())
   })
 
-  it('Add host opens the add dialog', () => {
+  it('Add host opens the add dialog', async () => {
     renderWith({ h1: up, h2: up })
     open()
-    fireEvent.click(screen.getByRole('button', { name: /Add host/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add host…' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Host menu Alpha' })).toBeNull()
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Settings for Alpha' })).toBeNull()
+    )
   })
 
-  it('closes on Escape and on an outside pointerdown', () => {
+  it('Escape closes the popover and returns focus to the trigger', async () => {
     renderWith({ h1: up, h2: up })
     open()
-    expect(screen.queryByText('Beta')).not.toBeNull()
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Beta' }), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByText('Beta')).toBeNull())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Switch host' })).toHaveFocus())
+  })
+
+  it('closes on an outside pointerdown', async () => {
+    renderWith({ h1: up, h2: up })
+    open()
+    // Radix arms its outside-click listener on the next tick
+    await new Promise((r) => setTimeout(r, 10))
     fireEvent.pointerDown(screen.getByText('Beta'))
     expect(screen.queryByText('Beta')).not.toBeNull()
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByText('Beta')).toBeNull()
-    open()
+    // Radix defers the dismissal to the click that follows a primary-button pointerdown
     fireEvent.pointerDown(document.body)
-    expect(screen.queryByText('Beta')).toBeNull()
+    fireEvent.click(document.body)
+    await waitFor(() => expect(screen.queryByText('Beta')).toBeNull())
   })
 })

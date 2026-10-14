@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>remodeck — Motion spec</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#245FA8}a:hover{color:#1B4A84}
+</style>
+</helmet>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; padding: 48px; background: #FAFAFA; font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #18181B; display: flex; flex-direction: column; gap: 28px;">
+
+  <div style="display: flex; align-items: flex-end; gap: 24px;">
+    <div style="flex: 1;">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em;">Motion</h1>
+      <p style="margin: 6px 0 0; color: #52525B; font-size: 14px; max-width: 640px;">Quick and quiet: motion shows where something came from or went. It never makes you wait to read a diff or type in a terminal.</p>
+    </div>
+    <div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B; padding: 6px 10px; border: 1px solid #E4E4E7; border-radius: 8px; background: #FFFFFF;">motion/react · useReducedMotion</div>
+  </div>
+
+  <!-- Tokens -->
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #245FA8;">fast</span>
+      <span style="font-size: 22px; font-weight: 600;">120 ms</span>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">ease-out</span>
+      <span style="color: #3F3F46;">Hover, press, focus ring, tab underline</span>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #245FA8;">enter</span>
+      <span style="font-size: 22px; font-weight: 600;">180 ms</span>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">spring 520 / 40</span>
+      <span style="color: #3F3F46;">Dialog, popover, menu, palette, toast in</span>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #245FA8;">exit</span>
+      <span style="font-size: 22px; font-weight: 600;">120 ms</span>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">ease-in</span>
+      <span style="color: #3F3F46;">Everything that leaves: faster than it came</span>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #245FA8;">layout</span>
+      <span style="font-size: 22px; font-weight: 600;">220 ms</span>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">spring 400 / 36</span>
+      <span style="color: #3F3F46;">List reorder, selection pill, panel resize</span>
+    </div>
+  </div>
+
+  <!-- Patterns -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-weight: 600;">Dialog &amp; palette</span>
+      <div aria-hidden="true" style="height: 84px; display: flex; align-items: center; justify-content: space-around; background: #F4F4F5; border-radius: 9px;">
+        <div style="width: 52px; height: 38px; border-radius: 7px; background: #FFFFFF; opacity: 0.25; transform: scale(0.96) translateY(6px); box-shadow: 0 0 0 1px #E4E4E7;"></div>
+        <span style="color: #A1A1AA;">→</span>
+        <div style="width: 52px; height: 38px; border-radius: 7px; background: #FFFFFF; opacity: 0.65; transform: scale(0.98) translateY(3px); box-shadow: 0 0 0 1px #E4E4E7;"></div>
+        <span style="color: #A1A1AA;">→</span>
+        <div style="width: 52px; height: 38px; border-radius: 7px; background: #FFFFFF; box-shadow: 0 6px 16px rgba(0,0,0,0.12), 0 0 0 1px #E4E4E7;"></div>
+      </div>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">opacity 0→1 · scale .96→1 · y 6→0</span>
+      <span style="color: #3F3F46;">Backdrop fades on its own, never scales. Palette drops from 96 px below the top.</span>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-weight: 600;">Selection follows</span>
+      <div aria-hidden="true" style="height: 84px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 16px; background: #F4F4F5; border-radius: 9px; position: relative;">
+        <div style="height: 18px; border-radius: 5px; background: #FFFFFF; width: 70%;"></div>
+        <div style="height: 18px; border-radius: 5px; background: #E8EEF7; box-shadow: 0 0 0 1px #C9D7EC; width: 70%;"></div>
+        <div style="height: 18px; border-radius: 5px; background: #FFFFFF; width: 70%;"></div>
+        <span style="position: absolute; right: 18px; top: 30px; color: #245FA8; font-size: 18px;">↕</span>
+      </div>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">layoutId="selection"</span>
+      <span style="color: #3F3F46;">Branch, file and rail highlights slide between rows instead of blinking.</span>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-weight: 600;">Toasts stack</span>
+      <div aria-hidden="true" style="height: 84px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 4px; padding: 10px 16px; background: #F4F4F5; border-radius: 9px; box-sizing: border-box;">
+        <div style="width: 120px; height: 16px; border-radius: 5px; background: #FFFFFF; opacity: 0.5; transform: scale(0.94);"></div>
+        <div style="width: 130px; height: 20px; border-radius: 6px; background: #FFFFFF; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"></div>
+        <div style="width: 130px; height: 20px; border-radius: 6px; background: #FFFFFF; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transform: translateX(10px); opacity: 0.6;"></div>
+      </div>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">x 16→0 in · older scale .94</span>
+      <span style="color: #3F3F46;">Enter from the right; errors stay until dismissed.</span>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-weight: 600;">Files in and out</span>
+      <div aria-hidden="true" style="height: 84px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 16px; background: #F4F4F5; border-radius: 9px;">
+        <div style="height: 16px; border-radius: 5px; background: #FFFFFF; width: 80%;"></div>
+        <div style="height: 16px; border-radius: 5px; background: #E6F4EA; width: 80%; opacity: 0.6;"></div>
+        <div style="height: 10px; border-radius: 5px; background: #FCE8E8; width: 80%; opacity: 0.4;"></div>
+        <div style="height: 16px; border-radius: 5px; background: #FFFFFF; width: 80%;"></div>
+      </div>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">AnimatePresence · height auto</span>
+      <span style="color: #3F3F46;">After Sync, new rows grow in and removed rows collapse, so you can see what changed.</span>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-weight: 600;">Module switch</span>
+      <div aria-hidden="true" style="height: 84px; display: flex; align-items: center; justify-content: center; gap: 12px; background: #F4F4F5; border-radius: 9px;">
+        <div style="width: 70px; height: 50px; border-radius: 7px; background: #FFFFFF; opacity: 0.35;"></div>
+        <div style="width: 70px; height: 50px; border-radius: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px #E4E4E7;"></div>
+      </div>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">crossfade 120 ms · no slide</span>
+      <span style="color: #3F3F46;">Git ↔ Containers crossfade. The terminal dock stays mounted and never moves.</span>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-weight: 600;">Status that is working</span>
+      <div aria-hidden="true" style="height: 84px; display: flex; align-items: center; justify-content: center; gap: 18px; background: #F4F4F5; border-radius: 9px;">
+        <span style="width: 10px; height: 10px; border-radius: 50%; background: #1F7A45; box-shadow: 0 0 0 5px #D3EBDC;"></span>
+        <span style="width: 10px; height: 10px; border-radius: 50%; background: #8A5A00; box-shadow: 0 0 0 5px #F5E7C6;"></span>
+        <div style="width: 90px; height: 4px; border-radius: 999px; background: #E4E4E7; overflow: hidden;"><div style="width: 40%; height: 4px; background: #245FA8;"></div></div>
+      </div>
+      <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #52525B;">pulse only while connecting</span>
+      <span style="color: #3F3F46;">Connecting hosts and restarting containers pulse; settled states hold still.</span>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <div style="display: flex; gap: 12px;">
+    <div style="flex: 1; padding: 14px 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E4E4E7; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-weight: 600;">Never animate</span>
+      <span style="color: #3F3F46;">Diff lines, terminal output, scrolling, lists over 100 rows, anything during a drag-resize.</span>
+    </div>
+    <div style="flex: 1; padding: 14px 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E4E4E7; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-weight: 600;">Reduced motion</span>
+      <span style="color: #3F3F46;">If the OS asks, every transform becomes a 0 ms swap; opacity fades keep 80 ms.</span>
+    </div>
+    <div style="flex: 1; padding: 14px 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E4E4E7; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-weight: 600;">Interruptible</span>
+      <span style="color: #3F3F46;">Springs pick up mid-flight. Clicking fast never queues animations up.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -73,7 +73,10 @@ describe('GitTokensSection', () => {
       'github.com/org-a/payments',
       'github.com/org-b'
     ])
-    expect(within(rows[0]).getByText('Expires in 3 days')).toHaveClass('badge-warning')
+    expect(within(rows[0]).getByText('Expires in 3 days')).toHaveAttribute(
+      'data-variant',
+      'warning'
+    )
     expect(within(rows[1]).getByText('No expiry')).toBeInTheDocument()
     expect(within(rows[2]).getByText('Expired')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Installed on 2 hosts')).toBeInTheDocument()

@@ -41,4 +41,25 @@ describe('HostSettingsDialog', () => {
     )
     await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
+
+  it('is a named dialog that Escape closes', () => {
+    const onClose = vi.fn()
+    const value = {
+      refresh: vi.fn(),
+      hosts: [],
+      prefs: DEFAULT_PREFS
+    } as unknown as AppState
+    render(
+      <AppStateContext.Provider value={value}>
+        <HostSettingsDialog
+          host={{ id: 'h1', sshHost: 'box', label: 'Box', protected: false }}
+          onClose={onClose}
+        />
+      </AppStateContext.Provider>
+    )
+    const dialog = screen.getByRole('dialog', { name: /Host settings/ })
+    expect(screen.getByRole('textbox', { name: 'SSH host' })).toHaveValue('box')
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
 })

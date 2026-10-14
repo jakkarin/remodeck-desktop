@@ -5,14 +5,16 @@ const ACTIVE_HOST_KEY = 'remodeck.activeHost'
 const LAST_WORKSPACE_KEY = 'remodeck.lastWorkspace'
 const ACTIVE_MODULE_KEY = 'remodeck.activeModule'
 
-export type Module = 'git' | 'containers'
+export type Module = 'git' | 'containers' | 'settings'
 
-export function readActiveModule(): Module {
+export function readActiveModule(): 'git' | 'containers' {
   const v = readJson<unknown>(ACTIVE_MODULE_KEY, 'git')
   return v === 'containers' ? 'containers' : 'git'
 }
 
+/** Settings is a transient page: it is never persisted, so a restart returns to the last real module. */
 export function saveActiveModule(m: Module): void {
+  if (m === 'settings') return
   writeJson(ACTIVE_MODULE_KEY, m)
 }
 

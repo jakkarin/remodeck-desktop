@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import { DEFAULT_PREFS, type Prefs, type Repo } from '../../src/shared/types'
+import { DEFAULT_PREFS, type Prefs, type Repo, type Workspace } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
@@ -55,9 +55,11 @@ const logEntries = [
 function Harness({
   repos,
   section,
-  repoId
+  repoId,
+  workspaces = []
 }: {
   repos: Repo[]
+  workspaces?: Workspace[]
   section?: SettingsSection
   repoId?: string
 }): React.JSX.Element {
@@ -66,7 +68,7 @@ function Harness({
     hosts: [],
     statuses: {},
     repos,
-    workspaces: [],
+    workspaces,
     activeHostId: null,
     selectHost: vi.fn(),
     gitCaps: {},
@@ -97,9 +99,10 @@ function Harness({
 function renderWith(
   section: SettingsSection | undefined = 'repositories',
   repos: Repo[] = [repo()],
-  repoId?: string
+  repoId?: string,
+  workspaces: Workspace[] = []
 ): void {
-  render(<Harness repos={repos} section={section} repoId={repoId} />)
+  render(<Harness repos={repos} section={section} repoId={repoId} workspaces={workspaces} />)
 }
 
 beforeEach(() => {
@@ -121,13 +124,19 @@ describe('SettingsView navigation', () => {
       'page'
     )
     expect(screen.getByLabelText('Default protected branches')).toBeInTheDocument()
-    fireEvent.click(within(nav).getByRole('button', { name: 'Appearance' }))
-    expect(within(nav).getByRole('button', { name: 'Appearance' })).toHaveAttribute(
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['General', 'Repositories', 'Git tokens', 'Push log'])
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Terminal font size')).toBeInTheDocument()
+    fireEvent.click(within(nav).getByRole('button', { name: 'Push log' }))
+    expect(within(nav).getByRole('button', { name: 'Push log' })).toHaveAttribute(
       'aria-current',
       'page'
     )
     expect(within(nav).getByRole('button', { name: 'General' })).not.toHaveAttribute('aria-current')
-    expect(screen.getByRole('radio', { name: 'Dark' })).toBeInTheDocument()
   })
 
   it('honours initialSection and initialRepoId', () => {
@@ -168,7 +177,7 @@ describe('Repositories section', () => {
 
   it('toggles enforceRules', async () => {
     renderWith()
-    fireEvent.click(screen.getByLabelText(/Enforce rules/))
+    fireEvent.click(screen.getByRole('switch', { name: 'Enforce rules for acme/api' }))
     await waitFor(() =>
       expect(api.repos.updatePolicy).toHaveBeenCalledWith('r1', { enforceRules: true })
     )
@@ -183,6 +192,49 @@ describe('Repositories section', () => {
       expect(api.repos.updatePolicy).toHaveBeenCalledWith('r1', {
         protectedBranches: ['main', 'release/*']
       })
+    )
+  })
+})
+
+describe('Repositories cards', () => {
+  const ws = (id: string, repoId: string, hostId = 'h1'): Workspace => ({
+    id,
+    repoId,
+    hostId,
+    sandboxPath: `/s/${id}`
+  })
+  const repos = [
+    repo({ id: 'r1', enforceRules: true }),
+    repo({ id: 'r2', name: 'web', alwaysAllowPush: false })
+  ]
+  const card = (name: string): HTMLElement =>
+    screen.getByRole('region', { name: new RegExp(`^${name}`) })
+
+  it('shows the workspace count per repo across hosts', () => {
+    renderWith('repositories', repos, 'r1', [ws('w1', 'r1'), ws('w2', 'r1', 'h2'), ws('w3', 'r2')])
+    expect(within(card('acme/api')).getByText('2 workspaces')).toBeInTheDocument()
+    expect(within(card('acme/web')).getByText('1 workspace')).toBeInTheDocument()
+  })
+
+  it('shows 0 workspaces', () => {
+    renderWith('repositories', repos)
+    expect(within(card('acme/api')).getByText('0 workspaces')).toBeInTheDocument()
+  })
+
+  it('Enforce rules is a switch', () => {
+    renderWith('repositories', repos)
+    expect(screen.getByRole('switch', { name: 'Enforce rules for acme/api' })).toBeChecked()
+  })
+
+  it('expands only the selected repo', () => {
+    renderWith('repositories', repos, 'r2')
+    expect(screen.getByRole('button', { name: 'acme/web' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByRole('button', { name: 'acme/api' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
     )
   })
 })
@@ -220,9 +272,15 @@ describe('General section', () => {
   })
 })
 
-describe('Appearance section', () => {
+describe('Appearance controls on General', () => {
   it('theme change calls update and sets / removes data-theme', async () => {
-    renderWith('appearance')
+    renderWith('general')
+    const group = screen.getByRole('radiogroup', { name: 'Theme' })
+    expect(
+      within(group)
+        .getAllByRole('radio')
+        .map((r) => r.textContent)
+    ).toEqual(['System', 'Light', 'Dark'])
     expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
     fireEvent.click(screen.getByRole('radio', { name: 'Dark' }))
     await waitFor(() => expect(updatePrefsApi).toHaveBeenCalledWith({ theme: 'dark' }))
@@ -235,7 +293,7 @@ describe('Appearance section', () => {
   })
 
   it('font size change calls update with a number', async () => {
-    renderWith('appearance')
+    renderWith('general')
     const select = screen.getByLabelText('Terminal font size')
     expect(select).toHaveValue('13')
     fireEvent.change(select, { target: { value: '16' } })
@@ -250,8 +308,9 @@ describe('Push log section', () => {
     expect(await screen.findByText('protected branch')).toBeInTheDocument()
     expect(api.pushLog.read).toHaveBeenCalledWith(200)
     const badge = screen.getByText('blocked')
-    expect(badge).toHaveClass('badge', 'badge-danger', 'nowrap')
-    expect(screen.getByText('ok')).toHaveClass('badge-success')
+    expect(badge).toHaveAttribute('data-variant', 'destructive')
+    expect(badge).toHaveClass('whitespace-nowrap')
+    expect(screen.getByText('ok')).toHaveAttribute('data-variant', 'success')
     const time = screen.getByTitle('2026-10-03T10:00:00Z')
     expect(time).toHaveTextContent(new Date('2026-10-03T10:00:00Z').toLocaleString())
   })

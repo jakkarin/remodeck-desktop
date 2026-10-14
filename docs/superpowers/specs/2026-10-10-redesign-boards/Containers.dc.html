@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>remodeck — Containers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F5}
+a{color:#245FA8}a:hover{color:#1B4A84}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #18181B; background: #F4F4F5; min-height: 900px; display: flex; flex-direction: column;">
+
+  <!-- Title bar -->
+  <header style="height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #FFFFFF; border-bottom: 1px solid #E4E4E7; flex-wrap: wrap;">
+    <div style="width: 22px; height: 22px; border-radius: 6px; background: #18181B; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; margin-right: 8px;">r</div>
+    <button style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #E4E4E7; background: #FFFFFF; border-radius: 8px; color: #18181B;">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #1F7A45;"></span>
+      <span style="font-weight: 500;">ubuntu</span>
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#63636B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div style="flex: 1 1 200px; display: flex; justify-content: center; min-width: 0;">
+      <button style="width: 100%; max-width: 420px; height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #E4E4E7; background: #F4F4F5; border-radius: 8px; color: #63636B;">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span style="flex: 1; text-align: left;">Search containers, images, commands…</span>
+        <kbd style="font-family: 'Geist Mono', monospace; font-size: 11px; padding: 1px 6px; border: 1px solid #E4E4E7; border-radius: 4px; background: #FFFFFF; color: #63636B;">Ctrl K</kbd>
+      </button>
+    </div>
+    <div style="width: 120px;"></div>
+  </header>
+
+  <div style="flex: 1; display: flex; min-height: 0; flex-wrap: wrap;">
+    <nav aria-label="Modules" style="width: 52px; flex: 0 0 52px; background: #FFFFFF; border-right: 1px solid #E4E4E7; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0;">
+      <button aria-label="Git" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+      </button>
+      <button aria-label="Containers" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: #E8EEF7; color: #245FA8; display: flex; align-items: center; justify-content: center; position: relative;">
+        <span style="position: absolute; left: -8px; top: 9px; width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: #245FA8;"></span>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </button>
+      <div style="flex: 1;"></div>
+      <button aria-label="Settings" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      </button>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; gap: 8px; padding: 8px; flex-wrap: wrap; align-items: stretch;">
+
+      <!-- List -->
+      <section aria-label="Containers" style="flex: 999 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #F0F0F2; flex-wrap: wrap;">
+          <div role="tablist" aria-label="Resource kind" style="display: flex; padding: 2px; background: #F4F4F5; border-radius: 8px;">
+            <button role="tab" aria-selected="true" style="height: 26px; padding: 0 10px; border: none; border-radius: 6px; background: #FFFFFF; color: #18181B; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 6px;">Containers <span style="font-size: 11px; color: #63636B;">7</span></button>
+            <button role="tab" aria-selected="false" style="height: 26px; padding: 0 10px; border: none; border-radius: 6px; background: transparent; color: #63636B; display: flex; align-items: center; gap: 6px;">Images <span style="font-size: 11px;">12</span></button>
+            <button role="tab" aria-selected="false" style="height: 26px; padding: 0 10px; border: none; border-radius: 6px; background: transparent; color: #63636B; display: flex; align-items: center; gap: 6px;">Volumes <span style="font-size: 11px;">5</span></button>
+            <button role="tab" aria-selected="false" style="height: 26px; padding: 0 10px; border: none; border-radius: 6px; background: transparent; color: #63636B; display: flex; align-items: center; gap: 6px;">Networks <span style="font-size: 11px;">3</span></button>
+          </div>
+          <div style="flex: 1;"></div>
+          <label for="ctr-filter" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Filter containers</label>
+          <input id="ctr-filter" placeholder="Filter" style="width: 200px; height: 28px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FAFAFA; color: #18181B;">
+        </div>
+
+        <!-- Compose group -->
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px 6px; flex-wrap: wrap;">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#63636B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <span style="font-weight: 600;">relist</span>
+          <span style="font-size: 12px; color: #63636B;">compose · 3 of 4 running</span>
+          <div style="flex: 1;"></div>
+          <div style="display: flex; gap: 4px;">
+            <button style="height: 26px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 6px; background: #FFFFFF; color: #18181B; font-size: 12px;">Up</button>
+            <button style="height: 26px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 6px; background: #FFFFFF; color: #18181B; font-size: 12px;">Pull</button>
+            <button style="height: 26px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 6px; background: #FFFFFF; color: #18181B; font-size: 12px;">Restart</button>
+            <button style="height: 26px; padding: 0 10px; border: 1px solid #F3D0CC; border-radius: 6px; background: #FFFFFF; color: #B42318; font-size: 12px;">Down</button>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <div style="min-width: 640px; display: flex; flex-direction: column; padding: 0 6px;">
+            <div style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; padding: 6px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B;">
+              <span></span><span>Name</span><span>Image</span><span>Ports</span><span>CPU</span><span>Memory</span><span>Up</span>
+            </div>
+            <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: #E8EEF7; text-align: left; color: #18181B;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45; box-shadow: 0 0 0 3px #D3EBDC;"></span>
+              <span style="font-weight: 500;">relist-api-1</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">relist/api:dev</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">8080→8080</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">4.2%</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">212 MB</span>
+              <span style="font-size: 12px; color: #63636B;">3h</span>
+            </button>
+            <div style="position: relative;">
+              <button style="width: 100%; display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: #F4F4F5; text-align: left; color: #18181B;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45;"></span>
+                <span style="font-weight: 500;">relist-web-1</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">relist/web:dev</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">3000→3000</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">1.1%</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">148 MB</span>
+                <span style="font-size: 12px; color: #63636B;">3h</span>
+              </button>
+              <!-- Shown on row hover or keyboard focus; covers the right end of the row -->
+              <div role="group" aria-label="Actions for relist-web-1" style="position: absolute; top: 0; bottom: 0; right: 0; display: flex; align-items: center; gap: 2px; padding: 0 8px 0 16px; border-radius: 0 7px 7px 0; background: #F4F4F5;">
+                <button aria-label="Logs relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg>
+                </button>
+                <button aria-label="Shell relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+                </button>
+                <button aria-label="Stop relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
+                </button>
+                <button aria-label="Restart relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #3F3F46; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </button>
+                <button aria-label="Remove relist-web-1" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #B42318; display: flex; align-items: center; justify-content: center;">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+            <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: transparent; text-align: left; color: #18181B;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45;"></span>
+              <span style="font-weight: 500;">relist-db-1</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">postgres:16</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #63636B;">—</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">0.6%</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">96 MB</span>
+              <span style="font-size: 12px; color: #63636B;">2d</span>
+            </button>
+            <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: transparent; text-align: left; color: #63636B;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #A1A1AA; box-sizing: border-box;"></span>
+              <span style="font-weight: 500;">relist-worker-1</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">relist/worker:dev</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">—</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">—</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">—</span>
+              <span style="font-size: 12px; color: #B42318;">Exited (1)</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; padding: 16px 14px 6px;">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#63636B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <span style="font-weight: 600;">Standalone</span>
+          <span style="font-size: 12px; color: #63636B;">3 containers</span>
+        </div>
+        <div style="overflow-x: auto;">
+          <div style="min-width: 640px; display: flex; flex-direction: column; padding: 0 6px 8px;">
+            <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: transparent; text-align: left; color: #18181B;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A45;"></span>
+              <span style="font-weight: 500;">redis</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">redis:7-alpine</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">6379→6379</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">0.3%</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">12 MB</span>
+              <span style="font-size: 12px; color: #63636B;">5d</span>
+            </button>
+            <button style="display: grid; grid-template-columns: 22px minmax(160px, 1.4fr) minmax(140px, 1.2fr) 110px 64px 80px 72px; gap: 10px; align-items: center; padding: 8px; border: none; border-radius: 7px; background: transparent; text-align: left; color: #18181B;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #8A5A00;"></span>
+              <span style="font-weight: 500;">mailpit</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">axllent/mailpit</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #3F3F46;">8025→8025</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">—</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 12px;">—</span>
+              <span style="font-size: 12px; color: #8A5A00;">Restarting</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Details panel -->
+      <aside aria-label="Container details" style="flex: 1 1 340px; max-width: 420px; min-width: 300px; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="padding: 14px 16px 12px; border-bottom: 1px solid #F0F0F2; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 600; flex: 1;">relist-api-1</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #1F7A45; background: #E6F4EA; padding: 2px 8px; border-radius: 999px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #1F7A45;"></span>Running</span>
+            <button aria-label="Close details" style="width: 26px; height: 26px; border: none; background: transparent; border-radius: 6px; color: #63636B; display: flex; align-items: center; justify-content: center;">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B; font-size: 12px;">
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>Restart
+            </button>
+            <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B; font-size: 12px;">
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>Stop
+            </button>
+            <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B; font-size: 12px;">
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell
+            </button>
+            <button style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B; font-size: 12px;">
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg>Logs
+            </button>
+            <button style="height: 28px; padding: 0 10px; border: 1px solid #F3D0CC; border-radius: 7px; background: #FFFFFF; color: #B42318; font-size: 12px;">Remove</button>
+          </div>
+        </div>
+
+        <dl style="margin: 0; padding: 12px 16px; display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px 12px; font-size: 12px; border-bottom: 1px solid #F0F0F2;">
+          <dt style="color: #63636B;">Image</dt><dd style="margin: 0; font-family: 'Geist Mono', monospace;">relist/api:dev</dd>
+          <dt style="color: #63636B;">Ports</dt><dd style="margin: 0; font-family: 'Geist Mono', monospace;">0.0.0.0:8080 → 8080/tcp</dd>
+          <dt style="color: #63636B;">Network</dt><dd style="margin: 0; font-family: 'Geist Mono', monospace;">relist_default</dd>
+          <dt style="color: #63636B;">Volumes</dt><dd style="margin: 0; font-family: 'Geist Mono', monospace;">./api → /app</dd>
+          <dt style="color: #63636B;">Started</dt><dd style="margin: 0;">3 hours ago</dd>
+        </dl>
+
+        <div style="display: flex; align-items: center; padding: 10px 16px 6px; gap: 8px;">
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63636B; flex: 1;">Logs</span>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #3F3F46;"><input type="checkbox" checked style="accent-color: #245FA8;">Follow</label>
+        </div>
+        <pre style="flex: 1; margin: 0 8px 8px; padding: 10px 12px; background: #18181B; color: #D4D4D8; border-radius: 8px; font-family: 'Geist Mono', 'Cascadia Code', monospace; font-size: 11.5px; line-height: 18px; overflow: auto; white-space: pre-wrap;"><span style="color: #8B8B94;">14:02:11</span> listening on :8080
+<span style="color: #8B8B94;">14:02:12</span> connected to postgres relist-db-1
+<span style="color: #8B8B94;">14:05:40</span> GET /listings?min=200&amp;max=900 200 18ms
+<span style="color: #8B8B94;">14:05:41</span> GET /listings/4821 200 6ms
+<span style="color: #8B8B94;">14:06:02</span> <span style="color: #F2C46D;">warn</span> slow query listings_search 412ms
+<span style="color: #8B8B94;">14:06:15</span> POST /favorites 201 11ms</pre>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

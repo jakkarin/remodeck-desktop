@@ -71,6 +71,11 @@ describe('active module', () => {
     expect(readActiveModule()).toBe('containers')
     expect(localStorage.getItem('remodeck.activeModule')).toBe('"containers"')
   })
+  it('ignores settings and keeps the previous module', () => {
+    saveActiveModule('containers')
+    saveActiveModule('settings')
+    expect(readActiveModule()).toBe('containers')
+  })
   it('falls back to git on an invalid stored value', () => {
     localStorage.setItem('remodeck.activeModule', '"nope"')
     expect(readActiveModule()).toBe('git')

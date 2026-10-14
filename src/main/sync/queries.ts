@@ -1,4 +1,10 @@
-import type { BranchInfo, CommitInfo, FileChange, WorktreeInfo } from '../../shared/types'
+import type {
+  BaseBranchInfo,
+  BranchInfo,
+  CommitInfo,
+  FileChange,
+  WorktreeInfo
+} from '../../shared/types'
 import type { HostGit } from '../git/hostGit'
 import { countDirty, parseFileChanges, parseRefs, parseWorktrees } from '../git/parsers'
 import { shPath, shQuote } from '../sandbox/shell'
@@ -9,6 +15,32 @@ async function refExists(git: HostGit, mirrorPath: string, ref: string): Promise
     allowFail: true
   })
   return res.code === 0
+}
+
+/** Only origin branches are valid comparison bases; workspace refs and symbolic HEAD are excluded. */
+export async function listBaseBranches(
+  git: HostGit,
+  mirrorPath: string
+): Promise<BaseBranchInfo[]> {
+  const prefix = 'refs/remotes/origin/'
+  const refs = parseRefs(
+    (await git.run(mirrorPath, ['for-each-ref', '--format=%(refname)%00%(objectname)', prefix]))
+      .stdout
+  )
+  return [...refs]
+    .filter(([ref]) => ref !== `${prefix}HEAD`)
+    .map(([ref, sha]) => ({ name: ref.slice(prefix.length), sha }))
+}
+
+export async function resolveBaseRef(
+  git: HostGit,
+  mirrorPath: string,
+  name: string
+): Promise<string> {
+  const branches = await listBaseBranches(git, mirrorPath)
+  if (!branches.some((b) => b.name === name))
+    throw new Error(`Comparison branch not found: ${name}`)
+  return `refs/remotes/origin/${name}`
 }
 
 /** Sandbox branches as mirrored under refs/remotes/ws-<id>/*, compared against GitHub (refs/remotes/origin/*). */

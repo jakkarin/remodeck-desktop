@@ -6,11 +6,16 @@ import {
   type GitToken
 } from '../../../shared/gitAccess'
 import type { Host } from '../../../shared/types'
+import { CheckIcon, TriangleAlertIcon } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useOpenSettings } from '../settingsOpener'
 import { useAppState } from '../state'
 import { ConfirmDanger } from './ConfirmDanger'
-import { Badge, Button } from './ui'
+import { Alert, AlertDescription } from './ui/alert'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Label } from './ui/label'
 
 const WARNING =
   'Tokens are stored in plain text on this host. Anything running as this user can read them. Terminals opened from remodeck keep using the Git Bridge and push approval.'
@@ -21,7 +26,8 @@ const PROTECTION =
 const PATH_QUESTION = 'Add ~/.local/bin to PATH in ~/.bashrc so non-login shells use the gh wrapper'
 const PATH_BLOCK_ROWS = {
   present: 'PATH line in ~/.bashrc added by remodeck',
-  symlink: "~/.bashrc is a symlink, so remodeck didn't edit it. Put ~/.local/bin first in PATH yourself",
+  symlink:
+    "~/.bashrc is a symlink, so remodeck didn't edit it. Put ~/.local/bin first in PATH yourself",
   partial: '~/.bashrc has an incomplete remodeck PATH block. Fix it by hand',
   absent: null
 } as const
@@ -30,59 +36,119 @@ const HELPER_QUESTION =
 const HELPER_MISSING =
   "A credential helper reset later in the git config hides remodeck's helper. Update host with the option below ticked"
 
+function StatusRow({
+  tone = 'ok',
+  children
+}: {
+  tone?: 'ok' | 'warn' | 'bad'
+  children: React.ReactNode
+}): React.JSX.Element {
+  const Icon = tone === 'ok' ? CheckIcon : TriangleAlertIcon
+  const color =
+    tone === 'ok' ? 'text-success' : tone === 'warn' ? 'text-warning' : 'text-destructive'
+  return (
+    <li className={`flex items-start gap-2 ${tone === 'ok' ? '' : color}`}>
+      <Icon aria-hidden="true" className={`mt-0.5 size-3.5 shrink-0 ${color}`} />
+      <span>{children}</span>
+    </li>
+  )
+}
+
 function StatusRows({ status }: { status: GitAccessStatus }): React.JSX.Element {
   const { cli, wrapper } = status
   return (
-    <ul aria-label="Git access status" className="settings-help">
-      <li>
+    <ul aria-label="Git access status" className="m-0 flex list-none flex-col gap-1.5 p-0 text-xs">
+      <StatusRow tone={status.helperInstalled ? 'ok' : 'warn'}>
         {status.helperInstalled ? 'Credential helper installed' : 'Credential helper missing'}
-      </li>
-      <li>{status.includeActive ? 'Git include active' : 'Git include not active'}</li>
-      <li>
+      </StatusRow>
+      <StatusRow tone={status.includeActive ? 'ok' : 'warn'}>
+        {status.includeActive ? 'Git include active' : 'Git include not active'}
+      </StatusRow>
+      <StatusRow tone={cli.path === null ? 'warn' : 'ok'}>
         {cli.path === null
           ? 'gh not found on this host'
           : `gh ${cli.version ?? ''} at ${cli.path}`.replace('  ', ' ')}
-      </li>
+      </StatusRow>
       {wrapper.state === 'foreign' && (
-        <li>gh wrapper not installed: ~/.local/bin/gh already exists</li>
+        <StatusRow tone="warn">gh wrapper not installed: ~/.local/bin/gh already exists</StatusRow>
       )}
-      {wrapper.state === 'none' && <li>gh wrapper not installed</li>}
+      {wrapper.state === 'none' && <StatusRow tone="warn">gh wrapper not installed</StatusRow>}
       {wrapper.state === 'ours' && (
         <>
-          <li>
+          <StatusRow>
             gh wrapper installed{' '}
-            {wrapper.outdated && <Badge tone="warning">Update available</Badge>}
-          </li>
-          <li>
+            {wrapper.outdated && <Badge variant="warning">Update available</Badge>}
+          </StatusRow>
+          <StatusRow tone={wrapper.loginShell ? 'ok' : 'warn'}>
             {wrapper.loginShell
               ? 'Active in login shells'
               : 'Not active in login shells. Put ~/.local/bin first in PATH'}
-          </li>
-          <li>
+          </StatusRow>
+          <StatusRow tone={wrapper.nonLoginShell ? 'ok' : 'warn'}>
             {wrapper.nonLoginShell
               ? 'Active in non-login shells'
               : 'Not active in non-login shells. Put ~/.local/bin first in PATH'}
-          </li>
+          </StatusRow>
         </>
       )}
-      {PATH_BLOCK_ROWS[status.pathBlock] && <li>{PATH_BLOCK_ROWS[status.pathBlock]}</li>}
-      {status.helperOrder === 'missing' && <li className="error">{HELPER_MISSING}</li>}
+      {PATH_BLOCK_ROWS[status.pathBlock] && (
+        <StatusRow tone={status.pathBlock === 'present' ? 'ok' : 'warn'}>
+          {PATH_BLOCK_ROWS[status.pathBlock]}
+        </StatusRow>
+      )}
+      {status.helperOrder === 'missing' && <StatusRow tone="bad">{HELPER_MISSING}</StatusRow>}
       {status.otherHelpers.map((label) =>
         status.helperOrder === 'first' ? (
-          <li key={label}>
+          <StatusRow key={label} tone="warn">
             {`Credential helper "${label}" for github.com is asked after remodeck's, for repos without a remodeck token`}
-          </li>
+          </StatusRow>
         ) : (
-          <li key={label} className="error">
+          <StatusRow key={label} tone="bad">
             {`Credential helper "${label}" for github.com is asked before remodeck's and may answer with its own login. Repos without a remodeck token may also stop using it.`}
-          </li>
+          </StatusRow>
         )
       )}
     </ul>
   )
 }
 
-export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element {
+function CheckRow({
+  id,
+  checked,
+  disabled,
+  onChange,
+  children
+}: {
+  id: string
+  checked: boolean
+  disabled?: boolean
+  onChange(on: boolean): void
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <div className="flex items-start gap-2 text-xs">
+      <Checkbox
+        id={id}
+        className="mt-0.5"
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={(c) => onChange(c === true)}
+      />
+      <Label htmlFor={id} className="font-normal">
+        {children}
+      </Label>
+    </div>
+  )
+}
+
+export function HostGitAccessPanel({
+  host,
+  onClose
+}: {
+  host: Host
+  /** Closes the surrounding dialog; called before leaving for Settings. */
+  onClose?(): void
+}): React.JSX.Element {
   const { hosts, refresh } = useAppState()
   const openSettings = useOpenSettings()
   // The dialog's host prop can lag behind a refresh, so prefer the live record.
@@ -110,7 +176,9 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
   const askHelper =
     savedHelperFirst ||
     (status !== null &&
-      (status.otherHelpers.length > 0 || status.helperOrder === 'behind' || status.helperOrder === 'missing'))
+      (status.otherHelpers.length > 0 ||
+        status.helperOrder === 'behind' ||
+        status.helperOrder === 'missing'))
 
   useEffect(() => {
     if (!active) return
@@ -197,92 +265,110 @@ export function HostGitAccessPanel({ host }: { host: Host }): React.JSX.Element 
     })
 
   return (
-    <section className="settings-section" aria-label="Git access">
-      <h3>Git access on this host</h3>
-      <label className="checkbox">
-        <input
-          type="checkbox"
+    <section aria-label="Git access" className="flex flex-col gap-3">
+      <h3 className="m-0 text-sm font-semibold">Git access on this host</h3>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="git-access-enable"
           checked={active}
           disabled={installed || busy}
-          onChange={(e) => setEnabled(e.target.checked)}
+          onCheckedChange={(c) => setEnabled(c === true)}
         />
-        Enable git access on this host
-      </label>
+        <Label htmlFor="git-access-enable">Enable git access on this host</Label>
+      </div>
       {active && (
         <>
-          <p className="settings-help">{WARNING}</p>
-          <p className="settings-help">{PROTECTION}</p>
+          <Alert className="border-transparent bg-warning-soft text-warning">
+            <TriangleAlertIcon aria-hidden="true" />
+            <AlertDescription className="text-warning">{WARNING}</AlertDescription>
+          </Alert>
+          <p className="m-0 text-xs text-muted-foreground">{PROTECTION}</p>
           {tokens.length === 0 ? (
-            <p className="dim">No tokens yet.</p>
+            <p className="m-0 text-xs text-muted-foreground">No tokens yet.</p>
           ) : (
-            <ul aria-label="Tokens for this host" className="git-access-tokens">
+            <ul
+              aria-label="Tokens for this host"
+              className="m-0 flex list-none flex-col divide-y divide-border overflow-hidden rounded-lg border border-border p-0"
+            >
               {tokens.map((t) => (
-                <li key={t.id}>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
+                <li key={t.id} className="flex items-center gap-2 px-3 py-2">
+                  <div className="flex-1">
+                    <CheckRow
+                      id={`git-access-token-${t.id}`}
                       checked={checked.has(t.id)}
                       disabled={busy}
-                      onChange={(e) => toggle(t.id, e.target.checked)}
-                    />
-                    {scopeKey(t)} ({t.label})
-                  </label>{' '}
+                      onChange={(on) => toggle(t.id, on)}
+                    >
+                      {scopeKey(t)} ({t.label})
+                    </CheckRow>
+                  </div>
                   {status?.stale.includes(t.id) && (
-                    <Badge tone="warning">Changed since install</Badge>
+                    <Badge variant="warning">Changed since install</Badge>
                   )}
-                  {status?.missing.includes(t.id) && <Badge tone="danger">Missing on host</Badge>}
+                  {status?.missing.includes(t.id) && (
+                    <Badge variant="destructive">Missing on host</Badge>
+                  )}
                 </li>
               ))}
             </ul>
           )}
           {orphans.map((id) => (
-            <p key={id} className="settings-help">
+            <p key={id} className="m-0 text-xs text-muted-foreground">
               {ORPHAN}
             </p>
           ))}
-          <Button className="git-access-manage" onClick={() => openSettings('gitTokens')}>
-            Manage tokens
-          </Button>
+          <div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                onClose?.()
+                openSettings('gitTokens')
+              }}
+            >
+              Manage tokens
+            </Button>
+          </div>
           {status && <StatusRows status={status} />}
           {askPath && (
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={pathBlock}
-                disabled={busy}
-                onChange={(e) => setPathBlock(e.target.checked)}
-              />
+            <CheckRow
+              id="git-access-path"
+              checked={pathBlock}
+              disabled={busy}
+              onChange={setPathBlock}
+            >
               {PATH_QUESTION}
-            </label>
+            </CheckRow>
           )}
           {askHelper && (
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={helperFirst}
-                disabled={busy}
-                onChange={(e) => setHelperFirst(e.target.checked)}
-              />
+            <CheckRow
+              id="git-access-helper"
+              checked={helperFirst}
+              disabled={busy}
+              onChange={setHelperFirst}
+            >
               {HELPER_QUESTION}
-            </label>
+            </CheckRow>
           )}
-          {error && <div className="error">{error}</div>}
-          <div className="git-access-actions">
-            {installed && (
-              <Button onClick={() => void check()} disabled={busy}>
-                Check again
-              </Button>
-            )}
-            {/* a failed first install can leave files on the host; the remove script is safe on a clean one */}
-            <Button variant="danger" onClick={() => setConfirm('remove')} disabled={busy}>
-              Remove from host
-            </Button>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <div className="flex gap-2">
             <Button
-              variant="primary"
               disabled={busy || !tokens.some((t) => checked.has(t.id))}
               onClick={() => (installed ? void doInstall() : setConfirm('install'))}
             >
               {installed ? 'Update host' : 'Install'}
+            </Button>
+            {installed && (
+              <Button variant="outline" onClick={() => void check()} disabled={busy}>
+                Check again
+              </Button>
+            )}
+            {/* a failed first install can leave files on the host; the remove script is safe on a clean one */}
+            <Button variant="destructive" onClick={() => setConfirm('remove')} disabled={busy}>
+              Remove from host
             </Button>
           </div>
         </>

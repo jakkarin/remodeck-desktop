@@ -108,14 +108,14 @@ describe('ContainersView', () => {
       live: true
     })
     render(<ContainersView host={host} />)
-    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
+    const shop = await screen.findByRole('region', { name: 'shop' })
     const row = within(within(shop).getByRole('list')).getByRole('listitem')
     expect(within(row).getByText('web-image')).toBeInTheDocument()
     expect(within(row).getByText('Running')).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: 'Stop web' })).toBeInTheDocument()
     expect(within(shop).queryByText('worker')).toBeNull()
     expect(
-      within(screen.getByRole('region', { name: 'jobs (compose)' })).getByText('worker')
+      within(screen.getByRole('region', { name: 'jobs' })).getByText('worker')
     ).toBeInTheDocument()
     const standalone = screen.getByRole('region', { name: 'Standalone' })
     expect(within(standalone).getByText('No ports')).toBeInTheDocument()
@@ -124,13 +124,49 @@ describe('ContainersView', () => {
 
   it('groups compose projects and standalone, hiding stopped by default', async () => {
     render(<ContainersView host={host} />)
-    expect(await screen.findByText('shop (compose)')).toBeInTheDocument()
+    expect(await screen.findByText('shop')).toBeInTheDocument()
     expect(screen.getByText('Standalone')).toBeInTheDocument()
     expect(screen.getByText('web')).toBeInTheDocument()
     expect(screen.getByText('solo')).toBeInTheDocument()
     expect(screen.queryByText('db')).toBeNull()
     expect(screen.queryByText('old')).toBeNull()
     expect(screen.getAllByText('8080→80/tcp, 443/tcp').length).toBeGreaterThan(0)
+  })
+
+  it('pulses the status only for transitional states', async () => {
+    vi.mocked(api.containers.open).mockResolvedValue({
+      list: [
+        mk('flap', { state: 'restarting', status: 'Restarting' }),
+        mk('going', { state: 'removing', status: 'Removal In Progress' }),
+        mk('web'),
+        mk('hold', { state: 'paused', status: 'Up (Paused)' })
+      ],
+      live: true
+    })
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByLabelText('Show stopped'))
+    const pulse = (name: string): boolean =>
+      screen
+        .getByRole('button', { name: `Details for ${name}` })
+        .closest('li')!
+        .querySelector('[data-pulse="true"]') !== null
+    expect(pulse('flap')).toBe(true)
+    expect(pulse('going')).toBe(true)
+    expect(pulse('web')).toBe(false)
+    expect(pulse('hold')).toBe(false)
+  })
+
+  it('summarises a compose project as N of M running', async () => {
+    render(<ContainersView host={host} />)
+    expect(await screen.findByText('compose · 1 of 2 running')).toBeInTheDocument()
+  })
+
+  it('labels the table columns', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    for (const h of ['Name', 'Image', 'Ports', 'CPU', 'Memory'])
+      expect(screen.getAllByText(h).length).toBeGreaterThan(0)
   })
 
   it('shows stopped containers with the checkbox', async () => {
@@ -149,13 +185,13 @@ describe('ContainersView', () => {
     fireEvent.change(screen.getByLabelText('Filter containers'), { target: { value: 'SOLO-IM' } })
     expect(screen.getByText('solo')).toBeInTheDocument()
     expect(screen.queryByText('web')).toBeNull()
-    expect(screen.queryByText('shop (compose)')).toBeNull()
+    expect(screen.queryByText('shop')).toBeNull()
   })
 
   it('persists collapsed compose groups per host', async () => {
     const { unmount } = render(<ContainersView host={host} />)
     await screen.findByText('web')
-    fireEvent.click(screen.getByRole('button', { name: /shop \(compose\)/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'shop' }))
     expect(screen.getByText('web')).not.toBeVisible()
     expect(JSON.parse(localStorage.getItem('remodeck.composeCollapsed') ?? '{}')).toEqual({
       h1: ['shop']
@@ -183,8 +219,8 @@ describe('ContainersView', () => {
 
   it('collapses a compose project and wires the toggle to its list', async () => {
     render(<ContainersView host={host} />)
-    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
-    const toggle = within(shop).getByRole('button', { name: /shop \(compose\)/ })
+    const shop = await screen.findByRole('region', { name: 'shop' })
+    const toggle = within(shop).getByRole('button', { name: 'shop' })
     const listId = toggle.getAttribute('aria-controls') ?? ''
     expect(document.getElementById(listId)).not.toBeNull()
     expect(within(shop).getByText('web')).toBeVisible()
@@ -213,14 +249,26 @@ describe('ContainersView', () => {
     await waitFor(() =>
       expect(api.containers.action).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'), 'stop')
     )
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('the details panel runs the same actions as the row', async () => {
+    render(<ContainersView host={host} />)
+    await screen.findByText('web')
+    fireEvent.click(screen.getByRole('button', { name: 'Details for web' }))
+    const actions = await screen.findByRole('group', { name: 'Container actions' })
+    fireEvent.click(within(actions).getByRole('button', { name: 'Restart' }))
+    await waitFor(() =>
+      expect(api.containers.action).toHaveBeenCalledWith('h1', 'web'.padEnd(12, '0'), 'restart')
+    )
+    expect(within(actions).queryByRole('button', { name: 'Start' })).toBeNull()
   })
 
   it('asks for a click confirm to Stop on a protected host', async () => {
     render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Stop web' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(screen.getByText('stop · web')).toBeInTheDocument()
     expect(api.containers.action).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
@@ -339,9 +387,9 @@ describe('ContainersView', () => {
     const { rerender } = render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Stop web' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     rerender(<ContainersView host={hostB} />)
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(api.containers.action).not.toHaveBeenCalled()
   })
 
@@ -390,7 +438,7 @@ describe('ContainersView', () => {
         action: 'up'
       })
     )
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('double-clicking compose Up opens one terminal while the first is pending', async () => {
@@ -411,10 +459,10 @@ describe('ContainersView', () => {
     render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Up shop' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(screen.getByText('up · shop')).toBeInTheDocument()
     expect(openHostTerminal).not.toHaveBeenCalled()
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Up' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Up' }))
     await waitFor(() =>
       expect(openHostTerminal).toHaveBeenCalledWith('h1', {
         kind: 'compose',
@@ -428,14 +476,14 @@ describe('ContainersView', () => {
     const first = render(<ContainersView host={host} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
-    const click = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    const click = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Down' })
     expect(click).toBeEnabled()
     expect(openHostTerminal).not.toHaveBeenCalled()
     first.unmount()
     render(<ContainersView host={prot} />)
     await screen.findByText('web')
     fireEvent.click(screen.getByRole('button', { name: 'Down shop' }))
-    const typed = within(screen.getByRole('dialog')).getByRole('button', { name: 'Down' })
+    const typed = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Down' })
     expect(typed).toBeDisabled()
     fireEvent.change(screen.getByLabelText('Type the host name to confirm'), {
       target: { value: 'Box' }
@@ -459,13 +507,13 @@ describe('ContainersView', () => {
       live: true
     })
     render(<ContainersView host={host} />)
-    const shop = await screen.findByRole('region', { name: 'shop (compose)' })
-    expect(within(shop).getByRole('button', { name: /shop \(compose\)/ })).toHaveAttribute(
+    const shop = await screen.findByRole('region', { name: 'shop' })
+    expect(within(shop).getByRole('button', { name: 'shop' })).toHaveAttribute(
       'title',
       '/w · a.yml, b.yml'
     )
-    const jobs = screen.getByRole('region', { name: 'jobs (compose)' })
-    expect(within(jobs).getByRole('button', { name: /jobs \(compose\)/ })).toHaveAttribute(
+    const jobs = screen.getByRole('region', { name: 'jobs' })
+    expect(within(jobs).getByRole('button', { name: 'jobs' })).toHaveAttribute(
       'title',
       'Compose project path unknown (see the terminal for actual results)'
     )

@@ -1,68 +1,72 @@
 import { useState } from 'react'
-import { api, errorMessage } from '../api'
+import { GitBranch } from 'lucide-react'
 import { useAppState } from '../state'
-import { Button } from './ui'
+import { Button as ShButton } from './ui/button'
+import { AddExistingDialog } from './AddExistingDialog'
 import { AddHostDialog } from './AddHostDialog'
 import { CloneDialog } from './CloneDialog'
+import { ConnectPanel } from './ConnectPanel'
+import { Onboarding } from './Onboarding'
+import { StatePanel } from './StatePanel'
 
 /** Spec §4: nothing to show yet — no hosts, or hosts without a workspace. */
 export function EmptyState(): React.JSX.Element {
-  const { hosts, statuses, activeHostId, setStatus, refresh, selectWorkspace } = useAppState()
+  const { hosts, statuses, activeHostId, refresh, selectWorkspace } = useAppState()
   const [adding, setAdding] = useState(false)
   const [cloning, setCloning] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [addingExisting, setAddingExisting] = useState(false)
 
   const host = hosts.find((h) => h.id === activeHostId)
-  const connected = host !== undefined && statuses[host.id]?.state === 'connected'
-  const connectedIds = host && connected ? [host.id] : []
 
-  async function connect(): Promise<void> {
-    if (!host) return
-    setError(null)
-    try {
-      setStatus(host.id, await api.hosts.connect(host.id))
-    } catch (e) {
-      setError(errorMessage(e))
-    }
+  if (!host) {
+    return (
+      <>
+        <Onboarding onAddHost={() => setAdding(true)} />
+        {adding && <AddHostDialog onClose={() => setAdding(false)} />}
+      </>
+    )
+  }
+
+  if (statuses[host.id]?.state !== 'connected') return <ConnectPanel host={host} />
+
+  const hostIds = [host.id]
+  const opened = (w: { id: string }, close: () => void): void => {
+    close()
+    void refresh()
+      .catch(() => undefined)
+      .then(() => selectWorkspace(w.id))
   }
 
   return (
-    <div className="empty-state">
-      {!host ? (
-        <>
-          <h2>Add your first sandbox</h2>
-          <Button variant="primary" onClick={() => setAdding(true)}>
-            Add host
-          </Button>
-        </>
-      ) : (
-        <>
-          <h2>No workspaces yet</h2>
-          {connected ? (
-            <Button variant="primary" onClick={() => setCloning(true)}>
-              Clone repo
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={() => void connect()}>
-              Connect
-            </Button>
-          )}
-        </>
-      )}
-      {error && <div className="error">{error}</div>}
-      {adding && <AddHostDialog onClose={() => setAdding(false)} />}
+    <>
+      <StatePanel
+        icon={<GitBranch size={18} />}
+        title="No workspaces yet"
+        description="Clone from GitHub, or add a repo already on the host."
+      >
+        <div className="flex gap-2">
+          <ShButton size="lg" onClick={() => setCloning(true)}>
+            Clone repo
+          </ShButton>
+          <ShButton variant="outline" size="lg" onClick={() => setAddingExisting(true)}>
+            Add existing repo
+          </ShButton>
+        </div>
+      </StatePanel>
       {cloning && (
         <CloneDialog
-          hostIds={connectedIds}
+          hostIds={hostIds}
           onClose={() => setCloning(false)}
-          onCloned={(w) => {
-            setCloning(false)
-            void refresh()
-              .catch(() => undefined)
-              .then(() => selectWorkspace(w.id))
-          }}
+          onCloned={(w) => opened(w, () => setCloning(false))}
         />
       )}
-    </div>
+      {addingExisting && (
+        <AddExistingDialog
+          hostIds={hostIds}
+          onClose={() => setAddingExisting(false)}
+          onAdded={(w) => opened(w, () => setAddingExisting(false))}
+        />
+      )}
+    </>
   )
 }

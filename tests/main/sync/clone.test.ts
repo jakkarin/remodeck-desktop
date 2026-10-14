@@ -52,6 +52,16 @@ describe('SyncService.cloneToSandbox', () => {
     expect(fs.readFileSync(path.join(dir, 'a.txt'), 'utf8')).toBe('hi')
   })
 
+  it('reports progress that only rises and ends at 100', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    const { ws } = setup('~/repos/api')
+    const seen: number[] = []
+    await svc.cloneToSandbox(ws, (p) => seen.push(p.percent))
+    expect(seen[0]).toBe(0)
+    expect(seen.at(-1)).toBe(100)
+    expect(seen).toEqual([...seen].sort((x, y) => x - y))
+  })
+
   it('rejects a non-empty target and leaves the mirror untouched', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     const { ws, repo } = setup('~/busy')

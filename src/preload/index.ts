@@ -36,6 +36,7 @@ const remodeck: RemodeckApi = {
     remove: invoke(C.workspaces.remove),
     sync: invoke(C.workspaces.sync),
     branches: invoke(C.workspaces.branches),
+    baseBranches: invoke(C.workspaces.baseBranches),
     commits: invoke(C.workspaces.commits),
     files: invoke(C.workspaces.files),
     diff: invoke(C.workspaces.diff),

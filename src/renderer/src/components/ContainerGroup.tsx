@@ -1,0 +1,81 @@
+import { useId, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { cn } from 'cn'
+
+/** Shared column template for the header row and every container row. */
+export const CONTAINER_GRID =
+  'grid grid-cols-[22px_minmax(160px,1.4fr)_minmax(140px,1.2fr)_110px_64px_80px_72px] items-center gap-2.5'
+
+const COLUMNS = ['Name', 'Image', 'Ports', 'CPU', 'Memory', 'Up']
+
+/** A named group of container rows: heading, optional toggle and actions, column header, rows. */
+export function ContainerGroup({
+  title,
+  meta,
+  actions,
+  titleHint,
+  collapsed,
+  onToggle,
+  children
+}: {
+  title: string
+  meta: string
+  actions?: ReactNode
+  /** Tooltip for the toggle. */
+  titleHint?: string
+  collapsed?: boolean
+  onToggle?: () => void
+  children: ReactNode
+}): React.JSX.Element {
+  const id = useId()
+  const listId = `${id}-list`
+  return (
+    <section aria-labelledby={`${id}-title`} className="pb-2">
+      <div className="flex flex-wrap items-center gap-2.5 px-3.5 pt-3 pb-1.5 text-[13px]">
+        <h3 className="m-0 flex items-center gap-2.5 text-[13px]">
+          {onToggle ? (
+            <button
+              type="button"
+              id={`${id}-title`}
+              aria-expanded={!collapsed}
+              aria-controls={listId}
+              title={titleHint}
+              onClick={onToggle}
+              className="flex items-center gap-2 rounded-md font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            >
+              <span aria-hidden="true" className="text-muted-foreground">
+                {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+              </span>
+              <span>{title}</span>
+            </button>
+          ) : (
+            <span id={`${id}-title`} className="font-semibold">
+              {title}
+            </span>
+          )}
+          <span className="text-xs font-normal text-muted-foreground">{meta}</span>
+        </h3>
+        {actions && <span className="ml-auto flex gap-1 font-normal">{actions}</span>}
+      </div>
+      <div hidden={collapsed} className="overflow-x-auto">
+        <div className="flex min-w-[640px] flex-col px-1.5">
+          <div
+            aria-hidden="true"
+            className={cn(
+              CONTAINER_GRID,
+              'px-2 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase'
+            )}
+          >
+            <span />
+            {COLUMNS.map((c) => (
+              <span key={c}>{c}</span>
+            ))}
+          </div>
+          <ul id={listId} className="m-0 flex list-none flex-col p-0">
+            {children}
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}

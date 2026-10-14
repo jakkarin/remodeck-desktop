@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FileCode } from 'lucide-react'
-import { Button, PaneHeader } from './ui'
+import { Button } from './ui/button'
+import { PaneTitle } from './Pane'
 
 const MAX_LINES = 5000
 
@@ -26,14 +27,15 @@ export function DiffPane({
   const all = text.replace(/\n$/, '').split('\n')
   const truncated = !showAll && all.length > MAX_LINES
   const lines = truncated ? all.slice(0, MAX_LINES) : all
+  const label = oldPath ? `${oldPath} → ${path}` : path
 
   return (
-    <div className="diff-pane">
-      <PaneHeader icon={<FileCode size={14} />} title={oldPath ? `${oldPath} → ${path}` : path}>
-        {oldPath ? `${oldPath} → ${path}` : path}
-      </PaneHeader>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PaneTitle icon={<FileCode size={14} />} title={label} className="font-mono text-xs">
+        {label}
+      </PaneTitle>
       {binary ? (
-        <div className="muted pad">Binary file</div>
+        <div className="p-3.5 text-muted-foreground">Binary file</div>
       ) : (
         <pre className="diff">
           <div className="diff-lines">
@@ -44,7 +46,7 @@ export function DiffPane({
             ))}
           </div>
           {truncated && (
-            <Button className="diff-more" onClick={() => setShowAll(true)}>
+            <Button variant="secondary" className="m-3" onClick={() => setShowAll(true)}>
               Show all
             </Button>
           )}

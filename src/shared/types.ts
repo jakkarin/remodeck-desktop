@@ -76,6 +76,9 @@ export type BranchInfo = {
   rewritten: boolean
 }
 
+/** A GitHub branch available in the local mirror for comparison. */
+export type BaseBranchInfo = { name: string; sha: string }
+
 export type FileChange = {
   path: string
   oldPath?: string
@@ -92,6 +95,9 @@ export type WorktreeInfo = {
   head: string | null
   dirty: number
 }
+
+/** Overall progress of a clone, 0–100, and the step it is on. */
+export type CloneProgress = { phase: 'fetch' | 'push' | 'checkout'; percent: number }
 
 export type SyncInfo = { kind: 'light' | 'full'; at: number; error?: string }
 

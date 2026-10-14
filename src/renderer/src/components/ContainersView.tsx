@@ -17,9 +17,14 @@ import { openHostTerminal } from '../terminalEvents'
 import { useContainers } from '../useContainers'
 import { useContainerStats } from '../useContainerStats'
 import { ConfirmDanger } from './ConfirmDanger'
-import { ErrorBanner } from './ErrorBanner'
-import { Badge, Button, TextInput } from './ui'
-import { GroupPanel } from './ui/GroupedList'
+import { Banner } from './Banner'
+import { cn } from 'cn'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Input } from './ui/input'
+import { TooltipProvider } from './ui/tooltip'
+import { ContainerGroup } from './ContainerGroup'
 import { ContainerItem } from './ContainerItem'
 import { ContainerDetailsPanel } from './ContainerDetailsPanel'
 import { ResourcesView } from './ResourcesView'
@@ -32,6 +37,10 @@ const TABS: [Tab, string][] = [
   ['volume', 'Volumes'],
   ['network', 'Networks']
 ]
+
+const CARD =
+  'flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-background'
+const TOOLBAR = 'flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-3 py-2.5'
 
 const COLLAPSED_KEY = 'remodeck.composeCollapsed'
 const DETAILS_WIDTH_KEY = 'remodeck.containerDetailsWidth'
@@ -165,14 +174,17 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   // The resource tabs need the host the failed list left disposed.
   if (error !== null && tab !== 'containers') setTab('containers')
   const tabStrip = (
-    <div role="tablist" aria-label="Docker resources" className="containers-tabbar">
+    <div role="tablist" aria-label="Docker resources" className="flex rounded-lg bg-muted p-0.5">
       {TABS.map(([id, label]) => (
         <button
           key={id}
           type="button"
           role="tab"
           aria-selected={tab === id}
-          className={`containers-tab${tab === id ? ' active' : ''}`}
+          className={cn(
+            'h-6.5 rounded-md px-2.5 text-xs text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50',
+            tab === id && 'bg-background font-medium text-foreground shadow-xs'
+          )}
           disabled={error !== null && id !== 'containers'}
           title={
             error !== null && id !== 'containers'
@@ -186,38 +198,59 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       ))}
     </div>
   )
-  if (tab !== 'containers') {
-    return (
-      <div className="containers-view">
-        {tabStrip}
-        <div className="containers-body">
-          <ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />
+  // One tree for every state so the tab strip keeps its identity while switching tabs.
+  const frame = (
+    body: React.ReactNode,
+    extras?: React.ReactNode,
+    details?: React.ReactNode,
+    after?: React.ReactNode
+  ): React.JSX.Element => (
+    <TooltipProvider>
+      <div className="@container h-full min-h-0">
+        <div
+          ref={splitRef}
+          className={cn(
+            'containers-split grid h-full min-h-0 grid-cols-[minmax(0,1fr)]',
+            details &&
+              'grid-cols-[minmax(0,1fr)_6px_min(var(--details-width,400px),max(280px,calc(100%-320px)))] @max-[720px]:grid-cols-[minmax(0,1fr)] @max-[720px]:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]'
+          )}
+          style={{ '--details-width': `${detailsWidth}px` } as React.CSSProperties}
+        >
+          <div className={CARD}>
+            <div className={TOOLBAR}>
+              {tabStrip}
+              {extras}
+            </div>
+            {body}
+          </div>
+          {details}
         </div>
       </div>
-    )
+      {after}
+    </TooltipProvider>
+  )
+  const padded = (children: React.ReactNode): React.JSX.Element => (
+    <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>
+  )
+  if (tab !== 'containers') {
+    return frame(padded(<ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />))
   }
 
   if (error !== null) {
-    return (
-      <div className="containers-view">
-        {tabStrip}
-        <div className="containers-body">
-          <ErrorBanner message={`Cannot connect to docker on ${host.label}`} />
-          <div className="error">{error}</div>
-          <Button onClick={retry}>Retry</Button>
+    return frame(
+      padded(
+        <div className="flex flex-col items-start gap-3">
+          <Banner tone="danger">{`Cannot connect to docker on ${host.label}`}</Banner>
+          <div className="text-destructive">{error}</div>
+          <Button variant="outline" onClick={retry}>
+            Retry
+          </Button>
         </div>
-      </div>
+      )
     )
   }
   if (list === null) {
-    return (
-      <div className="containers-view">
-        {tabStrip}
-        <div className="containers-body">
-          <div className="muted">Loading…</div>
-        </div>
-      </div>
-    )
+    return frame(padded(<div className="text-muted-foreground">Loading…</div>))
   }
 
   const selected = selectedId === null ? undefined : list.find((c) => c.id === selectedId)
@@ -259,95 +292,100 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
       onEnd: (width) => writeJson(DETAILS_WIDTH_KEY, width)
     })
   }
-  return (
-    <div className="containers-view">
-      {tabStrip}
-      <div className="containers-body">
-        <div
-          ref={splitRef}
-          className={`containers-split${selected ? ' has-details' : ''}`}
-          style={{ '--details-width': `${detailsWidth}px` } as React.CSSProperties}
-        >
-          <div className="containers-main">
-            <div className="containers-toolbar">
-              <TextInput
-                aria-label="Filter containers"
-                placeholder="Filter"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showStopped}
-                  onChange={(e) => setShowStopped(e.target.checked)}
-                />
-                Show stopped
-              </label>
-              {!live && <Badge tone="warning">Live updates paused</Badge>}
-            </div>
-            {actionError && <ErrorBanner message={actionError} />}
-            {list.length === 0 && <div className="muted">{`No containers on ${host.label}`}</div>}
-            {list.length > 0 && visible.length === 0 && (
-              <div className="muted">No containers match the filter</div>
-            )}
-            {projects.map((p) => (
-              <GroupPanel
-                key={p.name}
-                title={`${p.name} (compose)`}
-                collapsed={collapsed.includes(p.name)}
-                onToggle={() => toggleProject(p.name)}
-                titleHint={projectHint(p)}
-                actions={COMPOSE_LABELS.map(([action, label]) => (
-                  <Button
-                    key={action}
-                    aria-label={`${label} ${p.name}`}
-                    disabled={busy.has(`compose:${p.name}`)}
-                    onClick={() => compose(p.name, action)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              >
-                {p.containers.map(row)}
-              </GroupPanel>
-            ))}
-            {standalone.length > 0 && (
-              <GroupPanel title="Standalone">{standalone.map(row)}</GroupPanel>
-            )}
-          </div>
-          {selected && (
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize details"
-              className="split-sep split-sep-v containers-details-sep"
-              onPointerDown={resizeDetails}
-            />
-          )}
-          {selected && (
-            <ContainerDetailsPanel
-              key={selected.id}
-              host={host}
-              container={selected}
-              onClose={() => setSelectedId(null)}
-            />
-          )}
-        </div>
-      </div>
-      {pending && !stale && (
-        <ConfirmDanger
-          host={host}
-          summary={pending.summary}
-          confirmLabel={pending.confirmLabel}
-          mode={pending.mode}
-          onConfirm={async () => {
-            if (pending.hostId !== host.id) throw new Error('host changed')
-            await pending.run()
-          }}
-          onClose={() => setPending(null)}
-        />
+  const runningIn = (name: string): string => {
+    const all = list.filter((c) => c.compose?.project === name)
+    return `compose · ${all.filter((c) => c.state === 'running').length} of ${all.length} running`
+  }
+  return frame(
+    <div className="min-h-0 flex-1 overflow-auto">
+      {actionError && <Banner tone="danger">{actionError}</Banner>}
+      {list.length === 0 && (
+        <div className="p-3.5 text-muted-foreground">{`No containers on ${host.label}`}</div>
       )}
-    </div>
+      {list.length > 0 && visible.length === 0 && (
+        <div className="p-3.5 text-muted-foreground">No containers match the filter</div>
+      )}
+      {projects.map((p) => (
+        <ContainerGroup
+          key={p.name}
+          title={p.name}
+          meta={runningIn(p.name)}
+          collapsed={collapsed.includes(p.name)}
+          onToggle={() => toggleProject(p.name)}
+          titleHint={projectHint(p)}
+          actions={COMPOSE_LABELS.map(([action, label]) => (
+            <Button
+              key={action}
+              variant="outline"
+              size="sm"
+              aria-label={`${label} ${p.name}`}
+              className={cn(action === 'down' && 'border-destructive/30 text-destructive')}
+              disabled={busy.has(`compose:${p.name}`)}
+              onClick={() => compose(p.name, action)}
+            >
+              {label}
+            </Button>
+          ))}
+        >
+          {p.containers.map(row)}
+        </ContainerGroup>
+      ))}
+      {standalone.length > 0 && (
+        <ContainerGroup
+          title="Standalone"
+          meta={`${standalone.length} ${standalone.length === 1 ? 'container' : 'containers'}`}
+        >
+          {standalone.map(row)}
+        </ContainerGroup>
+      )}
+    </div>,
+    <>
+      <div className="flex-1" />
+      {!live && <Badge variant="warning">Live updates paused</Badge>}
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Checkbox checked={showStopped} onCheckedChange={(v) => setShowStopped(v === true)} />
+        Show stopped
+      </label>
+      <Input
+        aria-label="Filter containers"
+        placeholder="Filter"
+        className="h-7 w-[200px] bg-(--bg-subtle)"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+      />
+    </>,
+    selected && (
+      <>
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize details"
+          className="cursor-col-resize touch-none rounded-full transition-colors hover:bg-(--accent)/40 @max-[720px]:hidden"
+          onPointerDown={resizeDetails}
+        />
+        <ContainerDetailsPanel
+          key={selected.id}
+          host={host}
+          container={selected}
+          busy={busy.has(selected.id)}
+          onAction={(action) => request(selected, action)}
+          onTerminal={(kind) => terminal(selected, kind)}
+          onClose={() => setSelectedId(null)}
+        />
+      </>
+    ),
+    pending && !stale && (
+      <ConfirmDanger
+        host={host}
+        summary={pending.summary}
+        confirmLabel={pending.confirmLabel}
+        mode={pending.mode}
+        onConfirm={async () => {
+          if (pending.hostId !== host.id) throw new Error('host changed')
+          await pending.run()
+        }}
+        onClose={() => setPending(null)}
+      />
+    )
   )
 }

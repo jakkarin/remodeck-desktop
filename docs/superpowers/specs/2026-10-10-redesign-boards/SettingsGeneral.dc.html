@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>remodeck — Settings, General</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F5}
+a{color:#245FA8}a:hover{color:#1B4A84}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: #18181B; background: #F4F4F5; min-height: 900px; display: flex; flex-direction: column;">
+
+  <header style="height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #FFFFFF; border-bottom: 1px solid #E4E4E7;">
+    <div style="width: 22px; height: 22px; border-radius: 6px; background: #18181B; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; margin-right: 8px;">r</div>
+    <span style="font-weight: 600;">Settings</span>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap;">
+    <nav aria-label="Modules" style="width: 52px; flex: 0 0 52px; background: #FFFFFF; border-right: 1px solid #E4E4E7; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0;">
+      <button aria-label="Git" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+      </button>
+      <button aria-label="Containers" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; color: #63636B; display: flex; align-items: center; justify-content: center;">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </button>
+      <div style="flex: 1;"></div>
+      <button aria-label="Settings" style="width: 36px; height: 36px; border-radius: 8px; border: none; background: #E8EEF7; color: #245FA8; display: flex; align-items: center; justify-content: center; position: relative;">
+        <span style="position: absolute; left: -8px; top: 9px; width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: #245FA8;"></span>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      </button>
+    </nav>
+
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-wrap: wrap; gap: 24px; padding: 24px;">
+      <nav aria-label="Settings sections" style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 2px;">
+        <a href="#" aria-current="page" style="padding: 7px 10px; border-radius: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px #E4E4E7; color: #18181B; font-weight: 500; text-decoration: none;">General</a>
+        <a href="SettingsRepos.dc.html" style="padding: 7px 10px; border-radius: 7px; color: #3F3F46; text-decoration: none;">Repositories</a>
+        <a href="SettingsTokens.dc.html" style="padding: 7px 10px; border-radius: 7px; color: #3F3F46; text-decoration: none;">Git tokens</a>
+        <a href="SettingsPushLog.dc.html" style="padding: 7px 10px; border-radius: 7px; color: #3F3F46; text-decoration: none;">Push log</a>
+      </nav>
+
+      <div style="flex: 999 1 480px; max-width: 720px; display: flex; flex-direction: column; gap: 16px;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600;">General</h1>
+
+        <section aria-labelledby="appearance-h" style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px;">
+          <h2 id="appearance-h" style="margin: 0; padding: 14px 16px 0; font-size: 14px; font-weight: 600;">Appearance</h2>
+          <div style="display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-bottom: 1px solid #F0F0F2; flex-wrap: wrap;">
+            <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-weight: 500;">Theme</span>
+              <span style="font-size: 12px; color: #63636B;">System follows Windows light/dark.</span>
+            </div>
+            <div role="radiogroup" aria-label="Theme" style="display: flex; padding: 2px; background: #F4F4F5; border-radius: 8px;">
+              <button role="radio" aria-checked="true" style="height: 28px; padding: 0 12px; border: none; border-radius: 6px; background: #FFFFFF; color: #18181B; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.08);">System</button>
+              <button role="radio" aria-checked="false" style="height: 28px; padding: 0 12px; border: none; border-radius: 6px; background: transparent; color: #63636B;">Light</button>
+              <button role="radio" aria-checked="false" style="height: 28px; padding: 0 12px; border: none; border-radius: 6px; background: transparent; color: #63636B;">Dark</button>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; padding: 14px 16px; flex-wrap: wrap;">
+            <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px;">
+              <label for="tfs" style="font-weight: 500;">Terminal font size</label>
+              <span style="font-size: 12px; color: #63636B; font-family: 'Geist Mono', monospace;">claude@ubuntu:~$ git status</span>
+            </div>
+            <select id="tfs" style="width: 96px; height: 30px; padding: 0 8px; border: 1px solid #E4E4E7; border-radius: 7px; background: #FFFFFF; color: #18181B;"><option>13 px</option></select>
+          </div>
+        </section>
+
+        <section aria-labelledby="git-h" style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 12px;">
+          <h2 id="git-h" style="margin: 0; padding: 14px 16px 0; font-size: 14px; font-weight: 600;">New repositories</h2>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px;">
+            <label for="dpb" style="font-weight: 500;">Default protected branches</label>
+            <input id="dpb" value="main, master, release/*" style="height: 30px; padding: 0 10px; border: 1px solid #E4E4E7; border-radius: 7px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #18181B;">
+            <span style="font-size: 12px; color: #63636B;">Comma-separated. Applies to newly added repos only; existing repos keep their own list.</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

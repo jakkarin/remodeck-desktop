@@ -3,7 +3,21 @@ import type { Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { HostGitAccessPanel } from './HostGitAccessPanel'
-import { Button, TextInput } from './ui'
+import { Alert, AlertDescription } from './ui/alert'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from './ui/dialog'
+import { Field, FieldGroup, FieldLabel } from './ui/field'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
+import { Separator } from './ui/separator'
 
 export function HostSettingsDialog({
   host,
@@ -32,40 +46,62 @@ export function HostSettingsDialog({
   }
 
   return (
-    <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-label="Host settings">
-        <h2>Host settings</h2>
-        <label>
-          SSH host
-          <TextInput value={host.sshHost} readOnly aria-label="SSH host" />
-        </label>
-        <label>
-          Label
-          <TextInput value={label} onChange={(e) => setLabel(e.target.value)} autoFocus />
-        </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            aria-describedby="host-protected-hint"
-            checked={isProtected}
-            onChange={(e) => setIsProtected(e.target.checked)}
-          />
-          Protected host
-        </label>
-        <div id="host-protected-hint" className="muted">
-          Require typing the host name before dangerous commands
-        </div>
-        <HostGitAccessPanel host={host} />
-        {error && <div className="error">{error}</div>}
-        <div className="dialog-actions">
-          <Button onClick={onClose} disabled={busy}>
+    <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
+      <DialogContent aria-label="Host settings" aria-labelledby={undefined} className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Host settings</DialogTitle>
+          <DialogDescription className="sr-only">
+            Label, protection and git access for this host.
+          </DialogDescription>
+        </DialogHeader>
+        <FieldGroup className="gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field>
+              <FieldLabel htmlFor="host-ssh">SSH host</FieldLabel>
+              <Input id="host-ssh" className="bg-muted font-mono" value={host.sshHost} readOnly />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="host-label">Label</FieldLabel>
+              <Input
+                id="host-label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                autoFocus
+              />
+            </Field>
+          </div>
+          <div className="flex items-start gap-2.5 rounded-lg border border-border p-2.5">
+            <Checkbox
+              id="host-protected"
+              className="mt-0.5"
+              aria-describedby="host-protected-hint"
+              checked={isProtected}
+              onCheckedChange={(checked) => setIsProtected(checked === true)}
+            />
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="host-protected">Protected host</Label>
+              <div id="host-protected-hint" className="text-muted-foreground">
+                Require typing the host name before dangerous commands
+              </div>
+            </div>
+          </div>
+        </FieldGroup>
+        <Separator />
+        <HostGitAccessPanel host={host} onClose={onClose} />
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => void save()} disabled={busy || !label.trim()}>
+          <Button onClick={() => void save()} disabled={busy || !label.trim()}>
             {busy ? 'Saving...' : 'Save'}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

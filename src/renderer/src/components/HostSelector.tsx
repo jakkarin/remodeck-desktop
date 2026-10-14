@@ -1,52 +1,85 @@
-import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Lock, MoreHorizontal, Plus, Server } from 'lucide-react'
-import type { Host, HostStatus } from '../../../shared/types'
+import { useRef, useState } from 'react'
+import {
+  Check,
+  ChevronDown,
+  Lock,
+  MoreHorizontal,
+  Plus,
+  Server,
+  SlidersHorizontal
+} from 'lucide-react'
+import { cn } from 'cn'
+import type { Host, HostState, HostStatus } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
-import { Button, IconButton } from './ui'
+import { useReturnFocus } from '../useReturnFocus'
+import { Button } from './ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from './ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { AddHostDialog } from './AddHostDialog'
 import { HostSettingsDialog } from './HostSettingsDialog'
 import { RemoveHostDialog } from './RemoveDialogs'
 
 const DISCONNECTED: HostStatus = { state: 'disconnected' }
 
+const STATE_TEXT: Record<HostState, string> = {
+  connected: 'connected',
+  disconnected: 'not connected',
+  connecting: 'connecting…',
+  error: 'error'
+}
+
+function StatusDot({ state, title }: { state: HostState; title?: string }): React.JSX.Element {
+  return (
+    <span
+      title={title}
+      data-status={state}
+      className={cn(
+        'size-2 shrink-0 rounded-full',
+        state === 'connected' && 'bg-success',
+        state === 'disconnected' && 'box-border border-[1.5px] border-muted-foreground/60',
+        state === 'connecting' && 'animate-pulse bg-warning',
+        state === 'error' && 'bg-destructive'
+      )}
+    />
+  )
+}
+
 function ProtectedBadge(): React.JSX.Element {
   return (
-    <span className="protected-badge">
-      <Lock size={12} aria-hidden="true" />
+    <span className="inline-flex items-center gap-1 rounded-full bg-destructive-soft px-1.5 py-px text-[10px] font-semibold text-destructive">
+      <Lock size={10} aria-hidden="true" />
       protected
     </span>
   )
 }
 
+const rowButton =
+  'h-[26px] rounded-md border-border bg-background px-2.5 text-xs font-normal text-foreground hover:bg-accent'
+
 export function HostSelector(): React.JSX.Element {
   const { hosts, statuses, workspaces, activeHostId, selectHost, setStatus } = useAppState()
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const [menu, setMenu] = useState<string | null>(null)
+  // a dialog is taking focus: do not hand it back to the trigger on close
+  const dialogOpening = useRef(false)
+  const closeForDialog = (): void => {
+    dialogOpening.current = true
+    setOpen(false)
+  }
   const [adding, setAdding] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [removingHost, setRemovingHost] = useState<Host | null>(null)
   const [editingHost, setEditingHost] = useState<Host | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  useReturnFocus(adding || removingHost !== null || editingHost !== null, triggerRef)
 
   const active = hosts.find((h) => h.id === activeHostId)
   const activeState = active ? (statuses[active.id] ?? DISCONNECTED).state : 'disconnected'
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    const onPointer = (e: globalThis.PointerEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onPointer)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onPointer)
-    }
-  }, [open])
 
   const run = async (action: () => Promise<void>): Promise<void> => {
     setActionError(null)
@@ -65,116 +98,154 @@ export function HostSelector(): React.JSX.Element {
     })
 
   return (
-    <div className="switcher" ref={rootRef}>
-      <Button
-        className="switcher-trigger"
-        aria-label="Switch host"
-        aria-haspopup="true"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((o) => !o)
-          setMenu(null)
+    <>
+      <Popover
+        open={open}
+        onOpenChange={(o) => {
+          if (o) dialogOpening.current = false
+          setOpen(o)
         }}
       >
-        {active ? (
-          <span className={`dot ${activeState}`} title={activeState} />
-        ) : (
-          <Server size={14} />
-        )}
-        <span>{active ? active.label : 'Select host'}</span>
-        {active?.protected && <ProtectedBadge />}
-        <ChevronDown size={14} />
-      </Button>
-      {open && (
-        <div className="switcher-panel">
-          {hosts.length === 0 && <div className="muted pad">No hosts yet</div>}
+        <PopoverTrigger asChild>
+          <Button ref={triggerRef} variant="ghost" aria-label="Switch host" className="gap-2 px-2">
+            {active ? <StatusDot state={activeState} title={activeState} /> : <Server size={14} />}
+            <span>{active ? active.label : 'Select host'}</span>
+            {active?.protected && <ProtectedBadge />}
+            <ChevronDown size={14} className="text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          onCloseAutoFocus={(e) => {
+            if (dialogOpening.current) e.preventDefault()
+            dialogOpening.current = false
+          }}
+          className="w-[340px] gap-0 rounded-xl bg-popover p-1.5 shadow-lg data-open:duration-[180ms] data-closed:duration-[120ms]"
+        >
+          <div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Hosts
+          </div>
+          {hosts.length === 0 && (
+            <div className="px-2.5 py-2 text-muted-foreground">No hosts yet</div>
+          )}
           {hosts.map((host) => {
             const status = statuses[host.id] ?? DISCONNECTED
             const connected = status.state === 'connected'
             const hasWorkspaces = workspaces.some((w) => w.hostId === host.id)
-            const hostMenu = `host:${host.id}`
+            const isActive = host.id === activeHostId
+            const subId = `host-sub-${host.id}`
+            const sub =
+              status.state === 'error'
+                ? (status.error ?? STATE_TEXT.error)
+                : `ssh ${host.sshHost} · ${STATE_TEXT[status.state]}`
             return (
-              <section key={host.id} className={host.id === activeHostId ? 'host active' : 'host'}>
-                <div className="host-row">
-                  <span className={`dot ${status.state}`} title={status.state} />
-                  <Button
-                    variant="ghost"
-                    className="host-label"
-                    onClick={() => {
-                      selectHost(host.id)
-                      setOpen(false)
-                    }}
-                  >
-                    {host.label}
-                  </Button>
-                  {host.protected && <ProtectedBadge />}
-                  {status.state === 'disconnected' && (
-                    <Button onClick={() => void connect(host.id)}>Connect</Button>
-                  )}
-                  {status.state === 'error' && (
-                    <Button onClick={() => void connect(host.id)}>Retry</Button>
-                  )}
-                  <IconButton
-                    aria-label={`Host menu ${host.label}`}
-                    onClick={() => setMenu(menu === hostMenu ? null : hostMenu)}
-                  >
-                    <MoreHorizontal size={14} />
-                  </IconButton>
-                </div>
-                {menu === hostMenu && (
-                  <div className="menu">
-                    <Button
-                      onClick={() => {
-                        setMenu(null)
-                        setOpen(false)
-                        setEditingHost(host)
-                      }}
+              <div
+                key={host.id}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-lg pr-1.5 hover:bg-accent',
+                  isActive && 'bg-selected hover:bg-selected'
+                )}
+              >
+                <button
+                  type="button"
+                  aria-current={isActive ? 'true' : undefined}
+                  aria-describedby={subId}
+                  aria-label={host.label}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  onClick={() => {
+                    selectHost(host.id)
+                    setOpen(false)
+                  }}
+                >
+                  <StatusDot state={status.state} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <span className="truncate">{host.label}</span>
+                      {host.protected && <ProtectedBadge />}
+                    </span>
+                    <span
+                      id={subId}
+                      className={cn(
+                        'block truncate text-[11px]',
+                        status.state === 'error'
+                          ? 'text-destructive'
+                          : 'font-mono text-muted-foreground'
+                      )}
                     >
-                      Host settings…
-                    </Button>
-                    {connected && (
-                      <Button
-                        onClick={() => {
-                          setMenu(null)
-                          void disconnect(host.id)
-                        }}
-                      >
-                        Disconnect
-                      </Button>
-                    )}
+                      {sub}
+                    </span>
+                  </span>
+                  {isActive && <Check size={14} aria-hidden="true" className="text-(--accent)" />}
+                </button>
+                {status.state === 'disconnected' && (
+                  <Button className={rowButton} onClick={() => void connect(host.id)}>
+                    Connect
+                  </Button>
+                )}
+                {status.state === 'error' && (
+                  <Button className={rowButton} onClick={() => void connect(host.id)}>
+                    Retry
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Settings for ${host.label}`}
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    closeForDialog()
+                    setEditingHost(host)
+                  }}
+                >
+                  <SlidersHorizontal />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Host menu ${host.label}`}
+                      className="text-muted-foreground"
+                    >
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-auto min-w-40">
+                    {connected && (
+                      <DropdownMenuItem onSelect={() => void disconnect(host.id)}>
+                        Disconnect
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
                       disabled={hasWorkspaces}
                       title={hasWorkspaces ? 'Remove the workspaces on this host first' : undefined}
-                      onClick={() => {
-                        setMenu(null)
-                        setOpen(false)
+                      className="data-disabled:pointer-events-auto"
+                      onSelect={() => {
+                        closeForDialog()
                         setRemovingHost(host)
                       }}
                     >
-                      Remove host
-                    </Button>
-                  </div>
-                )}
-                {status.state === 'error' && status.error && (
-                  <div className="error">{status.error}</div>
-                )}
-              </section>
+                      Remove host…
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )
           })}
-          {actionError && <div className="error pad">{actionError}</div>}
-          <div className="switcher-footer">
-            <Button
-              onClick={() => {
-                // the dialog renders inside the switcher, so clicks in it never count as outside
-                setOpen(false)
-                setAdding(true)
-              }}
-            >
-              <Plus size={14} /> Add host
-            </Button>
-          </div>
-        </div>
-      )}
+          {actionError && <div className="px-2.5 py-1.5 text-destructive">{actionError}</div>}
+          <div className="mx-1 my-1.5 h-px bg-border" />
+          <Button
+            variant="ghost"
+            className="h-auto justify-start gap-2.5 rounded-lg px-2.5 py-2 text-xs font-normal"
+            onClick={() => {
+              closeForDialog()
+              setAdding(true)
+            }}
+          >
+            <Plus size={16} className="text-muted-foreground" /> Add host…
+          </Button>
+        </PopoverContent>
+      </Popover>
       {adding && <AddHostDialog onClose={() => setAdding(false)} />}
       {editingHost && (
         <HostSettingsDialog host={editingHost} onClose={() => setEditingHost(null)} />
@@ -182,6 +253,6 @@ export function HostSelector(): React.JSX.Element {
       {removingHost && (
         <RemoveHostDialog host={removingHost} onClose={() => setRemovingHost(null)} />
       )}
-    </div>
+    </>
   )
 }

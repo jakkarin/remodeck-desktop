@@ -1,15 +1,18 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { cn } from 'cn'
 import { createPortal } from 'react-dom'
 import { ApprovalModal } from './components/ApprovalModal'
 import { ActivityBar } from './components/ActivityBar'
 import { ContainersModule } from './components/ContainersModule'
 import { GitModule } from './components/GitModule'
-import { SettingsDialog } from './components/SettingsDialog'
+import { SettingsView } from './components/SettingsView'
+import { FadeIn } from './components/FadeIn'
 import { readLayout, saveCollapsed } from './layout'
 import { TerminalTabs } from './components/TerminalTabs'
 import { Toaster } from './components/Toaster'
 import { TopBar } from './components/TopBar'
 import { AppStateProvider, useAppState } from './state'
+import { useTerminalShortcut } from './useTerminalShortcut'
 import { SettingsOpenerContext, type SettingsSection } from './settingsOpener'
 
 /**
@@ -30,11 +33,20 @@ function TerminalSlot({ node }: { node: HTMLElement }): React.JSX.Element {
 }
 
 function Layout(): React.JSX.Element {
-  const { hosts, activeHostId, activeModule } = useAppState()
+  const { hosts, activeHostId, activeModule, selectModule } = useAppState()
   const active = hosts.find((h) => h.id === activeHostId)
-  const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string } | null>(
-    null
+  const [settings, setSettings] = useState<{ section: SettingsSection; repoId?: string }>({
+    section: 'general'
+  })
+  const openSettings = (section: SettingsSection, repoId?: string): void => {
+    setSettings({ section, repoId })
+    selectModule('settings')
+  }
+  // Settings keeps the last real module mounted (hidden) so its state survives the visit.
+  const [workModule, setWorkModule] = useState<'git' | 'containers'>(
+    activeModule === 'containers' ? 'containers' : 'git'
   )
+  if (activeModule !== 'settings' && activeModule !== workModule) setWorkModule(activeModule)
   const [terminalNode] = useState(() => {
     const el = document.createElement('div')
     el.className = 'terminal-portal'
@@ -47,35 +59,44 @@ function Layout(): React.JSX.Element {
     setCollapsed(!collapsed)
   }
 
+  useTerminalShortcut(toggle, activeModule !== 'settings')
+
   return (
-    <SettingsOpenerContext.Provider value={(section, repoId) => setSettings({ section, repoId })}>
+    <SettingsOpenerContext.Provider value={openSettings}>
       <div className={active?.protected ? 'app protected' : 'app'}>
         <TopBar />
         <div className="app-body">
-          <ActivityBar onOpenSettings={() => setSettings({ section: 'general' })} />
+          <ActivityBar
+            onOpenSettings={() => {
+              if (activeModule !== 'settings') openSettings('general')
+            }}
+          />
           <main className="main">
-            {activeModule === 'git' ? (
-              <GitModule
-                bottom={<TerminalSlot node={terminalNode} />}
-                bottomCollapsed={collapsed}
-              />
-            ) : (
-              <ContainersModule
-                bottom={<TerminalSlot node={terminalNode} />}
-                bottomCollapsed={collapsed}
-              />
+            <div className={cn('h-full min-h-0', activeModule === 'settings' && 'hidden')}>
+              {workModule === 'git' ? (
+                <GitModule
+                  bottom={<TerminalSlot node={terminalNode} />}
+                  bottomCollapsed={collapsed}
+                />
+              ) : (
+                <ContainersModule
+                  bottom={<TerminalSlot node={terminalNode} />}
+                  bottomCollapsed={collapsed}
+                />
+              )}
+            </div>
+            {activeModule === 'settings' && (
+              <FadeIn className="flex h-full min-h-0 flex-col">
+                <SettingsView
+                  key={`${settings.section}:${settings.repoId ?? ''}`}
+                  initialSection={settings.section}
+                  initialRepoId={settings.repoId}
+                />
+              </FadeIn>
             )}
           </main>
         </div>
         {createPortal(<TerminalTabs collapsed={collapsed} onToggle={toggle} />, terminalNode)}
-        {settings && (
-          <SettingsDialog
-            key={`${settings.section}:${settings.repoId ?? ''}`}
-            initialSection={settings.section}
-            initialRepoId={settings.repoId}
-            onClose={() => setSettings(null)}
-          />
-        )}
       </div>
     </SettingsOpenerContext.Provider>
   )

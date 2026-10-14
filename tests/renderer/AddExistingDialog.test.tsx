@@ -83,7 +83,7 @@ describe('AddExistingDialog', () => {
     renderDialog(['h1'])
     await check('~/x', { owner: '<b>o</b>', name: 'r' })
     expect(screen.getByText(/github\.com\/<b>o<\/b>\/r/)).toBeInTheDocument()
-    expect(document.querySelector('.dialog b')).toBeNull()
+    expect(screen.getByRole('dialog').querySelector('b')).toBeNull()
   })
 
   it('Confirm & Add calls addExisting with the confirmed owner/name and reports the workspace', async () => {
