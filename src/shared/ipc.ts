@@ -8,6 +8,7 @@ import type {
   CloneProgress,
   ApprovalRequest,
   BranchInfo,
+  BaseBranchInfo,
   CommitInfo,
   ExistingRepoInfo,
   FileChange,
@@ -61,9 +62,14 @@ export interface RemodeckApi {
     remove(id: string, deleteMirrorIfLast: boolean): Promise<void>
     sync(id: string): Promise<{ rewritten: string[] }>
     branches(id: string): Promise<BranchInfo[]>
-    commits(id: string, branch: string): Promise<CommitInfo[]>
-    files(id: string, branch: string, commit?: string): Promise<FileChange[]>
-    diff(id: string, branch: string, opts?: { commit?: string; file?: string }): Promise<string>
+    baseBranches(id: string): Promise<BaseBranchInfo[]>
+    commits(id: string, branch: string, base?: string): Promise<CommitInfo[]>
+    files(id: string, branch: string, commit?: string, base?: string): Promise<FileChange[]>
+    diff(
+      id: string,
+      branch: string,
+      opts?: { commit?: string; file?: string; base?: string }
+    ): Promise<string>
     setActive(id: string | null): void
     worktrees(id: string): Promise<WorktreeInfo[]>
     push(id: string, branch: string, target: string): Promise<PushOutcome>
@@ -181,6 +187,7 @@ export const IPC_CHANNELS = {
     remove: 'workspaces:remove',
     sync: 'workspaces:sync',
     branches: 'workspaces:branches',
+    baseBranches: 'workspaces:baseBranches',
     commits: 'workspaces:commits',
     files: 'workspaces:files',
     diff: 'workspaces:diff',

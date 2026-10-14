@@ -32,7 +32,7 @@ export default defineConfig(
     // Vendored shadcn/ui sources (`npx shadcn add`): keep them diffable against upstream.
     files: [
       'src/renderer/src/components/ui/*-*.tsx',
-      'src/renderer/src/components/ui/{alert,button,dialog,field,input,label,separator}.tsx'
+      'src/renderer/src/components/ui/{alert,button,combobox,dialog,field,input,label,separator,textarea}.tsx'
     ],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',

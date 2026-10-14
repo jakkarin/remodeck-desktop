@@ -14,6 +14,7 @@ vi.mock('../../src/renderer/src/api', () => ({
     hosts: { connect: vi.fn() },
     workspaces: {
       branches: vi.fn(),
+      baseBranches: vi.fn(),
       commits: vi.fn(),
       files: vi.fn(),
       diff: vi.fn(),
@@ -99,13 +100,152 @@ beforeEach(() => {
   for (const k of Object.keys(handlers)) delete handlers[k]
   vi.mocked(api.workspaces.branches).mockResolvedValue([branch(), branch({ name: 'fix/b' })])
   vi.mocked(api.workspaces.worktrees).mockResolvedValue([])
+  vi.mocked(api.workspaces.baseBranches).mockResolvedValue([
+    { name: 'main', sha: 'main-sha' },
+    { name: 'dev-v9', sha: 'v9-sha' }
+  ])
   vi.mocked(api.workspaces.commits).mockResolvedValue([commit])
   vi.mocked(api.workspaces.files).mockResolvedValue([file('a.ts'), file('b.ts')])
   vi.mocked(api.workspaces.diff).mockImplementation(async (_i, _b, opts) => `+${opts?.file}-diff`)
   vi.mocked(api.terminal.open).mockResolvedValue({ tabId: 't1', label: 'x' })
 })
 
+async function chooseBase(name: string): Promise<void> {
+  const input = await screen.findByRole('combobox', { name: 'Compare against branch' })
+  fireEvent.input(input, { target: { value: name }, inputType: 'insertText' })
+  fireEvent.click(await screen.findByRole('option', { name }))
+}
+
 describe('WorkspaceScreen selection', () => {
+  it('selects a searched branch with the keyboard', async () => {
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    const input = screen.getByRole('combobox', { name: 'Compare against branch' })
+    act(() => input.focus())
+    fireEvent.input(input, { target: { value: 'dev-v' }, inputType: 'insertText' })
+    await screen.findByRole('option', { name: 'dev-v9' })
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(input).toHaveValue('dev-v9'))
+    await waitFor(() =>
+      expect(api.workspaces.commits).toHaveBeenLastCalledWith('w1', 'feat/a', 'dev-v9')
+    )
+  })
+
+  it('searches origin branches and only compares after choosing a result', async () => {
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    await screen.findByText('+a.ts-diff')
+    const input = screen.getByRole('combobox', { name: 'Compare against branch' })
+    fireEvent.input(input, { target: { value: 'DEV-V' }, inputType: 'insertText' })
+    expect(await screen.findByRole('option', { name: 'dev-v9' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'main' })).toBeNull()
+    expect(api.workspaces.commits).toHaveBeenLastCalledWith('w1', 'feat/a')
+    fireEvent.click(screen.getByRole('option', { name: 'dev-v9' }))
+    await waitFor(() => expect(input).toHaveValue('dev-v9'))
+    await waitFor(() =>
+      expect(api.workspaces.commits).toHaveBeenLastCalledWith('w1', 'feat/a', 'dev-v9')
+    )
+    expect(screen.queryByRole('listbox', { name: 'Origin branches' })).toBeNull()
+  })
+
+  it('shows an empty search and Escape restores the selected comparison', async () => {
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    const input = screen.getByRole('combobox', { name: 'Compare against branch' })
+    fireEvent.input(input, { target: { value: 'unknown-branch' }, inputType: 'insertText' })
+    expect(await screen.findByText('No branches found.')).toBeInTheDocument()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    await waitFor(() => expect(input).toHaveValue('main'))
+    expect(api.workspaces.commits).not.toHaveBeenCalledWith('w1', 'feat/a', 'unknown-branch')
+  })
+
+  it('returns to the comparison when sync moves the base past the selected commit', async () => {
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    fireEvent.click(await screen.findByText('add thing'))
+    await waitFor(() =>
+      expect(api.workspaces.diff).toHaveBeenCalledWith('w1', 'feat/a', {
+        commit: 'abcdef1234',
+        file: 'a.ts'
+      })
+    )
+    vi.mocked(api.workspaces.commits).mockResolvedValue([])
+    vi.mocked(api.workspaces.files).mockImplementation(async (_id, _branch, sha) => {
+      if (sha) throw new Error('Commit is not on this branch')
+      return [file('remaining.ts')]
+    })
+    vi.mocked(api.workspaces.baseBranches).mockResolvedValue([
+      { name: 'main', sha: 'advanced-main' }
+    ])
+    await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 1 }))
+    expect(await screen.findByText('+remaining.ts-diff')).toBeInTheDocument()
+    expect(screen.queryByText('Commit is not on this branch')).toBeNull()
+  })
+
+  it('changes the comparison base in the header and resets the selected commit', async () => {
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    fireEvent.click(await screen.findByText('add thing'))
+    await screen.findByText('+a.ts-diff')
+    vi.mocked(api.workspaces.commits).mockResolvedValue([
+      { ...commit, sha: 'new-commit', subject: 'change since v9' }
+    ])
+    vi.mocked(api.workspaces.files).mockResolvedValue([file('since-v9.ts')])
+    const select = screen.getByRole('combobox', { name: 'Compare against branch' })
+    expect(select).toHaveValue('main')
+    await chooseBase('dev-v9')
+    expect(await screen.findByText('change since v9')).toBeInTheDocument()
+    expect(await screen.findByText('+since-v9.ts-diff')).toBeInTheDocument()
+    expect(screen.queryByText('add thing')).toBeNull()
+    expect(api.workspaces.commits).toHaveBeenLastCalledWith('w1', 'feat/a', 'dev-v9')
+    expect(api.workspaces.files).toHaveBeenLastCalledWith('w1', 'feat/a', undefined, 'dev-v9')
+    expect(api.workspaces.diff).toHaveBeenLastCalledWith('w1', 'feat/a', {
+      base: 'dev-v9',
+      file: 'since-v9.ts'
+    })
+    expect(screen.getByLabelText('Target branch')).toHaveValue('feat/a')
+  })
+
+  it('ignores a late diff response from the previous comparison base', async () => {
+    let finishOldDiff: (text: string) => void = () => undefined
+    vi.mocked(api.workspaces.diff).mockImplementation((_id, _branch, opts) =>
+      opts?.base === 'dev-v9'
+        ? Promise.resolve('+new comparison')
+        : new Promise<string>((resolve) => {
+            finishOldDiff = resolve
+          })
+    )
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    await waitFor(() => expect(api.workspaces.diff).toHaveBeenCalled())
+    await chooseBase('dev-v9')
+    expect(await screen.findByText('+new comparison')).toBeInTheDocument()
+    await act(async () => finishOldDiff('+stale comparison'))
+    expect(screen.queryByText('+stale comparison')).toBeNull()
+    expect(screen.getByText('+new comparison')).toBeInTheDocument()
+  })
+
+  it('refreshes when the selected origin branch moves and falls back if it is deleted', async () => {
+    renderScreen()
+    fireEvent.click(await screen.findByText('feat/a'))
+    await chooseBase('dev-v9')
+    await screen.findByText('+a.ts-diff')
+    vi.mocked(api.workspaces.files).mockResolvedValue([file('after-sync.ts')])
+    vi.mocked(api.workspaces.baseBranches).mockResolvedValue([
+      { name: 'main', sha: 'main-sha' },
+      { name: 'dev-v9', sha: 'new-v9-sha' }
+    ])
+    await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 1 }))
+    expect(await screen.findByText('+after-sync.ts-diff')).toBeInTheDocument()
+    vi.mocked(api.workspaces.baseBranches).mockResolvedValue([{ name: 'main', sha: 'main-sha' }])
+    await act(async () => handlers['workspace-synced']('w1', { kind: 'full', at: 2 }))
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Compare against branch' })).toHaveValue('main')
+    )
+    await waitFor(() => expect(api.workspaces.commits).toHaveBeenLastCalledWith('w1', 'feat/a'))
+  })
+
   it('branch click loads commits and files and shows the first file diff', async () => {
     renderScreen()
     fireEvent.click(await screen.findByText('feat/a'))

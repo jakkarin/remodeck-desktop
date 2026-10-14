@@ -5,9 +5,11 @@ import { HostGit } from '../../../src/main/git/hostGit'
 import { MirrorService } from '../../../src/main/mirror/mirrorService'
 import { LocalTarget } from '../../../src/main/sandbox/target'
 import { Store } from '../../../src/main/store/store'
-import type { Workspace } from '../../../src/shared/types'
+import type { Repo, Workspace } from '../../../src/shared/types'
 import {
   getDiff,
+  listBaseBranches,
+  resolveBaseRef,
   listBranches,
   listCommits,
   listFiles,
@@ -49,8 +51,8 @@ describe('workspace queries', () => {
     fs.rmSync(tmp, { recursive: true, force: true })
   })
 
-  const sb = (rel: string) => path.join(home, rel)
-  const makeWs = async (rel: string) => {
+  const sb = (rel: string): string => path.join(home, rel)
+  const makeWs = async (rel: string): Promise<{ ws: Workspace; repo: Repo }> => {
     const repo = store.upsertRepo('acme', 'api')
     const h = store.config.hosts[0] ?? store.addHost('box', 'Box')
     const ws = store.addWorkspace(repo.id, h.id, `~/${rel}`)
@@ -58,7 +60,7 @@ describe('workspace queries', () => {
     mirrorPath = store.mirrorPath(repo)
     return { ws, repo }
   }
-  const commit = async (dir: string, file: string, msg: string) => {
+  const commit = async (dir: string, file: string, msg: string): Promise<void> => {
     fs.writeFileSync(path.join(dir, file), msg)
     await git(dir, 'add', '-A')
     await git(dir, ...ident, 'commit', '-m', msg)
@@ -110,6 +112,48 @@ describe('workspace queries', () => {
     const diff = await getDiff(host, mirrorPath, 'origin/main', ref)
     expect(diff).toContain('f.txt')
     expect(diff).toContain('g.txt')
+  })
+
+  it('offers all origin branches and compares against the chosen base', async () => {
+    const { ws } = await makeWs('w1')
+    await git(sb('w1'), 'checkout', '-b', 'dev-v9')
+    await commit(sb('w1'), 'v9.txt', 'v9')
+    await svc.sync(ws)
+    await svc.pushToGitHub(ws, 'dev-v9', 'dev-v9')
+    await git(sb('w1'), 'checkout', '-b', 'dev-v10')
+    await commit(sb('w1'), 'v10.txt', 'v10')
+    await svc.sync(ws)
+    await svc.pushToGitHub(ws, 'dev-v10', 'dev-v10')
+    await svc.sync(ws)
+    await git(mirrorPath, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+    const bases = await listBaseBranches(host, mirrorPath)
+    expect(bases.map((b) => b.name)).toEqual(['dev-v10', 'dev-v9', 'main'])
+    expect(bases.every((b) => /^[0-9a-f]{40}$/.test(b.sha))).toBe(true)
+    const ref = `refs/remotes/ws-${ws.id}/dev-v10`
+    const base = await resolveBaseRef(host, mirrorPath, 'dev-v9')
+    expect((await listCommits(host, mirrorPath, base, ref)).map((c) => c.subject)).toEqual(['v10'])
+    expect((await listFiles(host, mirrorPath, base, ref)).map((f) => f.path)).toEqual(['v10.txt'])
+    const diff = await getDiff(host, mirrorPath, base, ref)
+    expect(diff).toContain('+v10')
+    expect(diff).not.toContain('v9.txt')
+    expect(
+      await listCommits(host, mirrorPath, await resolveBaseRef(host, mirrorPath, 'dev-v10'), ref)
+    ).toEqual([])
+    const v9 = bases.find((b) => b.name === 'dev-v9')!.sha
+    await expect(requireCommitInRange(host, mirrorPath, base, ref, v9)).rejects.toThrow(
+      'Commit is not on this branch'
+    )
+    for (const invalid of [
+      'missing',
+      'HEAD',
+      '--output=x',
+      'main..dev-v10',
+      'refs/remotes/origin/main'
+    ]) {
+      await expect(resolveBaseRef(host, mirrorPath, invalid)).rejects.toThrow(
+        'Comparison branch not found'
+      )
+    }
   })
 
   it('lists worktrees with dirty counts', async () => {

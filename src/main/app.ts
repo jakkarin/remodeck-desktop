@@ -39,11 +39,13 @@ import { Store } from './store/store'
 import { AutoSync } from './sync/autoSync'
 import {
   getDiff,
+  listBaseBranches,
   listBranches,
   listCommits,
   listFiles,
   listWorktrees,
-  requireCommitInRange
+  requireCommitInRange,
+  resolveBaseRef
 } from './sync/queries'
 import { SyncService } from './sync/syncService'
 import { TerminalService, nodePtySpawner } from './terminal/terminalService'
@@ -294,7 +296,8 @@ export async function createApp(opts: {
 
   const findBranch = async (
     ws: Workspace,
-    branch: string
+    branch: string,
+    baseBranch?: string
   ): Promise<{ base: string; ref: string }> => {
     const repo = repoOf(ws.repoId)
     const list = await listBranches(
@@ -306,7 +309,11 @@ export async function createApp(opts: {
     )
     const b = list.find((x) => x.name === branch)
     if (!b) throw new Error(`Branch not found: ${branch}`)
-    return { base: `refs/remotes/${b.base}`, ref: `refs/remotes/ws-${ws.id}/${branch}` }
+    const base =
+      baseBranch === undefined
+        ? `refs/remotes/${b.base}`
+        : await resolveBaseRef(git, store.mirrorPath(repo), baseBranch)
+    return { base, ref: `refs/remotes/ws-${ws.id}/${branch}` }
   }
 
   const autoSync = new AutoSync({
@@ -422,21 +429,25 @@ export async function createApp(opts: {
           sync.rewrittenBranches(id)
         )
       },
-      commits: async (id, branch) => {
+      baseBranches: async (id) => {
         const ws = wsOf(id)
-        const { base, ref } = await findBranch(ws, branch)
+        return listBaseBranches(git, store.mirrorPath(repoOf(ws.repoId)))
+      },
+      commits: async (id, branch, baseBranch) => {
+        const ws = wsOf(id)
+        const { base, ref } = await findBranch(ws, branch, baseBranch)
         return listCommits(git, store.mirrorPath(repoOf(ws.repoId)), base, ref)
       },
-      files: async (id, branch, commit) => {
+      files: async (id, branch, commit, baseBranch) => {
         const ws = wsOf(id)
-        const { base, ref } = await findBranch(ws, branch)
+        const { base, ref } = await findBranch(ws, branch, baseBranch)
         const mirrorPath = store.mirrorPath(repoOf(ws.repoId))
         if (commit) await requireCommitInRange(git, mirrorPath, base, ref, commit)
         return listFiles(git, mirrorPath, base, ref, commit)
       },
       diff: async (id, branch, opts) => {
         const ws = wsOf(id)
-        const { base, ref } = await findBranch(ws, branch)
+        const { base, ref } = await findBranch(ws, branch, opts?.base)
         const mirrorPath = store.mirrorPath(repoOf(ws.repoId))
         if (opts?.commit) await requireCommitInRange(git, mirrorPath, base, ref, opts.commit)
         return getDiff(git, mirrorPath, base, ref, opts)
@@ -520,7 +531,10 @@ export async function createApp(opts: {
         hostOf(hostId)
         // only booleans cross from the renderer; a missing helperFirst keeps the host's earlier choice
         const helperFirst = typeof opts?.helperFirst === 'boolean' ? opts.helperFirst : undefined
-        return gitAccess.install(hostId, tokenIds, { pathBlock: opts?.pathBlock === true, helperFirst })
+        return gitAccess.install(hostId, tokenIds, {
+          pathBlock: opts?.pathBlock === true,
+          helperFirst
+        })
       },
       remove: async (hostId) => {
         hostOf(hostId)

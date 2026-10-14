@@ -106,6 +106,9 @@ export function WorkspaceScreen({
               <ChangesPane
                 workspaceId={workspaceId}
                 branch={d.branch}
+                baseBranches={d.baseBranches}
+                baseBranch={d.baseBranch}
+                onSelectBaseBranch={d.selectBaseBranch}
                 commits={d.commits}
                 files={d.files}
                 commit={d.commit}
@@ -127,7 +130,7 @@ export function WorkspaceScreen({
               )}
               {d.file && d.diffText !== null ? (
                 <DiffPane
-                  key={`${d.branch?.name}|${d.commit}|${d.file.path}`}
+                  key={JSON.stringify([d.branch?.name, d.baseBranch, d.commit, d.file.path])}
                   text={d.diffText}
                   path={d.file.path}
                   oldPath={d.file.oldPath}

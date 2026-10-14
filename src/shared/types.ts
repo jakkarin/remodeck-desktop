@@ -76,6 +76,9 @@ export type BranchInfo = {
   rewritten: boolean
 }
 
+/** A GitHub branch available in the local mirror for comparison. */
+export type BaseBranchInfo = { name: string; sha: string }
+
 export type FileChange = {
   path: string
   oldPath?: string

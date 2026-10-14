@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BranchInfo, CommitInfo, FileChange, WorktreeInfo } from '../../shared/types'
+import type {
+  BaseBranchInfo,
+  BranchInfo,
+  CommitInfo,
+  FileChange,
+  WorktreeInfo
+} from '../../shared/types'
 import { api, errorMessage } from './api'
 import { isNew, loadSeen, markBaseline, markSeen, saveSeen, type SeenMap } from './seen'
 
@@ -8,6 +14,8 @@ type DiffState = { key: string; text: string; error?: string }
 type Data = {
   ws: string
   branches: BranchInfo[]
+  baseBranches: BaseBranchInfo[]
+  baseBranchName: string | null
   worktrees: WorktreeInfo[]
   branchName: string | null
   commit: string | null
@@ -22,6 +30,8 @@ type Data = {
 const initial = (ws: string): Data => ({
   ws,
   branches: [],
+  baseBranches: [],
+  baseBranchName: null,
   worktrees: [],
   branchName: null,
   commit: null,
@@ -33,8 +43,7 @@ const initial = (ws: string): Data => ({
   changesError: null
 })
 
-const CLEARED = {
-  branchName: null,
+const RANGE_CLEARED = {
   commit: null,
   file: null,
   commits: [],
@@ -43,8 +52,12 @@ const CLEARED = {
   changesError: null
 }
 
+const CLEARED = { ...RANGE_CLEARED, branchName: null, baseBranchName: null }
+
 export type WorkspaceData = {
   branches: BranchInfo[]
+  baseBranches: BaseBranchInfo[]
+  baseBranch: string | null
   worktrees: WorktreeInfo[]
   branch: BranchInfo | null
   commit: string | null
@@ -57,6 +70,7 @@ export type WorkspaceData = {
   changesError: string | null
   isNew(b: BranchInfo): boolean
   selectBranch(name: string): void
+  selectBaseBranch(name: string): void
   selectCommit(sha: string | null): void
   selectFile(path: string): void
   reload(): Promise<void>
@@ -83,12 +97,16 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
   const branch = data.branches.find((b) => b.name === data.branchName) ?? null
   const branchName = branch?.name ?? null
   const branchSha = branch?.sha ?? null
+  const baseOverride = data.baseBranchName
+  const baseBranch = baseOverride ?? branch?.base.replace(/^origin\//, '') ?? null
+  const baseSha = data.baseBranches.find((b) => b.name === baseBranch)?.sha ?? null
 
   const reload = useCallback(async (): Promise<void> => {
     const req = ++request.current
     try {
-      const [list, wts] = await Promise.all([
+      const [list, bases, wts] = await Promise.all([
         api.workspaces.branches(workspaceId),
+        api.workspaces.baseBranches(workspaceId),
         connected ? api.workspaces.worktrees(workspaceId).catch(() => []) : Promise.resolve([])
       ])
       if (req !== request.current) return
@@ -100,12 +118,15 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
       }
       update((d) => {
         const gone = d.branchName !== null && !list.some((b) => b.name === d.branchName)
+        const baseGone =
+          d.baseBranchName !== null && !bases.some((b) => b.name === d.baseBranchName)
         return {
           ...d,
           branches: list,
+          baseBranches: bases,
           worktrees: wts,
           branchesError: null,
-          ...(gone ? CLEARED : {})
+          ...(gone ? CLEARED : baseGone ? { ...RANGE_CLEARED, baseBranchName: null } : {})
         }
       })
     } catch (e) {
@@ -128,21 +149,35 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
   useEffect(() => {
     if (!branchName) return
     let live = true
-    api.workspaces
-      .commits(workspaceId, branchName)
-      .then((commits) => live && update((d) => ({ ...d, commits })))
+    const req =
+      baseOverride === null
+        ? api.workspaces.commits(workspaceId, branchName)
+        : api.workspaces.commits(workspaceId, branchName, baseOverride)
+    req
+      .then(
+        (commits) =>
+          live &&
+          update((d) => ({
+            ...d,
+            ...(d.commit && !commits.some((c) => c.sha === d.commit) ? RANGE_CLEARED : {}),
+            commits
+          }))
+      )
       .catch((e) => live && update((d) => ({ ...d, changesError: errorMessage(e) })))
     return () => {
       live = false
     }
-  }, [workspaceId, branchName, branchSha, update])
+  }, [workspaceId, branchName, branchSha, baseOverride, baseBranch, baseSha, update])
 
   useEffect(() => {
     if (!branchName) return
     let live = true
-    const req = data.commit
-      ? api.workspaces.files(workspaceId, branchName, data.commit)
-      : api.workspaces.files(workspaceId, branchName)
+    const req =
+      baseOverride !== null
+        ? api.workspaces.files(workspaceId, branchName, data.commit ?? undefined, baseOverride)
+        : data.commit
+          ? api.workspaces.files(workspaceId, branchName, data.commit)
+          : api.workspaces.files(workspaceId, branchName)
     req
       .then(
         (files) =>
@@ -158,14 +193,25 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
     return () => {
       live = false
     }
-  }, [workspaceId, branchName, branchSha, data.commit, update])
+  }, [workspaceId, branchName, branchSha, baseOverride, baseBranch, baseSha, data.commit, update])
 
-  const diffKey = `${branchName}|${data.commit ?? ''}|${data.file}`
+  const diffKey = JSON.stringify([
+    branchName,
+    branchSha,
+    baseBranch,
+    baseSha,
+    data.commit,
+    data.file
+  ])
   useEffect(() => {
     if (!branchName || !data.file) return
     let live = true
     const key = diffKey
-    const opts = data.commit ? { commit: data.commit, file: data.file } : { file: data.file }
+    const opts = {
+      ...(data.commit ? { commit: data.commit } : {}),
+      ...(baseOverride !== null ? { base: baseOverride } : {}),
+      file: data.file
+    }
     api.workspaces
       .diff(workspaceId, branchName, opts)
       .then((text) => live && update((d) => ({ ...d, diff: { key, text } })))
@@ -175,7 +221,7 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
     return () => {
       live = false
     }
-  }, [workspaceId, branchName, branchSha, data.commit, data.file, diffKey, update])
+  }, [workspaceId, branchName, branchSha, baseOverride, data.commit, data.file, diffKey, update])
 
   const selectBranch = (name: string): void => {
     const b = data.branches.find((x) => x.name === name)
@@ -190,6 +236,8 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
   const diff = data.diff?.key === diffKey ? data.diff : null
   return {
     branches: data.branches,
+    baseBranches: data.baseBranches,
+    baseBranch,
     worktrees: data.worktrees,
     branch,
     commit: data.commit,
@@ -202,6 +250,10 @@ export function useWorkspaceData(workspaceId: string, connected: boolean): Works
     changesError: data.changesError,
     isNew: (b) => isNew(seen, workspaceId, b),
     selectBranch,
+    selectBaseBranch: (name) => {
+      if (name === baseBranch || !data.baseBranches.some((b) => b.name === name)) return
+      update((d) => ({ ...d, ...RANGE_CLEARED, baseBranchName: name }))
+    },
     selectCommit: (sha) => update((d) => ({ ...d, commit: sha, file: null, files: [] })),
     selectFile: (path) => update((d) => ({ ...d, file: path })),
     reload

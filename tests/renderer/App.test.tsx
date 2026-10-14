@@ -18,6 +18,7 @@ vi.mock('../../src/renderer/src/api', () => ({
       list: vi.fn(),
       setActive: vi.fn(),
       branches: vi.fn().mockResolvedValue([]),
+      baseBranches: vi.fn().mockResolvedValue([]),
       worktrees: vi.fn().mockResolvedValue([]),
       commits: vi.fn().mockResolvedValue([]),
       files: vi.fn().mockResolvedValue([]),
