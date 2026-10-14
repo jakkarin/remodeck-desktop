@@ -70,6 +70,7 @@ function fakeApi(): MainApi {
       resources: fn(),
       removeResource: fn(),
       prune: fn(),
+      buildHistory: fn(),
       watchStats: vi.fn()
     },
     approval: { respond: vi.fn() },

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { ContainerInfo } from '../../../shared/containers'
 import { isInUse, type ResourceKind, type ResourceRow } from '../../../shared/resources'
 import type { Host } from '../../../shared/types'
@@ -7,6 +7,7 @@ import { Trash2 } from 'lucide-react'
 import { cn } from 'cn'
 import { formatMem } from '../containerPresentation'
 import { dangerLevel, type DangerAction } from '../danger'
+import { onTerminalClosed, openHostTerminal } from '../terminalEvents'
 import { ConfirmDanger } from './ConfirmDanger'
 import { Banner } from './Banner'
 import { Badge } from './ui/badge'
@@ -59,6 +60,8 @@ type Loaded =
   | { hostId: string; kind: ResourceKind; rows: ResourceRow[]; error: null }
   | { hostId: string; kind: ResourceKind; rows: null; error: string }
 
+type PruneSession = { key: string; tabId: string | null; exited: Set<string> }
+
 export function ResourcesView({
   host,
   kind,
@@ -74,9 +77,44 @@ export function ResourcesView({
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
+  const pruneSession = useRef<PruneSession | null>(null)
   const titleId = useId()
   const title = TITLES[kind]
+
+  const finishPrune = useCallback((session: PruneSession): void => {
+    if (pruneSession.current !== session) return
+    pruneSession.current = null
+    setBusy((keys) => {
+      const next = new Set(keys)
+      next.delete(session.key)
+      return next
+    })
+    setAttempt((n) => n + 1)
+  }, [])
+
+  useEffect(() => {
+    // Subscribe before opening: a short command can exit before IPC returns its tab id.
+    const finished = (tabId: string): void => {
+      const session = pruneSession.current
+      if (!session) return
+      if (session.tabId === null) session.exited.add(tabId)
+      else if (session.tabId === tabId) finishPrune(session)
+    }
+    const off = api.on('terminal-exit', finished)
+    const offClose = onTerminalClosed(finished)
+    return () => {
+      off()
+      offClose()
+      const session = pruneSession.current
+      pruneSession.current = null
+      if (session)
+        setBusy((keys) => {
+          const next = new Set(keys)
+          next.delete(session.key)
+          return next
+        })
+    }
+  }, [host.id, kind, finishPrune])
 
   // A confirm opened for another host must never act on this one.
   const stale = pending !== null && pending.hostId !== host.id
@@ -107,10 +145,8 @@ export function ResourcesView({
       try {
         await api.containers.removeResource(host.id, kind, r.ref)
         setActionError(null)
-        setInfo(null)
       } catch (e) {
         setActionError(errorMessage(e))
-        setInfo(null)
       } finally {
         mark(`rm:${r.ref}`, false)
         reload()
@@ -119,20 +155,22 @@ export function ResourcesView({
   const prune = (): void =>
     confirmFirst(`${kind}-prune`, PRUNE_SUMMARY[kind], 'Prune', async () => {
       const key = `prune:${kind}`
+      const session: PruneSession = { key, tabId: null, exited: new Set() }
+      pruneSession.current = session
       mark(key, true)
       try {
-        const res = await api.containers.prune(host.id, kind)
+        const tab = await openHostTerminal(host.id, { kind: 'resource-prune', resource: kind })
+        if (pruneSession.current !== session) return
+        session.tabId = tab.tabId
+        if (session.exited.has(tab.tabId)) finishPrune(session)
+        session.exited.clear()
         setActionError(null)
-        setInfo(
-          `Removed ${res.deleted} items` +
-            (res.reclaimed !== null ? ` · reclaimed ${formatMem(res.reclaimed)}` : '')
-        )
       } catch (e) {
-        setActionError(errorMessage(e))
-        setInfo(null)
-      } finally {
-        mark(key, false)
-        reload()
+        if (pruneSession.current === session) {
+          pruneSession.current = null
+          mark(key, false)
+        }
+        throw e
       }
     })
 
@@ -188,7 +226,6 @@ export function ResourcesView({
           />
         </div>
         {actionError && <Banner tone="danger">{actionError}</Banner>}
-        {info && <Banner tone="info">{info}</Banner>}
         {rows.length === 0 && (
           <div className="px-3.5 py-3 text-muted-foreground">{`No ${kind}s on ${host.label}`}</div>
         )}

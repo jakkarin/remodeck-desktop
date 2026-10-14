@@ -13,7 +13,8 @@ vi.mock('../../src/renderer/src/api', () => ({
       action: vi.fn(),
       watchStats: vi.fn(),
       inspect: vi.fn(),
-      resources: vi.fn()
+      resources: vi.fn(),
+      buildHistory: vi.fn()
     },
     on: vi.fn((event: string, cb: Handler) => {
       ;(handlers[event] ??= new Set()).add(cb)
@@ -23,7 +24,10 @@ vi.mock('../../src/renderer/src/api', () => ({
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
-vi.mock('../../src/renderer/src/terminalEvents', () => ({ openHostTerminal: vi.fn() }))
+vi.mock('../../src/renderer/src/terminalEvents', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../src/renderer/src/terminalEvents')>()
+  return { ...original, openHostTerminal: vi.fn() }
+})
 
 import { api } from '../../src/renderer/src/api'
 import { openHostTerminal } from '../../src/renderer/src/terminalEvents'
@@ -64,10 +68,17 @@ beforeEach(() => {
     Config: { Image: 'img', Env: ['K=secret-value'] }
   })
   vi.mocked(api.containers.resources).mockResolvedValue([])
+  vi.mocked(api.containers.buildHistory).mockResolvedValue([])
   vi.mocked(openHostTerminal).mockResolvedValue({} as never)
 })
 
 describe('ContainersView', () => {
+  it('opens the Builds tab for the selected host', async () => {
+    render(<ContainersView host={host} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Builds' }))
+    expect(await screen.findByText('No builds on Box')).toBeInTheDocument()
+    expect(api.containers.buildHistory).toHaveBeenCalledWith('h1')
+  })
   it('shows CPU/RAM for running containers and — when missing; none for stopped', async () => {
     vi.mocked(api.containers.open).mockResolvedValue({
       list: [mk('web'), mk('nostat'), mk('old', { state: 'exited', status: 'Exited' })],
@@ -581,7 +592,13 @@ describe('ContainersView', () => {
     await screen.findByText('web')
     const strip = screen.getByRole('tablist', { name: 'Docker resources' })
     const tabs = within(strip).getAllByRole('tab')
-    expect(tabs.map((t) => t.textContent)).toEqual(['Containers', 'Images', 'Volumes', 'Networks'])
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      'Containers',
+      'Images',
+      'Volumes',
+      'Networks',
+      'Builds'
+    ])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     vi.mocked(api.containers.resources).mockResolvedValue([
       {

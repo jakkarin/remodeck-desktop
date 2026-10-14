@@ -234,12 +234,25 @@ Check in real Electron, after the move to the three-column workspace:
 | C.14 | A container list taller than the window → scroll down and click a container name → the details panel is visible straight away (not off-screen), both wide and below 720px                                                                                                                                                                             | ☐      |
 | C.15 | Images tab → image list (tag, size, created) with an `in use` badge on images a container uses; the Volumes and Networks tabs show lists and badges too; switching tabs clears the filter; the Containers \| Images \| Volumes \| Networks bar sits above the toolbar, styled like the Terminal tab bar, and stays visible while loading and on error | ☐      |
 | C.16 | Click Remove on an image a container uses → confirm dialog (a click is enough on a normal host) → the error banner says "This image is in use by a container — remove that container first" and the list reloads; repeat with an in-use volume and network                                                                                            | ☐      |
-| C.17 | Click Prune on the Images tab on a normal host → click-confirm dialog; on a protected host → the host name must be typed exactly; on success a line reads "Removed N items · reclaimed …" and the list reloads (Networks shows no reclaimed size)                                                                                                     | ☐      |
+| C.17 | Prune Images, Volumes or Networks → confirmation opens a terminal showing live command output; a collapsed dock expands; the resource list refreshes after command exit; protected hosts require typing the host name | ☐ |
 | C.18 | Remove volume and Prune volumes → always require typing the host name, even on a normal host                                                                                                                                                                                                                                                          | ☐      |
 | C.19 | Networks tab → built-in networks (bridge / host / none) have no Remove button, and the Remove buttons of other networks stay in place                                                                                                                                                                                                                 | ☐      |
 | C.20 | A list taller than the window scrolls under the tab bar (Containers, Images, Volumes and Networks); compose project names sit at the left edge                                                                                                                                                                                                        | ☐      |
 | C.21 | Click the terminal collapse button → the terminal folds down to its tab bar at the bottom of the window and expands again; drag the bar above the terminal to resize it → switch to the Git page and back → both pages keep the same terminal height, also after restarting the app                                                                   | ☐      |
 | C.22 | Open a container's details → drag the bar between the list and the panel → the panel resizes (no narrower than 280px, and the list keeps at least 320px); close and reopen the panel or restart the app → the width is kept; below 720px wide the bar disappears                                                                                      | ☐      |
+
+### Docker builds (manual)
+
+Use an SSH host with Docker Buildx and BuildKit history support. Run destructive checks on a test host.
+
+| Step | Action                                                                                                                                                     | Result |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| B.1  | Open Containers → Builds → compare names, IDs, statuses, creation times and durations with `docker buildx history ls` on the same host and current builder | ☐      |
+| B.2  | Complete or fail another build on that host → Refresh → the new record appears with its status                                                             | ☐      |
+| B.3  | Open Builds on a host without history support → a useful error appears; return to a supported host → its own history appears                               | ☐      |
+| B.4  | Click Prune build cache → Cancel → no terminal opens; confirm on a test host → a focused terminal runs the prune and shows output; a collapsed dock expands | ☐ |
+| B.5  | Enable host protection → Prune build cache requires the exact host name; terminal opening errors stay in the dialog; command failures appear in the terminal | ☐ |
+| B.6  | Open the prune dialog and switch hosts → the old dialog and history disappear; the new host has its own data                                               | ☐      |
 
 ### Git access on target hosts (manual)
 

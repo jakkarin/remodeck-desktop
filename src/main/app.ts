@@ -21,6 +21,7 @@ import { ApprovalService } from './approval/approvalService'
 import { GitBridge } from './bridge/gitBridge'
 import { ConnectionService } from './connection/connectionService'
 import { ContainerService } from './docker/containerService'
+import { BuildService } from './docker/buildService'
 import { DockerClient } from './docker/dockerClient'
 import { sshDialStdio } from './docker/dialStdio'
 import { HostGit } from './git/hostGit'
@@ -69,6 +70,8 @@ const CONTAINER_ACTIONS: readonly string[] = ['start', 'stop', 'restart', 'remov
 
 function isTerminalRequest(r: unknown): r is HostTerminalRequest {
   if (!isPlainObject(r)) return false
+  if (r.kind === 'build-cache-prune') return true
+  if (r.kind === 'resource-prune') return RESOURCE_KINDS.includes(r.resource as ResourceKind)
   if (r.kind === 'logs' || r.kind === 'shell')
     return typeof r.id === 'string' && CONTAINER_ID.test(r.id)
   if (r.kind === 'compose')
@@ -97,6 +100,7 @@ export function containersApi(deps: {
     | 'prune'
   >
   terminal: Pick<TerminalService, 'openHost'>
+  builds: Pick<BuildService, 'history'>
 }): MainApi['containers'] {
   return {
     open: async (hostId) => {
@@ -136,6 +140,11 @@ export function containersApi(deps: {
       deps.connection.requireConnected(hostId)
       return deps.service.prune(hostId, checkKind(kind))
     },
+    buildHistory: async (hostId) => {
+      deps.hostOf(hostId)
+      deps.connection.requireConnected(hostId)
+      return deps.builds.history(hostId)
+    },
     watchStats: (hostId, on) => {
       try {
         deps.hostOf(hostId)
@@ -150,6 +159,16 @@ export function containersApi(deps: {
       deps.hostOf(hostId)
       deps.connection.requireConnected(hostId)
       if (!isTerminalRequest(req)) throw new Error('Invalid terminal request')
+      if (req.kind === 'build-cache-prune') {
+        return deps.terminal.openHost(hostId, 'docker buildx prune --force', 'prune · build cache')
+      }
+      if (req.kind === 'resource-prune') {
+        return deps.terminal.openHost(
+          hostId,
+          `docker ${req.resource} prune --force`,
+          `prune · ${req.resource}s`
+        )
+      }
       if (req.kind === 'compose') {
         const p = deps.service.project(hostId, req.project)
         if (!p) throw new Error('Compose project not found')
@@ -496,7 +515,13 @@ export async function createApp(opts: {
         return term.uploadImage(tabId, bytes, e as ImageExt)
       }
     },
-    containers: containersApi({ hostOf, connection, service: containerService, terminal: term }),
+    containers: containersApi({
+      hostOf,
+      connection,
+      service: containerService,
+      terminal: term,
+      builds: new BuildService(targetFor)
+    }),
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)
     },

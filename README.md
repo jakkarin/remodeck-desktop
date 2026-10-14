@@ -36,6 +36,27 @@ Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 
 UI tokens and reusable component usage: [Neutral design guidelines](docs/design-guidelines.md).
 
+## Docker builds / ประวัติ build
+
+In the Containers module, **Builds** lists the current Buildx builder's history on the selected SSH
+host: name, build ID, status, creation time and duration. **Refresh** reloads the history. The host
+needs Docker Buildx and a BuildKit version that supports `docker buildx history ls`; unsupported
+hosts show the command error with an upgrade hint.
+
+**Prune build cache** opens and focuses a terminal tab running `docker buildx prune --force` on that
+host after confirmation (protected hosts require typing the host name). The terminal dock expands
+if collapsed, and displays progress, errors and the reclaimed space directly. It removes unused
+cache of the current builder. This action does not delete build history records, containers or volumes; later
+builds may take longer while rebuilding the cache.
+
+แท็บ **Builds** แสดงประวัติของ builder ปัจจุบันบน SSH host ที่เลือก กด Refresh เพื่อโหลดใหม่
+และกด **Prune build cache** เพื่อเปิด terminal ล้าง cache ที่ไม่ใช้งาน หลังยืนยันใน dialog
+ถ้าเปิด protection ต้องพิมพ์ชื่อ host ก่อนยืนยัน
+
+**Prune** in Images, Volumes and Networks also opens a terminal on the selected host. The list
+refreshes when that terminal command ends. Each command keeps Docker's default prune scope;
+volumes always require typing the host name, and protected hosts require it for images and networks too.
+
 ## Security boundary / ขอบเขตความปลอดภัย
 
 - The GitHub token never enters the sandbox. Terminals opened from the app reach GitHub through the

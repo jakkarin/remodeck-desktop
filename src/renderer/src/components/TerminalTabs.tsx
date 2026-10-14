@@ -8,7 +8,7 @@ import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { createBusyIndicator } from '../busyIndicator'
 import { attachClipboard, attachImageDrop } from '../terminalClipboard'
-import { onTerminalOpened, openTerminal } from '../terminalEvents'
+import { closeTerminal, onTerminalOpened, openTerminal } from '../terminalEvents'
 import { cn } from 'cn'
 import { Button } from './ui/button'
 
@@ -214,7 +214,7 @@ export function TerminalTabs({
   }, [deliver])
 
   function close(tabId: string): void {
-    api.terminal.close(tabId)
+    closeTerminal(tabId)
     pending.current.delete(tabId)
     const closing = tabs.find((t) => t.tabId === tabId)
     const next = tabs.filter((t) => t.tabId !== tabId)
