@@ -197,6 +197,23 @@ describe('SyncService.addExisting', () => {
     expect(store.config.workspaces).toHaveLength(1)
   })
 
+  it('adds a local repo by its Windows drive path, stored normalised', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    const dir = await vmRepo('api')
+    const typed = dir.replaceAll('/', '\\') + '\\'
+    const ws = await svc.addExisting('local', typed, ACME)
+    const expected = dir.replaceAll('\\', '/')
+    expect(ws.sandboxPath).toBe(expected[0].toUpperCase() + expected.slice(1))
+  })
+
+  it('rejects a local duplicate typed differently', async () => {
+    const repo = store.upsertRepo('acme', 'api')
+    store.addWorkspace(repo.id, 'local', 'D:/develop/app')
+    await expect(svc.describeExisting('local', 'd:\\develop\\app\\')).rejects.toThrow(
+      'This workspace already exists: D:/develop/app'
+    )
+  })
+
   it('rolls back the workspace and the mirror remote on failure, leaving the VM alone', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     const dir = await vmRepo('api')

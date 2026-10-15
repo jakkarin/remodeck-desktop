@@ -7,13 +7,20 @@ import type {
   Repo,
   Workspace
 } from '../../shared/types'
+import { isLocalHost } from '../../shared/types'
 import { parseRepoInput } from '../../shared/validate'
 import { GitError, type HostGit } from '../git/hostGit'
 import { withLock } from '../git/lock'
 import { parseRefs, parseSymrefHead } from '../git/parsers'
 import type { MirrorService } from '../mirror/mirrorService'
 import type { SandboxTarget } from '../sandbox/target'
-import { shPath, shQuote, validateSandboxPath } from '../sandbox/shell'
+import {
+  normalizeLocalPath,
+  sameSandboxPath,
+  shPath,
+  shQuote,
+  validateSandboxPath
+} from '../sandbox/shell'
 import type { Store } from '../store/store'
 import { cloneProgressTracker } from './cloneProgress'
 
@@ -220,7 +227,7 @@ export class SyncService {
   async cloneToSandbox(ws: Workspace, onProgress?: (p: CloneProgress) => void): Promise<void> {
     const progress = onProgress && cloneProgressTracker(onProgress)
     progress?.at('fetch', 0)
-    validateSandboxPath(ws.sandboxPath)
+    validateSandboxPath(ws.sandboxPath, { local: this.isLocal(ws.hostId) })
     const target = this.targetFor(ws.hostId)
     const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
     if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
@@ -363,11 +370,19 @@ export class SyncService {
 
   /** Validates the path and rejects duplicates; returns the normalised path. */
   private checkExistingPath(hostId: string, sandboxPath: string): string {
-    validateSandboxPath(sandboxPath)
-    const path = sandboxPath.replace(/\/+$/, '')
-    if (this.store.config.workspaces.some((w) => w.hostId === hostId && w.sandboxPath === path))
-      throw new Error(`This workspace already exists: ${path}`)
+    const local = this.isLocal(hostId)
+    validateSandboxPath(sandboxPath, { local })
+    const path = local ? normalizeLocalPath(sandboxPath) : sandboxPath.replace(/\/+$/, '')
+    const dup = this.store.config.workspaces.find(
+      (w) => w.hostId === hostId && sameSandboxPath(w.sandboxPath, path, local)
+    )
+    if (dup) throw new Error(`This workspace already exists: ${dup.sandboxPath}`)
     return path
+  }
+
+  private isLocal(hostId: string): boolean {
+    const host = this.store.config.hosts.find((h) => h.id === hostId)
+    return !!host && isLocalHost(host)
   }
 
   /**

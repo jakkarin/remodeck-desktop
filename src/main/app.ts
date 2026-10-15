@@ -8,6 +8,7 @@ import type {
   Repo,
   Workspace
 } from '../shared/types'
+import { isLocalHost } from '../shared/types'
 import {
   COMPOSE_ACTIONS,
   CONTAINER_ID,
@@ -34,7 +35,7 @@ import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
 import { resolveSshPath } from './proc/sshPath'
 import { checkRemoteForward } from './sandbox/preflight'
-import { validateSandboxPath } from './sandbox/shell'
+import { normalizeLocalPath, validateSandboxPath } from './sandbox/shell'
 import { SshTarget } from './sandbox/target'
 import { Store } from './store/store'
 import { AutoSync } from './sync/autoSync'
@@ -389,11 +390,13 @@ export async function createApp(opts: {
       clone: async (hostId, repoInput, sandboxPath) => {
         const parsed = parseRepoInput(repoInput)
         if (!parsed) throw new Error('Invalid repo format')
-        validateSandboxPath(sandboxPath)
-        hostOf(hostId)
+        const local = isLocalHost(hostOf(hostId))
+        validateSandboxPath(sandboxPath, { local })
         connection.requireConnected(hostId)
         const repo = store.upsertRepo(parsed.owner, parsed.name)
-        const ws = store.addWorkspace(repo.id, hostId, sandboxPath)
+        // Progress events keep the path as typed: the renderer matches them against its input.
+        const stored = local ? normalizeLocalPath(sandboxPath) : sandboxPath
+        const ws = store.addWorkspace(repo.id, hostId, stored)
         try {
           await sync.cloneToSandbox(ws, (p) => send(EV['clone-progress'], hostId, sandboxPath, p))
         } catch (err) {
@@ -407,15 +410,13 @@ export async function createApp(opts: {
         return ws
       },
       inspectExisting: async (hostId, sandboxPath) => {
-        validateSandboxPath(sandboxPath)
-        hostOf(hostId)
+        validateSandboxPath(sandboxPath, { local: isLocalHost(hostOf(hostId)) })
         connection.requireConnected(hostId)
         // Read-only: resolves owner/name from the sandbox's origin; nothing is written or fetched.
         return sync.describeExisting(hostId, sandboxPath)
       },
       addExisting: async (hostId, sandboxPath, expected) => {
-        validateSandboxPath(sandboxPath)
-        hostOf(hostId)
+        validateSandboxPath(sandboxPath, { local: isLocalHost(hostOf(hostId)) })
         connection.requireConnected(hostId)
         // Rejects duplicates and a changed origin before any write, then rolls back only our own records on failure.
         return sync.addExisting(hostId, sandboxPath, expected)
