@@ -17,7 +17,6 @@ type Setup = {
     watchStats: Mock
     resources: Mock
     removeResource: Mock
-    prune: Mock
     find: Mock
     project: Mock
   }
@@ -48,7 +47,6 @@ function setup(
     watchStats: vi.fn(),
     resources: vi.fn(async () => []),
     removeResource: vi.fn(async () => undefined),
-    prune: vi.fn(async () => ({ deleted: 0, reclaimed: null })),
     find: vi.fn((_h: string, id: string) =>
       id === ID ? ({ id: ID, name: 'web-1' } as never) : null
     ),
@@ -222,7 +220,6 @@ describe('containersApi.openTerminal', () => {
         { tabId: 't1', hostId: 'h1', label }
       )
       expect(t.terminal.openHost).toHaveBeenCalledWith('h1', command, label)
-      expect(t.service.prune).not.toHaveBeenCalled()
     }
   )
 
@@ -361,7 +358,6 @@ describe('containersApi resources', () => {
     await expect(t.api.resources('nope', 'image')).rejects.toThrow('Host not found')
     const c = setup()
     await expect(c.api.resources('h1', 'bogus' as never)).rejects.toThrow('Invalid resource kind')
-    await expect(c.api.prune('h1', 'x' as never)).rejects.toThrow('Invalid resource kind')
     await expect(c.api.removeResource('h1', 'x' as never, 'a')).rejects.toThrow(
       'Invalid resource kind'
     )
@@ -372,9 +368,7 @@ describe('containersApi resources', () => {
     expect(c.service.removeResource).not.toHaveBeenCalled()
     await c.api.resources('h1', 'volume')
     await c.api.removeResource('h1', 'image', 'app:1')
-    await c.api.prune('h1', 'network')
     expect(c.service.resources).toHaveBeenCalledWith('h1', 'volume')
     expect(c.service.removeResource).toHaveBeenCalledWith('h1', 'image', 'app:1')
-    expect(c.service.prune).toHaveBeenCalledWith('h1', 'network')
   })
 })

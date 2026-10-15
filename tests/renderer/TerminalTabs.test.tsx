@@ -43,7 +43,7 @@ vi.mock('@xterm/addon-fit', () => ({
 }))
 
 import { TerminalTabs } from '../../src/renderer/src/components/TerminalTabs'
-import { announceTerminal, onTerminalClosed } from '../../src/renderer/src/terminalEvents'
+import { announceTerminal } from '../../src/renderer/src/terminalEvents'
 import { api } from '../../src/renderer/src/api'
 
 beforeEach(() => {
@@ -64,19 +64,20 @@ beforeEach(() => {
 const tab = { tabId: 't1', label: 'logs', hostId: 'h1' }
 
 describe('TerminalTabs', () => {
-  it('notifies command views when the user closes a tab', () => {
-    const closed: string[] = []
-    const off = onTerminalClosed((id) => closed.push(id))
-    try {
-      render(<TerminalTabs collapsed={false} onToggle={vi.fn()} />)
-      act(() => announceTerminal(tab))
-      fireEvent.click(screen.getByRole('button', { name: 'Close logs' }))
-      expect(closed).toEqual(['t1'])
-      expect(api.terminal.close).toHaveBeenCalledWith('t1')
-      expect(screen.queryByRole('button', { name: 'Close logs' })).toBeNull()
-    } finally {
-      off()
-    }
+  it('closes the tab in main and ignores the exit main sends back for it', () => {
+    const exitHandlers: ((tabId: string, code: number) => void)[] = []
+    vi.mocked(api.on).mockImplementation(((event: string, cb: never) => {
+      if (event === 'terminal-exit') exitHandlers.push(cb)
+      return () => undefined
+    }) as never)
+    render(<TerminalTabs collapsed={false} onToggle={vi.fn()} />)
+    act(() => announceTerminal(tab))
+    fireEvent.click(screen.getByRole('button', { name: 'Close logs' }))
+    expect(api.terminal.close).toHaveBeenCalledWith('t1')
+    expect(screen.queryByRole('button', { name: 'Close logs' })).toBeNull()
+    expect(() => act(() => exitHandlers.forEach((h) => h('t1', -1)))).not.toThrow()
+    expect(screen.queryByRole('button', { name: 'Close logs' })).toBeNull()
+    vi.mocked(api.on).mockImplementation(() => () => undefined)
   })
   it('expands when a tab opens while collapsed', () => {
     const onToggle = vi.fn()
