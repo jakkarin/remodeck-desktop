@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import { Notification, clipboard, shell, type BrowserWindow } from 'electron'
 import type {
   ApprovalDecision,
@@ -33,10 +34,11 @@ import { SecretStore, electronEncryptor } from './gitAccess/secretStore'
 import { TargetAccessService } from './gitAccess/targetAccessService'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
+import { resolveBashPath } from './proc/bashPath'
 import { resolveSshPath } from './proc/sshPath'
 import { checkRemoteForward } from './sandbox/preflight'
 import { normalizeLocalPath, validateSandboxPath } from './sandbox/shell'
-import { SshTarget } from './sandbox/target'
+import { LocalTarget, SshTarget, type SandboxTarget } from './sandbox/target'
 import { Store } from './store/store'
 import { AutoSync } from './sync/autoSync'
 import {
@@ -240,7 +242,13 @@ export async function createApp(opts: {
     if (!r) throw new Error('Repo not found')
     return r
   }
-  const targetFor = (hostId: string): SshTarget => new SshTarget(hostOf(hostId).sshHost, sshPath)
+  const bashPath = resolveBashPath()
+  const targetFor = (hostId: string): SandboxTarget => {
+    const host = hostOf(hostId)
+    return isLocalHost(host)
+      ? new LocalTarget(os.homedir(), bashPath)
+      : new SshTarget(host.sshHost, sshPath)
+  }
   const sshHostFor = (hostId: string): string => hostOf(hostId).sshHost
 
   const adapters = [createGithubAdapter()]

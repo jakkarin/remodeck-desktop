@@ -1,4 +1,5 @@
 import { runProcess, type ProcResult } from '../proc/run'
+import { BASH_MISSING } from '../proc/bashPath'
 
 export interface SandboxTarget {
   exec(script: string, opts?: { timeoutMs?: number }): Promise<ProcResult>
@@ -30,11 +31,17 @@ export class SshTarget implements SandboxTarget {
 
 const GIT_BASH_FALLBACK = 'C:/Program Files/Git/bin/bash.exe'
 
-/** Test double: runs the script with local bash, treating homeDir as the sandbox home. */
+/**
+ * Runs scripts on this computer with homeDir as HOME. The app passes Git for Windows' bash (or null when it is
+ * missing, which makes exec reject); tests leave bashPath out to use whatever bash is available.
+ */
 export class LocalTarget implements SandboxTarget {
   private readonly homeDir: string
 
-  constructor(homeDir: string) {
+  constructor(
+    homeDir: string,
+    private readonly bashPath?: string | null
+  ) {
     this.homeDir = homeDir.replaceAll('\\', '/')
   }
 
@@ -44,6 +51,8 @@ export class LocalTarget implements SandboxTarget {
       env: { ...process.env, HOME: this.homeDir } as Record<string, string>,
       timeoutMs: execOpts?.timeoutMs
     }
+    if (this.bashPath === null) throw new Error(BASH_MISSING)
+    if (this.bashPath !== undefined) return runProcess(this.bashPath, ['-s'], opts)
     try {
       return await runProcess('bash', ['-s'], opts)
     } catch (e) {
