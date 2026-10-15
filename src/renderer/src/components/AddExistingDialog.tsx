@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ExistingRepoInfo, Workspace } from '../../../shared/types'
+import { isLocalHost, type ExistingRepoInfo, type Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { Alert, AlertDescription } from './ui/alert'
@@ -20,6 +20,8 @@ export function AddExistingDialog({
 }): React.JSX.Element {
   const { hosts } = useAppState()
   const [hostId, setHostId] = useState(hostIds[0] ?? '')
+  const selected = hosts.find((h) => h.id === hostId)
+  const local = !!selected && isLocalHost(selected)
   const [path, setPath] = useState('')
   // Set after a successful Check: the repo the sandbox's origin resolves to, awaiting the user's confirmation.
   const [info, setInfo] = useState<ExistingRepoInfo | null>(null)
@@ -95,7 +97,7 @@ export function AddExistingDialog({
               id="existing-path"
               className="font-mono"
               value={path}
-              placeholder="~/work/my-app"
+              placeholder={local ? 'D:/projects/my-app' : '~/work/my-app'}
               onChange={(e) => {
                 setPath(e.target.value)
                 setInfo(null)

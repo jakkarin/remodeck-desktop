@@ -63,3 +63,27 @@ describe('HostSettingsDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 })
+
+describe('HostSettingsDialog for This computer', () => {
+  it('hides the SSH field and git access but keeps label and protection', () => {
+    const value = { refresh: vi.fn(), hosts: [], prefs: DEFAULT_PREFS } as unknown as AppState
+    render(
+      <AppStateContext.Provider value={value}>
+        <HostSettingsDialog
+          host={{
+            id: 'local',
+            kind: 'local',
+            sshHost: '',
+            label: 'This computer',
+            protected: false
+          }}
+          onClose={vi.fn()}
+        />
+      </AppStateContext.Provider>
+    )
+    expect(screen.queryByLabelText('SSH host')).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Git access' })).toBeNull()
+    expect(screen.getByLabelText('Label')).toHaveValue('This computer')
+    expect(screen.getByRole('checkbox', { name: 'Protected host' })).toBeInTheDocument()
+  })
+})

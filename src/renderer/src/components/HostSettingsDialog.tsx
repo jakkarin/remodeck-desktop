@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Host } from '../../../shared/types'
+import { cn } from 'cn'
+import { isLocalHost, type Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { HostGitAccessPanel } from './HostGitAccessPanel'
@@ -27,6 +28,7 @@ export function HostSettingsDialog({
   onClose(): void
 }): React.JSX.Element {
   const { refresh } = useAppState()
+  const local = isLocalHost(host)
   const [label, setLabel] = useState(host.label)
   const [isProtected, setIsProtected] = useState(host.protected)
   const [busy, setBusy] = useState(false)
@@ -55,11 +57,13 @@ export function HostSettingsDialog({
           </DialogDescription>
         </DialogHeader>
         <FieldGroup className="gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Field>
-              <FieldLabel htmlFor="host-ssh">SSH host</FieldLabel>
-              <Input id="host-ssh" className="bg-muted font-mono" value={host.sshHost} readOnly />
-            </Field>
+          <div className={cn('grid gap-3', local ? 'grid-cols-1' : 'grid-cols-2')}>
+            {!local && (
+              <Field>
+                <FieldLabel htmlFor="host-ssh">SSH host</FieldLabel>
+                <Input id="host-ssh" className="bg-muted font-mono" value={host.sshHost} readOnly />
+              </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="host-label">Label</FieldLabel>
               <Input
@@ -86,8 +90,13 @@ export function HostSettingsDialog({
             </div>
           </div>
         </FieldGroup>
-        <Separator />
-        <HostGitAccessPanel host={host} onClose={onClose} />
+        {/* This computer already has Git Credential Manager: no tokens to install. */}
+        {!local && (
+          <>
+            <Separator />
+            <HostGitAccessPanel host={host} onClose={onClose} />
+          </>
+        )}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

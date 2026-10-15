@@ -214,3 +214,17 @@ describe('AddExistingDialog', () => {
     expect(api.workspaces.inspectExisting).toHaveBeenCalledWith('h2', '~/work/app')
   })
 })
+
+describe('AddExistingDialog on This computer', () => {
+  it('suggests a drive path for the local host', () => {
+    const value = {
+      hosts: [{ id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false }]
+    } as unknown as AppState
+    render(
+      <AppStateContext.Provider value={value}>
+        <AddExistingDialog hostIds={['local']} onClose={vi.fn()} onAdded={vi.fn()} />
+      </AppStateContext.Provider>
+    )
+    expect(screen.getByLabelText('Path')).toHaveAttribute('placeholder', 'D:/projects/my-app')
+  })
+})

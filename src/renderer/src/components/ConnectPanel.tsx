@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { CircleAlert, Loader2, Server } from 'lucide-react'
-import type { Host } from '../../../shared/types'
+import { isLocalHost, type Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { Button } from './ui/button'
@@ -63,9 +63,13 @@ export function ConnectPanel({ host }: { host: Host }): React.JSX.Element {
           icon={<Server size={18} />}
           title={`${host.label} is not connected`}
           description={
-            <>
-              Connects over <MonoLine>{`ssh ${host.sshHost}`}</MonoLine>
-            </>
+            isLocalHost(host) ? (
+              'Runs on this computer with Git Bash'
+            ) : (
+              <>
+                Connects over <MonoLine>{`ssh ${host.sshHost}`}</MonoLine>
+              </>
+            )
           }
         >
           <Button size="lg" disabled={connecting} onClick={() => void connect()}>
