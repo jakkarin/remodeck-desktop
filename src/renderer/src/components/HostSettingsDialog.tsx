@@ -49,59 +49,70 @@ export function HostSettingsDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
-      <DialogContent aria-label="Host settings" aria-labelledby={undefined} className="sm:max-w-md">
+      <DialogContent
+        aria-label="Host settings"
+        aria-labelledby={undefined}
+        className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-md"
+      >
         <DialogHeader>
           <DialogTitle>Host settings</DialogTitle>
           <DialogDescription className="sr-only">
             Label, protection and git access for this host.
           </DialogDescription>
         </DialogHeader>
-        <FieldGroup className="gap-3">
-          <div className={cn('grid gap-3', local ? 'grid-cols-1' : 'grid-cols-2')}>
-            {!local && (
+        <div className="-mx-4 flex min-h-0 flex-col gap-4 overflow-y-auto px-4">
+          <FieldGroup className="gap-3">
+            <div className={cn('grid gap-3', local ? 'grid-cols-1' : 'grid-cols-2')}>
+              {!local && (
+                <Field>
+                  <FieldLabel htmlFor="host-ssh">SSH host</FieldLabel>
+                  <Input
+                    id="host-ssh"
+                    className="bg-muted font-mono"
+                    value={host.sshHost}
+                    readOnly
+                  />
+                </Field>
+              )}
               <Field>
-                <FieldLabel htmlFor="host-ssh">SSH host</FieldLabel>
-                <Input id="host-ssh" className="bg-muted font-mono" value={host.sshHost} readOnly />
+                <FieldLabel htmlFor="host-label">Label</FieldLabel>
+                <Input
+                  id="host-label"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  autoFocus
+                />
               </Field>
-            )}
-            <Field>
-              <FieldLabel htmlFor="host-label">Label</FieldLabel>
-              <Input
-                id="host-label"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                autoFocus
+            </div>
+            <div className="flex items-start gap-2.5 rounded-lg border border-border p-2.5">
+              <Checkbox
+                id="host-protected"
+                className="mt-0.5"
+                aria-describedby="host-protected-hint"
+                checked={isProtected}
+                onCheckedChange={(checked) => setIsProtected(checked === true)}
               />
-            </Field>
-          </div>
-          <div className="flex items-start gap-2.5 rounded-lg border border-border p-2.5">
-            <Checkbox
-              id="host-protected"
-              className="mt-0.5"
-              aria-describedby="host-protected-hint"
-              checked={isProtected}
-              onCheckedChange={(checked) => setIsProtected(checked === true)}
-            />
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor="host-protected">Protected host</Label>
-              <div id="host-protected-hint" className="text-muted-foreground">
-                Require typing the host name before dangerous commands
+              <div className="flex flex-col gap-0.5">
+                <Label htmlFor="host-protected">Protected host</Label>
+                <div id="host-protected-hint" className="text-muted-foreground">
+                  Require typing the host name before dangerous commands
+                </div>
               </div>
             </div>
-          </div>
-        </FieldGroup>
-        {/* This computer already has Git Credential Manager: no tokens to install. */}
-        {!local && (
-          <>
-            <Separator />
-            <HostGitAccessPanel host={host} onClose={onClose} />
-          </>
-        )}
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+          </FieldGroup>
+          {/* This computer already has Git Credential Manager: no tokens to install. */}
+          {!local && (
+            <>
+              <Separator />
+              <HostGitAccessPanel host={host} onClose={onClose} />
+            </>
+          )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
