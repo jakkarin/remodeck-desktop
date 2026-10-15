@@ -409,7 +409,7 @@ export async function createApp(opts: {
         connection.requireConnected(hostId)
         const repo = store.upsertRepo(parsed.owner, parsed.name)
         // Progress events keep the path as typed: the renderer matches them against its input.
-        const stored = local ? normalizeLocalPath(sandboxPath) : sandboxPath
+        const stored = local ? normalizeLocalPath(sandboxPath, os.homedir()) : sandboxPath
         const ws = store.addWorkspace(repo.id, hostId, stored)
         try {
           await sync.cloneToSandbox(ws, (p) => send(EV['clone-progress'], hostId, sandboxPath, p))

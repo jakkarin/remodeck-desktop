@@ -1,4 +1,5 @@
 import type { GitAccessStatus, InstallOptions } from '../../shared/gitAccess'
+import { isLocalHost } from '../../shared/types'
 import type { ProcResult } from '../proc/run'
 import type { SandboxTarget } from '../sandbox/target'
 import type { Store } from '../store/store'
@@ -115,6 +116,9 @@ export class TargetAccessService {
     label: string,
     secrets: string[]
   ): Promise<ProcResult> {
+    // The scripts write ~/.gitconfig, ~/.bashrc and plain-text tokens: never on the user's own computer.
+    const host = this.store.config.hosts.find((h) => h.id === hostId)
+    if (host && isLocalHost(host)) throw new Error('Git access is not used on This computer')
     const r = await this.targetFor(hostId).exec(script, { timeoutMs })
     if (r.code !== 0) {
       const detail = redact(r.stderr, secrets).trim().slice(0, MAX_STDERR_CHARS)

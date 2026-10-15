@@ -94,6 +94,19 @@ describe('redact', () => {
   })
 })
 
+describe('TargetAccessService on This computer', () => {
+  it('refuses status, install and remove without running anything', async () => {
+    const target = new FakeTarget()
+    const svc = service(target)
+    const msg = 'Git access is not used on This computer'
+    await expect(svc.status('local')).rejects.toThrow(msg)
+    await expect(svc.install('local', [idA])).rejects.toThrow(msg)
+    await expect(svc.remove('local')).rejects.toThrow(msg)
+    expect(target.scripts).toHaveLength(0)
+    expect(store.config.hosts[0].gitAccess).toBeUndefined()
+  })
+})
+
 describe('TargetAccessService with a recording target', () => {
   it('installs both tokens, records them and reports status', async () => {
     const target = new FakeTarget()

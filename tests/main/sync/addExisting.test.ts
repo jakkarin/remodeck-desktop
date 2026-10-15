@@ -206,6 +206,30 @@ describe('SyncService.addExisting', () => {
     expect(ws.sandboxPath).toBe(expected[0].toUpperCase() + expected.slice(1))
   })
 
+  it('adds a local repo typed in a different case than on disk', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    const dir = (await vmRepo('api')).replaceAll('\\', '/')
+    const mixed = dir.replace(/\/home\/api$/, '/HOME/API')
+    expect(mixed).not.toBe(dir)
+    const ws = await svc.addExisting('local', mixed, ACME)
+    expect(ws.hostId).toBe('local')
+  })
+
+  it('rejects a local duplicate stored as ~ and typed as an absolute path', async () => {
+    const local = new SyncService({
+      git: host,
+      mirror: new MirrorService(host, () => gh.url),
+      store,
+      targetFor: () => new LocalTarget(home),
+      homeDir: 'C:\\Users\\x'
+    })
+    const repo = store.upsertRepo('acme', 'api')
+    store.addWorkspace(repo.id, 'local', '~/repos/app')
+    await expect(local.describeExisting('local', 'C:\\Users\\x\\repos\\app')).rejects.toThrow(
+      'This workspace already exists: ~/repos/app'
+    )
+  })
+
   it('rejects a local duplicate typed differently', async () => {
     const repo = store.upsertRepo('acme', 'api')
     store.addWorkspace(repo.id, 'local', 'D:/develop/app')

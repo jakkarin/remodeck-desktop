@@ -13,7 +13,7 @@ describe('shell quoting', () => {
   })
   it('shPath expands ~ and ~/rest', () => {
     expect(shPath('~')).toBe('"$HOME"')
-    expect(shPath("~/my repos/it's")).toBe('"$HOME"/\'my repos/it\'\\\'\'s\'')
+    expect(shPath("~/my repos/it's")).toBe("\"$HOME\"/'my repos/it'\\''s'")
   })
   it('shPath quotes other paths', () => {
     expect(shPath('/srv/a b')).toBe(`'/srv/a b'`)
@@ -22,7 +22,8 @@ describe('shell quoting', () => {
 
 describe('validateSandboxPath', () => {
   it('accepts absolute and ~/ subdirectory paths', () => {
-    for (const ok of ['/srv/api', '~/repos/api', '~/x']) expect(() => validateSandboxPath(ok)).not.toThrow()
+    for (const ok of ['/srv/api', '~/repos/api', '~/x'])
+      expect(() => validateSandboxPath(ok)).not.toThrow()
   })
   it('rejects relative, bare ~, ~/ and ~user paths', () => {
     for (const bad of ['', 'repos/api', './api', '../api', '~', '~/', '~user/api', '/']) {
@@ -41,6 +42,15 @@ describe('local paths', () => {
       expect(() => validateSandboxPath(bad, { local: true })).toThrow()
   })
 
+  it('rejects POSIX-only paths on the local host', () => {
+    for (const bad of ['/tmp/x', '/home/me/app', '/srv/app'])
+      expect(() => validateSandboxPath(bad, { local: true })).toThrow(
+        'Use a Windows path like D:/projects/app'
+      )
+    expect(() => validateSandboxPath('/d/develop/app', { local: true })).not.toThrow()
+    expect(() => validateSandboxPath('/tmp/x')).not.toThrow()
+  })
+
   it('normalizeLocalPath cleans drive paths', () => {
     expect(normalizeLocalPath('d:\\develop\\app\\')).toBe('D:/develop/app')
     expect(normalizeLocalPath('~/repos/a')).toBe('~/repos/a')
@@ -54,6 +64,15 @@ describe('local paths', () => {
 
   it('shPath quotes a spaced drive path', () => {
     expect(shPath('C:/Users/Jane Doe/a')).toBe(`'C:/Users/Jane Doe/a'`)
+  })
+
+  it('normalizeLocalPath expands ~ when given a home dir', () => {
+    expect(normalizeLocalPath('~/repos/a', 'c:\\Users\\x\\')).toBe('C:/Users/x/repos/a')
+    expect(normalizeLocalPath('~', 'C:/Users/x')).toBe('C:/Users/x')
+  })
+
+  it('sameSandboxPath matches ~ and the absolute home path for local', () => {
+    expect(sameSandboxPath('~/repos/app', 'c:/users/x/repos/app', true, 'C:/Users/x')).toBe(true)
   })
 
   it('sameSandboxPath ignores case only for local', () => {

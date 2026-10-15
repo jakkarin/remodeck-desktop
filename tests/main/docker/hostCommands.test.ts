@@ -75,6 +75,13 @@ describe('composeCommand on the local host', () => {
     )
   })
 
+  it('rejects a WSL-only compose path on the local host', () => {
+    const p = { name: 'web', workingDir: '/home/u/proj', configFiles: [] }
+    expect(() => composeCommand(p, 'up', { local: true })).toThrow(
+      'Use a Windows path like D:/projects/app'
+    )
+  })
+
   it('still rejects drive paths on ssh hosts', () => {
     const p = { name: 'web', workingDir: 'D:/proj', configFiles: [] }
     expect(() => composeCommand(p, 'up')).toThrow('Path must start with / or ~/')

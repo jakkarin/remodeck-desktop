@@ -15,9 +15,12 @@ const MSYS_DRIVE = /^\/([A-Za-z])(\/|$)/
 
 /**
  * Sandbox paths must be absolute or a subdirectory of `~/` (relative and `~user` forms are rejected).
- * The local host also takes Windows drive paths (`D:/x`, `D:\x`).
+ * The local host also takes Windows drive paths (`D:/x`, `D:\x`), but of the `/` forms only Git Bash's `/d/x`:
+ * other ones (`/tmp`, `/home`) mean one folder inside Git Bash and another to native git.exe and node-pty.
  */
 export function validateSandboxPath(p: string, opts?: { local?: boolean }): void {
+  if (opts?.local && p.startsWith('/') && !MSYS_DRIVE.test(p))
+    throw new Error('Use a Windows path like D:/projects/app')
   const rest = p.startsWith('~/')
     ? p.slice(2)
     : p.startsWith('/')
@@ -34,8 +37,12 @@ export function validateSandboxPath(p: string, opts?: { local?: boolean }): void
  * Canonical form of a local-host path: forward slashes, upper-case drive, no trailing `/`.
  * Git Bash's `/d/x` becomes `D:/x`; `~` and other paths only lose the trailing `/`.
  */
-export function normalizeLocalPath(p: string): string {
+export function normalizeLocalPath(p: string, homeDir?: string): string {
   let s = p.replaceAll('\\', '/')
+  if (homeDir !== undefined && (s === '~' || s.startsWith('~/'))) {
+    const home = normalizeLocalPath(homeDir)
+    s = s === '~' ? home : `${home.replace(/\/$/, '')}/${s.slice(2)}`
+  }
   const msys = MSYS_DRIVE.exec(s)
   if (msys) s = `${msys[1]}:/${s.slice(msys[0].length)}`
   if (/^[A-Za-z]:\//.test(s)) s = s[0].toUpperCase() + s.slice(1)
@@ -44,7 +51,8 @@ export function normalizeLocalPath(p: string): string {
 }
 
 /** Whether two sandbox paths name the same folder; local paths compare normalised and case-insensitively. */
-export function sameSandboxPath(a: string, b: string, local: boolean): boolean {
+export function sameSandboxPath(a: string, b: string, local: boolean, homeDir?: string): boolean {
   if (!local) return a.replace(/\/+$/, '') === b.replace(/\/+$/, '')
-  return normalizeLocalPath(a).toLowerCase() === normalizeLocalPath(b).toLowerCase()
+  const norm = (p: string): string => normalizeLocalPath(p, homeDir).toLowerCase()
+  return norm(a) === norm(b)
 }
