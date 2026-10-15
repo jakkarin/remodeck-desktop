@@ -1,16 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import type { ContainerInfo } from '../../src/shared/containers'
 import type { ResourceRow } from '../../src/shared/resources'
 import type { Host } from '../../src/shared/types'
 
+type ExitHandler = (tabId: string, code: number) => void
+const exitHandlers = new Set<ExitHandler>()
+const exitTerminal = (tabId: string): void => {
+  act(() => {
+    for (const handler of exitHandlers) handler(tabId, 0)
+  })
+}
+
 vi.mock('../../src/renderer/src/api', () => ({
-  api: { containers: { resources: vi.fn(), removeResource: vi.fn(), prune: vi.fn() } },
+  api: {
+    terminal: { close: vi.fn() },
+    containers: {
+      resources: vi.fn(),
+      removeResource: vi.fn(),
+      prune: vi.fn(),
+      openTerminal: vi.fn()
+    },
+    on: vi.fn((event: string, handler: ExitHandler) => {
+      if (event === 'terminal-exit') exitHandlers.add(handler)
+      return () => {
+        exitHandlers.delete(handler)
+      }
+    })
+  },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
 import { api } from '../../src/renderer/src/api'
 import { ResourcesView } from '../../src/renderer/src/components/ResourcesView'
+import { closeTerminal } from '../../src/renderer/src/terminalEvents'
 
 const host: Host = { id: 'h1', sshHost: 'a', label: 'Box', protected: false }
 
@@ -40,7 +63,10 @@ const ctr = (over: Partial<ContainerInfo>): ContainerInfo => ({
   ...over
 })
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  exitHandlers.clear()
+})
 
 describe('ResourcesView', () => {
   it('loads rows and marks in-use from containers', async () => {
@@ -121,6 +147,11 @@ describe('ResourcesView actions', () => {
     vi.mocked(api.containers.resources).mockResolvedValue([img])
     vi.mocked(api.containers.removeResource).mockResolvedValue(undefined)
     vi.mocked(api.containers.prune).mockResolvedValue({ deleted: 0, reclaimed: null })
+    vi.mocked(api.containers.openTerminal).mockResolvedValue({
+      tabId: 'prune-tab',
+      label: 'prune',
+      hostId: 'h1'
+    })
   })
 
   it('image Remove asks click on a normal host and calls removeResource with the tag', async () => {
@@ -164,7 +195,12 @@ describe('ResourcesView actions', () => {
     expect(confirm).toBeDisabled()
     fireEvent.change(within(dialog).getByLabelText(TYPE_LABEL), { target: { value: 'Box' } })
     fireEvent.click(confirm)
-    await waitFor(() => expect(api.containers.prune).toHaveBeenCalledWith('h1', 'image'))
+    await waitFor(() =>
+      expect(api.containers.openTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'resource-prune',
+        resource: 'image'
+      })
+    )
   })
 
   it('built-in network has no Remove button but keeps an empty slot', async () => {
@@ -183,13 +219,55 @@ describe('ResourcesView actions', () => {
     expect(first.lastElementChild?.children).toHaveLength(1)
   })
 
-  it('prune shows the result line and reloads', async () => {
-    vi.mocked(api.containers.prune).mockResolvedValue({ deleted: 3, reclaimed: 41943040 })
+  it.each(['image', 'volume', 'network'] as const)(
+    'opens each prune type in a terminal after confirmation: %s',
+    async (kind) => {
+      render(<ResourcesView host={host} kind={kind} containers={[]} />)
+      fireEvent.click(await screen.findByRole('button', { name: `Prune ${kind}s` }))
+      expect(api.containers.openTerminal).not.toHaveBeenCalled()
+      const dialog = screen.getByRole('alertdialog')
+      if (kind === 'volume') {
+        expect(within(dialog).getByRole('button', { name: 'Prune' })).toBeDisabled()
+        fireEvent.change(within(dialog).getByLabelText(TYPE_LABEL), { target: { value: 'Box' } })
+      }
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Prune' }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+      expect(api.containers.openTerminal).toHaveBeenCalledWith('h1', {
+        kind: 'resource-prune',
+        resource: kind
+      })
+      expect(api.containers.prune).not.toHaveBeenCalled()
+    }
+  )
+
+  it('reloads the list only after its prune terminal exits', async () => {
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Removed 3 items · reclaimed 40 MB')
-    await waitFor(() => expect(api.containers.resources).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Prune images' })).toBeDisabled()
+    expect(api.containers.resources).toHaveBeenCalledTimes(1)
+    exitTerminal('other-tab')
+    expect(api.containers.resources).toHaveBeenCalledTimes(1)
+    vi.mocked(api.containers.resources).mockResolvedValueOnce([])
+    exitTerminal('prune-tab')
+    expect(await screen.findByText('No images on Box')).toBeInTheDocument()
+    expect(screen.queryByText('nginx:latest')).toBeNull()
+  })
+
+  it('releases busy state and reloads when the user closes the prune terminal', async () => {
+    render(<ResourcesView host={host} kind="image" containers={[]} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    act(() => closeTerminal('other-tab'))
+    expect(api.containers.resources).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Prune images' })).toBeDisabled()
+    act(() => closeTerminal('prune-tab'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Prune images' })).toBeEnabled())
+    expect(api.containers.resources).toHaveBeenCalledTimes(2)
+    exitTerminal('prune-tab')
+    expect(api.containers.resources).toHaveBeenCalledTimes(2)
   })
 
   it('prune confirm states the scope per kind', async () => {
@@ -220,12 +298,41 @@ describe('ResourcesView actions', () => {
     expect(screen.getByRole('button', { name: 'Prune images', hidden: true })).toBeEnabled()
   })
 
-  it('prune without reclaimed omits the space part', async () => {
-    vi.mocked(api.containers.prune).mockResolvedValue({ deleted: 2, reclaimed: null })
+  it('terminal opening failures remain in the confirmation and can be retried', async () => {
+    vi.mocked(api.containers.openTerminal).mockRejectedValueOnce(new Error('SSH unavailable'))
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
-    expect(await screen.findByText('Removed 2 items')).toBeInTheDocument()
+    expect(await screen.findByText('SSH unavailable')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(api.containers.openTerminal).toHaveBeenCalledTimes(2)
+  })
+
+  it('reloads after a fast terminal exit received before its opening reply', async () => {
+    vi.mocked(api.containers.openTerminal).mockImplementationOnce(async () => {
+      exitTerminal('prune-tab')
+      return { tabId: 'prune-tab', hostId: 'h1', label: 'prune' }
+    })
+    render(<ResourcesView host={host} kind="image" containers={[]} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
+    vi.mocked(api.containers.resources).mockResolvedValueOnce([])
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
+    expect(await screen.findByText('No images on Box')).toBeInTheDocument()
+    expect(api.containers.openTerminal).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reload a different host when the old prune terminal exits', async () => {
+    const { rerender } = render(<ResourcesView host={host} kind="image" containers={[]} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    rerender(<ResourcesView host={{ ...host, id: 'h2' }} kind="image" containers={[]} />)
+    await screen.findByText('nginx:latest')
+    exitTerminal('prune-tab')
+    expect(api.containers.resources).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Prune images' })).toBeEnabled()
   })
 
   it('remove error (in use) shows the Thai message in the banner and reloads', async () => {
@@ -257,8 +364,11 @@ describe('ResourcesView actions', () => {
     await waitFor(() => expect(rm).toBeEnabled())
 
     let finishPrune: () => void = () => {}
-    vi.mocked(api.containers.prune).mockImplementation(
-      () => new Promise((r) => (finishPrune = () => r({ deleted: 0, reclaimed: null })))
+    vi.mocked(api.containers.openTerminal).mockImplementation(
+      () =>
+        new Promise(
+          (r) => (finishPrune = () => r({ tabId: 'prune-tab', hostId: 'h1', label: 'prune' }))
+        )
     )
     const pr = screen.getByRole('button', { name: 'Prune images' })
     fireEvent.click(pr)
@@ -266,8 +376,10 @@ describe('ResourcesView actions', () => {
     expect(screen.getAllByRole('alertdialog')).toHaveLength(1)
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
     await waitFor(() => expect(pr).toBeDisabled())
-    expect(api.containers.prune).toHaveBeenCalledTimes(1)
-    finishPrune()
+    expect(api.containers.openTerminal).toHaveBeenCalledTimes(1)
+    await act(async () => finishPrune())
+    expect(pr).toBeDisabled()
+    exitTerminal('prune-tab')
     await waitFor(() => expect(pr).toBeEnabled())
   })
 })

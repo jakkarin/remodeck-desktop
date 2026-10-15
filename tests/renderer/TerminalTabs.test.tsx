@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, fireEvent, screen } from '@testing-library/react'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
@@ -36,10 +36,15 @@ vi.mock('@xterm/xterm', () => ({
     dispose = vi.fn()
   }
 }))
-vi.mock('@xterm/addon-fit', () => ({ FitAddon: class { fit = vi.fn() } }))
+vi.mock('@xterm/addon-fit', () => ({
+  FitAddon: class {
+    fit = vi.fn()
+  }
+}))
 
 import { TerminalTabs } from '../../src/renderer/src/components/TerminalTabs'
-import { announceTerminal } from '../../src/renderer/src/terminalEvents'
+import { announceTerminal, onTerminalClosed } from '../../src/renderer/src/terminalEvents'
+import { api } from '../../src/renderer/src/api'
 
 beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({
@@ -59,6 +64,20 @@ beforeEach(() => {
 const tab = { tabId: 't1', label: 'logs', hostId: 'h1' }
 
 describe('TerminalTabs', () => {
+  it('notifies command views when the user closes a tab', () => {
+    const closed: string[] = []
+    const off = onTerminalClosed((id) => closed.push(id))
+    try {
+      render(<TerminalTabs collapsed={false} onToggle={vi.fn()} />)
+      act(() => announceTerminal(tab))
+      fireEvent.click(screen.getByRole('button', { name: 'Close logs' }))
+      expect(closed).toEqual(['t1'])
+      expect(api.terminal.close).toHaveBeenCalledWith('t1')
+      expect(screen.queryByRole('button', { name: 'Close logs' })).toBeNull()
+    } finally {
+      off()
+    }
+  })
   it('expands when a tab opens while collapsed', () => {
     const onToggle = vi.fn()
     render(<TerminalTabs collapsed onToggle={onToggle} />)

@@ -16,6 +16,7 @@ export type DangerAction =
   | 'network-prune'
   | 'volume-rm'
   | 'volume-prune'
+  | 'build-cache-prune'
 
 export type DangerLevel = 'none' | 'click' | 'type'
 

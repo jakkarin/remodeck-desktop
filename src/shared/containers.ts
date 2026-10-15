@@ -1,4 +1,5 @@
 // Shared between main and renderer: types and pure functions only, no node imports.
+import type { ResourceKind } from './resources'
 
 export type ContainerState =
   'created' | 'running' | 'paused' | 'restarting' | 'removing' | 'exited' | 'dead'
@@ -142,3 +143,5 @@ export const COMPOSE_PROJECT = /^[a-z0-9][a-z0-9_-]*$/
 export type HostTerminalRequest =
   | { kind: 'logs' | 'shell'; id: string }
   | { kind: 'compose'; project: string; action: ComposeAction }
+  | { kind: 'build-cache-prune' }
+  | { kind: 'resource-prune'; resource: ResourceKind }

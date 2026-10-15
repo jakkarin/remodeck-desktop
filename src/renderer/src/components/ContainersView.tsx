@@ -28,14 +28,16 @@ import { ContainerGroup } from './ContainerGroup'
 import { ContainerItem } from './ContainerItem'
 import { ContainerDetailsPanel } from './ContainerDetailsPanel'
 import { ResourcesView } from './ResourcesView'
+import { BuildsView } from './BuildsView'
 import type { ResourceKind } from '../../../shared/resources'
 
-type Tab = 'containers' | ResourceKind
+type Tab = 'containers' | 'builds' | ResourceKind
 const TABS: [Tab, string][] = [
   ['containers', 'Containers'],
   ['image', 'Images'],
   ['volume', 'Volumes'],
-  ['network', 'Networks']
+  ['network', 'Networks'],
+  ['builds', 'Builds']
 ]
 
 const CARD =
@@ -232,6 +234,7 @@ export function ContainersView({ host }: { host: Host }): React.JSX.Element {
   const padded = (children: React.ReactNode): React.JSX.Element => (
     <div className="min-h-0 flex-1 overflow-auto p-3">{children}</div>
   )
+  if (tab === 'builds') return frame(padded(<BuildsView host={host} />))
   if (tab !== 'containers') {
     return frame(padded(<ResourcesView key={tab} host={host} kind={tab} containers={list ?? []} />))
   }

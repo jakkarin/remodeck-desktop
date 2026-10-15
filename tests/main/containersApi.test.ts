@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import { containersApi, wireContainerService } from '../../src/main/app'
 import type { DockerCapability, Host } from '../../src/shared/types'
 import type { ContainerAction } from '../../src/shared/containers'
@@ -8,7 +8,29 @@ vi.mock('electron', () => ({ Notification: class {}, clipboard: {}, shell: {} })
 const ID = 'a'.repeat(64)
 const host = { id: 'h1', sshHost: 'box', label: 'box' } as Host
 
-function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: () => void } = {}) {
+type Setup = {
+  connection: { requireConnected: Mock; probeDocker: Mock }
+  service: {
+    open: Mock
+    action: Mock
+    inspect: Mock
+    watchStats: Mock
+    resources: Mock
+    removeResource: Mock
+    prune: Mock
+    find: Mock
+    project: Mock
+  }
+  terminal: { openHost: Mock }
+  builds: { history: Mock }
+  hostOf: Mock
+  disconnect(): void
+  api: ReturnType<typeof containersApi>
+}
+
+function setup(
+  opts: { connected?: boolean; probe?: DockerCapability; onProbe?: () => void } = {}
+): Setup {
   let connected = opts.connected ?? true
   const connection = {
     requireConnected: vi.fn(() => {
@@ -49,6 +71,9 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
       hostId
     }))
   }
+  const builds = {
+    history: vi.fn(async () => [])
+  }
   const hostOf = vi.fn((id: string) => {
     if (id !== 'h1') throw new Error('Host not found')
     return host
@@ -59,11 +84,24 @@ function setup(opts: { connected?: boolean; probe?: DockerCapability; onProbe?: 
     hostOf,
     disconnect: () => (connected = false),
     terminal,
-    api: containersApi({ hostOf, connection, service, terminal })
+    builds,
+    api: containersApi({ hostOf, connection, service, terminal, builds })
   }
 }
 
 describe('containersApi', () => {
+  it('gates build history on a known connected host', async () => {
+    const t = setup({ connected: false })
+    await expect(t.api.buildHistory('h1')).rejects.toThrow('Host is not connected')
+    await expect(t.api.buildHistory('unknown')).rejects.toThrow('Host not found')
+    expect(t.builds.history).not.toHaveBeenCalled()
+  })
+
+  it('returns the connected host build history', async () => {
+    const t = setup()
+    await expect(t.api.buildHistory('h1')).resolves.toEqual([])
+    expect(t.builds.history).toHaveBeenCalledWith('h1')
+  })
   it('open on a disconnected host throws and never touches the service', async () => {
     const t = setup({ connected: false })
     await expect(t.api.open('h1')).rejects.toThrow('Host is not connected')
@@ -172,6 +210,62 @@ describe('wireContainerService', () => {
 })
 
 describe('containersApi.openTerminal', () => {
+  it.each([
+    ['image', 'docker image prune --force', 'prune · images'],
+    ['volume', 'docker volume prune --force', 'prune · volumes'],
+    ['network', 'docker network prune --force', 'prune · networks']
+  ] as const)(
+    'opens %s prune with its existing scope in a host terminal',
+    async (resource, command, label) => {
+      const t = setup()
+      await expect(t.api.openTerminal('h1', { kind: 'resource-prune', resource })).resolves.toEqual(
+        { tabId: 't1', hostId: 'h1', label }
+      )
+      expect(t.terminal.openHost).toHaveBeenCalledWith('h1', command, label)
+      expect(t.service.prune).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects unknown resources and disconnected hosts for resource prune terminals', async () => {
+    const t = setup()
+    for (const resource of ['system', 'image --all', 'volume; rm -rf /', null]) {
+      await expect(
+        t.api.openTerminal('h1', { kind: 'resource-prune', resource } as never)
+      ).rejects.toThrow('Invalid terminal request')
+    }
+    expect(t.terminal.openHost).not.toHaveBeenCalled()
+    await expect(
+      t.api.openTerminal('nope', { kind: 'resource-prune', resource: 'image' })
+    ).rejects.toThrow('Host not found')
+    t.disconnect()
+    await expect(
+      t.api.openTerminal('h1', { kind: 'resource-prune', resource: 'image' })
+    ).rejects.toThrow('Host is not connected')
+  })
+
+  it('opens build cache prune in a host terminal without requiring a container', async () => {
+    const t = setup()
+    const result = await t.api.openTerminal('h1', { kind: 'build-cache-prune' })
+    expect(result).toEqual({ tabId: 't1', hostId: 'h1', label: 'prune · build cache' })
+    expect(t.terminal.openHost).toHaveBeenCalledWith(
+      'h1',
+      'docker buildx prune --force',
+      'prune · build cache'
+    )
+    expect(t.service.find).not.toHaveBeenCalled()
+  })
+
+  it('rejects a cache prune terminal on unknown or disconnected hosts', async () => {
+    const t = setup({ connected: false })
+    await expect(t.api.openTerminal('h1', { kind: 'build-cache-prune' })).rejects.toThrow(
+      'Host is not connected'
+    )
+    await expect(t.api.openTerminal('unknown', { kind: 'build-cache-prune' })).rejects.toThrow(
+      'Host not found'
+    )
+    expect(t.terminal.openHost).not.toHaveBeenCalled()
+  })
+
   it('logs resolves the container name and opens a host tab', async () => {
     const t = setup()
     const r = await t.api.openTerminal('h1', { kind: 'logs', id: ID })
