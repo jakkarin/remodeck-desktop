@@ -1,3 +1,4 @@
+import { FolderOpen } from 'lucide-react'
 import { useState } from 'react'
 import { isLocalHost, type ExistingRepoInfo, type Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
@@ -56,6 +57,17 @@ export function AddExistingDialog({
     }
   }
 
+  const browse = async (): Promise<void> => {
+    try {
+      const picked = await api.dialogs.pickFolder(path.trim() || undefined)
+      if (picked === null) return
+      setPath(picked)
+      setInfo(null)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
   const back = (): void => {
     setInfo(null)
     setError(null)
@@ -93,18 +105,32 @@ export function AddExistingDialog({
           )}
           <Field>
             <FieldLabel htmlFor="existing-path">Path</FieldLabel>
-            <Input
-              id="existing-path"
-              className="font-mono"
-              value={path}
-              placeholder={local ? 'D:/projects/my-app' : '~/work/my-app'}
-              onChange={(e) => {
-                setPath(e.target.value)
-                setInfo(null)
-              }}
-              disabled={locked}
-              autoFocus
-            />
+            <div className="flex gap-2">
+              <Input
+                id="existing-path"
+                className="font-mono"
+                value={path}
+                placeholder={local ? 'D:/projects/my-app' : '~/work/my-app'}
+                onChange={(e) => {
+                  setPath(e.target.value)
+                  setInfo(null)
+                }}
+                disabled={locked}
+                autoFocus
+              />
+              {local && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Browse for a folder"
+                  title="Browse for a folder"
+                  onClick={() => void browse()}
+                  disabled={locked}
+                >
+                  <FolderOpen />
+                </Button>
+              )}
+            </div>
           </Field>
           {info && (
             <div className="flex flex-col gap-2 text-sm">

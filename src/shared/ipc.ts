@@ -134,6 +134,8 @@ export interface RemodeckApi {
     install(hostId: string, tokenIds: string[], opts?: InstallOptions): Promise<GitAccessStatus>
     remove(hostId: string): Promise<void>
   }
+  /** Native folder dialogs; only meaningful for This computer, whose folders live on this machine. */
+  dialogs: { pickFolder(start?: string): Promise<string | null> }
   on(event: 'host-status', cb: (hostId: string, s: HostStatus) => void): () => void
   on(event: 'terminal-data', cb: (tabId: string, d: string) => void): () => void
   on(event: 'terminal-exit', cb: (tabId: string, code: number) => void): () => void
@@ -234,6 +236,7 @@ export const IPC_CHANNELS = {
     install: 'gitAccess:install',
     remove: 'gitAccess:remove'
   },
+  dialogs: { pickFolder: 'dialogs:pickFolder' },
   events: {
     'host-status': 'event:host-status',
     'terminal-data': 'event:terminal-data',

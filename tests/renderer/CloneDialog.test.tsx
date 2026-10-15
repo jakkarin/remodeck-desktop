@@ -5,6 +5,7 @@ vi.mock('../../src/renderer/src/api', () => ({
   api: {
     repos: { listGitHub: vi.fn() },
     workspaces: { clone: vi.fn() },
+    dialogs: { pickFolder: vi.fn() },
     on: vi.fn()
   },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -202,5 +203,53 @@ describe('CloneDialog host choice', () => {
     await waitFor(() =>
       expect(api.workspaces.clone).toHaveBeenCalledWith('h2', 'acme/api', '~/repos/api')
     )
+  })
+})
+
+describe('CloneDialog folder picker', () => {
+  const renderLocal = (hostIds = ['local']): void => {
+    const value = {
+      hosts: [
+        { id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false },
+        { id: 'h1', sshHost: 'a', label: 'Alpha', protected: false }
+      ]
+    } as unknown as AppState
+    render(
+      <AppStateContext.Provider value={value}>
+        <CloneDialog hostIds={hostIds} onClose={vi.fn()} onCloned={vi.fn()} />
+      </AppStateContext.Provider>
+    )
+  }
+
+  it('puts the repo inside the chosen parent folder on This computer', async () => {
+    vi.mocked(api.dialogs.pickFolder).mockResolvedValue('D:/work')
+    renderLocal()
+    fireEvent.click(await screen.findByRole('option', { name: 'acme/api' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for a folder' }))
+    await waitFor(() => expect(screen.getByLabelText('Path')).toHaveValue('D:/work/api'))
+    expect(api.dialogs.pickFolder).toHaveBeenCalledWith('~/repos')
+  })
+
+  it('keeps the chosen parent for a repo picked afterwards', async () => {
+    vi.mocked(api.dialogs.pickFolder).mockResolvedValue('D:/work')
+    renderLocal()
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for a folder' }))
+    await waitFor(() => expect(screen.getByLabelText('Path')).toHaveValue('D:/work'))
+    fireEvent.click(await screen.findByRole('option', { name: 'acme/api' }))
+    expect(screen.getByLabelText('Path')).toHaveValue('D:/work/api')
+  })
+
+  it('leaves the path alone when the picker is cancelled', async () => {
+    vi.mocked(api.dialogs.pickFolder).mockResolvedValue(null)
+    renderLocal()
+    fireEvent.click(await screen.findByRole('option', { name: 'acme/api' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for a folder' }))
+    await waitFor(() => expect(api.dialogs.pickFolder).toHaveBeenCalled())
+    expect(screen.getByLabelText('Path')).toHaveValue('~/repos/api')
+  })
+
+  it('offers no folder picker for an SSH host', () => {
+    renderLocal(['h1'])
+    expect(screen.queryByRole('button', { name: 'Browse for a folder' })).not.toBeInTheDocument()
   })
 })

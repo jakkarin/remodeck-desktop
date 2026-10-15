@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import os from 'node:os'
-import { Notification, clipboard, shell, type BrowserWindow } from 'electron'
+import { Notification, clipboard, dialog, shell, type BrowserWindow } from 'electron'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -34,6 +34,7 @@ import { SecretStore, electronEncryptor } from './gitAccess/secretStore'
 import { TargetAccessService } from './gitAccess/targetAccessService'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
+import { pickFolder } from './dialogs/pickFolder'
 import { resolveBashPath } from './proc/bashPath'
 import { resolveSshPath } from './proc/sshPath'
 import { checkRemoteForward } from './sandbox/preflight'
@@ -580,6 +581,21 @@ export async function createApp(opts: {
         hostOf(hostId)
         return gitAccess.remove(hostId)
       }
+    },
+    dialogs: {
+      pickFolder: (start) =>
+        pickFolder(
+          (o) => {
+            const opts = {
+              ...o,
+              properties: ['openDirectory' as const, 'createDirectory' as const]
+            }
+            const win = liveWindow()
+            return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts)
+          },
+          start,
+          os.homedir()
+        )
     }
   }
 

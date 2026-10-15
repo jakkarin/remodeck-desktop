@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 vi.mock('../../src/renderer/src/api', () => ({
-  api: { workspaces: { inspectExisting: vi.fn(), addExisting: vi.fn() } },
+  api: {
+    workspaces: { inspectExisting: vi.fn(), addExisting: vi.fn() },
+    dialogs: { pickFolder: vi.fn() }
+  },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
@@ -226,5 +229,45 @@ describe('AddExistingDialog on This computer', () => {
       </AppStateContext.Provider>
     )
     expect(screen.getByLabelText('Path')).toHaveAttribute('placeholder', 'D:/projects/my-app')
+  })
+})
+
+describe('AddExistingDialog folder picker', () => {
+  const renderLocal = (hostIds = ['local']): void => {
+    const value = {
+      hosts: [
+        { id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false },
+        { id: 'h1', sshHost: 'a', label: 'Alpha', protected: false }
+      ]
+    } as unknown as AppState
+    render(
+      <AppStateContext.Provider value={value}>
+        <AddExistingDialog hostIds={hostIds} onClose={vi.fn()} onAdded={vi.fn()} />
+      </AppStateContext.Provider>
+    )
+  }
+
+  it('fills the path from the folder picker on This computer, starting at the typed path', async () => {
+    vi.mocked(api.dialogs.pickFolder).mockResolvedValue('D:/develop/app')
+    renderLocal()
+    fireEvent.change(screen.getByLabelText('Path'), { target: { value: 'D:/develop' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for a folder' }))
+    await waitFor(() => expect(screen.getByLabelText('Path')).toHaveValue('D:/develop/app'))
+    expect(api.dialogs.pickFolder).toHaveBeenCalledWith('D:/develop')
+    expect(screen.getByRole('button', { name: 'Check' })).toBeEnabled()
+  })
+
+  it('keeps the typed path when the picker is cancelled', async () => {
+    vi.mocked(api.dialogs.pickFolder).mockResolvedValue(null)
+    renderLocal()
+    fireEvent.change(screen.getByLabelText('Path'), { target: { value: 'D:/keep' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Browse for a folder' }))
+    await waitFor(() => expect(api.dialogs.pickFolder).toHaveBeenCalled())
+    expect(screen.getByLabelText('Path')).toHaveValue('D:/keep')
+  })
+
+  it('offers no folder picker for an SSH host', () => {
+    renderLocal(['h1'])
+    expect(screen.queryByRole('button', { name: 'Browse for a folder' })).not.toBeInTheDocument()
   })
 })
