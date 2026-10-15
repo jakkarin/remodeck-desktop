@@ -141,6 +141,20 @@ Have the following ready before testing:
 | 10.11 | Trigger a git HTTP or port-forwarding warning for a host (Git module), then click Dismiss on the banner | The banner disappears and stays hidden while the Git module stays open                                            | ☐   |
 | 10.12 | Trigger an error toast (for example, a failed action that returns a message)                            | The error toast stays on screen with no auto-dismiss; it closes only when its dismiss button is clicked           | ☐   |
 
+### 11. This computer
+
+| #    | Step                                                                                                                                  | Result |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| L.1  | Select an SSH host, quit, relaunch → the app opens on This computer, connected, without clicking Connect                              | ☐      |
+| L.2  | Add existing → type `D:\path\to\repo\` → Check resolves owner/name; Confirm adds it and the workspace path shows as `D:/path/to/repo` | ☐      |
+| L.3  | Add the same folder again typed as `d:/path/to/repo` → refused with "This workspace already exists"                                  | ☐      |
+| L.4  | Branches, commits and diff load; Push from Review succeeds and is logged                                                              | ☐      |
+| L.5  | Open a terminal → Git Bash in the repo folder; `git fetch` works; `git push` shows the approval popup                                 | ☐      |
+| L.6  | Open a terminal on a worktree from the worktree list → it starts in that worktree folder                                              | ☐      |
+| L.7  | Containers with Docker Desktop running → list loads; compose Up/Down for a project under `D:\` opens a terminal that runs             | ☐      |
+| L.8  | Host settings for This computer → no SSH host field and no Git access section; host menu has no Remove                                 | ☐      |
+| L.9  | Rename `C:/Program Files/Git` temporarily (or test on a machine without Git) → Connect shows "Git for Windows is required…"            | ☐      |
+
 ## Automated Results
 
 ### npx vitest run
