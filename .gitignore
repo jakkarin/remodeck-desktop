@@ -3,3 +3,5 @@ out
 dist
 .superpowers/
 .eslintcache
+
+*.tsbuildinfo
