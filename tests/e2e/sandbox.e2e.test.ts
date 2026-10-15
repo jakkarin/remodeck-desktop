@@ -7,39 +7,35 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/main/app'
 import { IPC_CHANNELS, type MainApi } from '../../src/shared/ipc'
 import type { ApprovalRequest, Host, Workspace } from '../../src/shared/types'
 import { startHttpBackend } from '../helpers/httpBackend'
+import { createE2eSsh, getE2eFixture, type E2eFixture } from './fixtures'
 
 vi.mock('electron', () => ({
   Notification: class {
     static isSupported(): boolean {
       return false
     }
-    show(): void {}
+    show(): void {
+      return undefined
+    }
   },
   shell: { openExternal: async () => undefined }
 }))
 
 const EV = IPC_CHANNELS.events
-const IMAGE = 'remodeck-e2e-sandbox:latest'
 const SECRET = 'e2e-secret-github-token'
-// Git for Windows' ssh honours $HOME, so a throwaway ~/.ssh/config can define the sandbox aliases.
-const GIT_BIN = 'C:/Program Files/Git/usr/bin'
-const SSH = process.platform === 'win32' ? `${GIT_BIN}/ssh.exe` : 'ssh'
-const SSH_KEYGEN = process.platform === 'win32' ? `${GIT_BIN}/ssh-keygen.exe` : 'ssh-keygen'
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-e2e-'))
-const slash = (p: string): string => p.replaceAll('\\', '/')
 
 function hg(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
 }
 
-async function sx(c: StartedTestContainer, script: string, user = 'dev'): Promise<string> {
+async function sx(c: E2eFixture, script: string, user: 'dev' | 'root' = 'dev'): Promise<string> {
   const r = await c.exec(['bash', '-lc', script], { user })
   if (r.exitCode !== 0) throw new Error(`sandbox exit ${r.exitCode}: ${script}\n${r.output}`)
   return r.output.trim()
@@ -64,29 +60,19 @@ async function waitFor<T>(
 let api: MainApi
 let dispose: () => Promise<void>
 let backend: Awaited<ReturnType<typeof startHttpBackend>>
-let c1: StartedTestContainer
-let c2: StartedTestContainer
-let cNoGit: StartedTestContainer
+let c1: E2eFixture
+let c2: E2eFixture
+let cNoGit: E2eFixture
 const events: { channel: string; args: unknown[] }[] = []
 const upstream = path.join(tmp, 'gh', 'acme', 'widget.git')
 const seed = path.join(tmp, 'seed')
 const dataDir = path.join(tmp, 'data')
 const mirror = path.join(dataDir, 'mirrors', 'acme', 'widget.git')
 
-const startSandbox = (
-  pubKey: string,
-  env: Record<string, string> = {}
-): Promise<StartedTestContainer> =>
-  new GenericContainer(IMAGE)
-    .withEnvironment({ AUTHORIZED_KEY: pubKey, ...env })
-    .withExposedPorts(22)
-    .withWaitStrategy(Wait.forLogMessage(/Server listening on 0\.0\.0\.0/))
-    .start()
-
 beforeAll(async () => {
-  // Isolate host git and ssh from the developer's real config and credentials.
+  // All files and local Git subprocesses live in the disposable Linux runner.
   const home = path.join(tmp, 'home')
-  fs.mkdirSync(path.join(home, '.ssh'), { recursive: true })
+  const ssh = createE2eSsh(home, ['sandbox-1', 'sandbox-2', 'sandbox-nogit'])
   const gitconfig = path.join(tmp, 'gitconfig')
   fs.writeFileSync(
     gitconfig,
@@ -108,36 +94,9 @@ beforeAll(async () => {
     GIT_CONFIG_NOSYSTEM: '1'
   })
 
-  const key = path.join(home, '.ssh', 'id_e2e')
-  execFileSync(SSH_KEYGEN, ['-q', '-t', 'ed25519', '-N', '', '-f', key])
-  const pub = fs.readFileSync(`${key}.pub`, 'utf8').trim()
-
-  await GenericContainer.fromDockerfile(path.resolve('tests/e2e/sandbox')).build(IMAGE, {
-    deleteOnExit: false
-  })
-  ;[c1, c2, cNoGit] = await Promise.all([
-    startSandbox(pub),
-    startSandbox(pub),
-    startSandbox(pub, { HIDE_GIT: '1' })
-  ])
-
-  const alias = (name: string, c: StartedTestContainer): string =>
-    [
-      `Host ${name}`,
-      '  HostName 127.0.0.1',
-      `  Port ${c.getMappedPort(22)}`,
-      '  User dev',
-      `  IdentityFile ${slash(key)}`,
-      '  IdentitiesOnly yes',
-      '  StrictHostKeyChecking no',
-      '  UserKnownHostsFile /dev/null',
-      '  LogLevel ERROR',
-      ''
-    ].join('\n')
-  fs.writeFileSync(
-    path.join(home, '.ssh', 'config'),
-    alias('sandbox-1', c1) + alias('sandbox-2', c2) + alias('sandbox-nogit', cNoGit)
-  )
+  c1 = getE2eFixture('sandbox-1')
+  c2 = getE2eFixture('sandbox-2')
+  cNoGit = getE2eFixture('sandbox-nogit')
 
   // "GitHub": acme/widget with one commit on main.
   fs.mkdirSync(upstream, { recursive: true })
@@ -163,7 +122,7 @@ beforeAll(async () => {
   const app = await createApp({
     dataDir,
     window: () => win as never,
-    sshPath: SSH,
+    sshPath: ssh,
     githubBase: backend.url
   })
   api = app.api
@@ -173,7 +132,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await dispose?.()
   await backend?.close()
-  await Promise.all([c1, c2, cNoGit].map((c) => c?.stop()))
   fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 })
 

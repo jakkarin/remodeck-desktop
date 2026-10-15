@@ -29,12 +29,27 @@ npm install
 node node_modules/electron/install.js
 
 npm run dev      # start the app (dev build)
-npm test         # unit + integration tests (Vitest)
+npm test                  # unit/UI + Docker integration tests
+npm run test:unit         # mocked unit/UI tests; no Docker required
+npm run test:integration  # filesystem/subprocess tests in Testcontainers
+npm run test:e2e          # Docker runner + isolated SSH sandbox containers
 ```
 
-On Windows, local sandbox tests require Git Bash at `C:/Program Files/Git/bin/bash.exe`.
-`LocalTarget` uses an isolated HOME, XDG config and working directory, refuses real user homes,
-and stops before the test script if Bash does not honor the selected HOME. It never falls back to WSL.
+Docker must be running for `npm test`, `test:integration` and `test:e2e`. Docker failures fail
+the command; there is no fallback to host Bash, Git Bash or WSL. Filesystem and real subprocess
+tests run entirely inside a disposable Linux container, including their fixture setup.
+The runner copies only test source/configuration inputs; it never mounts the repository,
+the real HOME or the Docker socket into application test containers, and does not forward
+host credentials. E2E uses synthetic SSH keys and sibling containers on a temporary internal
+network, so the runner has no internet access.
+
+`npm test -- <file filter>` passes the filter to both suites and doesn't fail when one of them has
+no matching files. `npm test -- --project node` (or `renderer` / `integration`) runs only those suites.
+
+Host unit/UI tests block real child processes and native PTY launches. Add new tests that use
+real processes or write fixture files to `tests/docker/integration-files.ts`.
+Direct host invocation of the integration/E2E Vitest projects is rejected before test imports.
+`LocalTarget` remains an integration test helper inside the container with isolated HOME/XDG/cwd.
 
 Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 

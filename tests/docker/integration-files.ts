@@ -1,0 +1,28 @@
+// These tests launch real subprocesses or write fixture files. Run them only in Docker.
+export const INTEGRATION_TEST_FILES = [
+  'tests/main/approval.test.ts',
+  'tests/main/bridge/gitBridge.test.ts',
+  'tests/main/connection.test.ts',
+  'tests/main/docker/dialStdio.test.ts',
+  'tests/main/docker/dockerClient.test.ts',
+  'tests/main/git/hostGit.test.ts',
+  'tests/main/gitAccess/gitTokenService.test.ts',
+  'tests/main/gitAccess/helperFirst.test.ts',
+  'tests/main/gitAccess/helperScript.test.ts',
+  'tests/main/gitAccess/pathBlock.test.ts',
+  'tests/main/gitAccess/secretStore.test.ts',
+  'tests/main/gitAccess/statusScript.test.ts',
+  'tests/main/gitAccess/targetAccessService.test.ts',
+  'tests/main/gitAccess/wrapperScript.test.ts',
+  'tests/main/imageUpload.test.ts',
+  'tests/main/migrateDataDir.test.ts',
+  'tests/main/mirror.test.ts',
+  'tests/main/sandbox/localTargetSafety.test.ts',
+  'tests/main/sandbox/target.test.ts',
+  'tests/main/store.test.ts',
+  'tests/main/sync/addExisting.test.ts',
+  'tests/main/sync/clone.test.ts',
+  'tests/main/sync/push.test.ts',
+  'tests/main/sync/queries.test.ts',
+  'tests/main/sync/sync.test.ts'
+]

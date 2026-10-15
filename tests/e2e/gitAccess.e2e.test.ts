@@ -4,11 +4,9 @@
  * and ~/.profile, and a plain `ssh host cmd` like an agent would run. `gh` is a stub that prints the token it got.
  * Run with `npm run test:e2e`.
  */
-import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { GitTokenService } from '../../src/main/gitAccess/gitTokenService'
 import { createGithubAdapter } from '../../src/main/gitAccess/providers'
@@ -18,11 +16,8 @@ import { TargetAccessService } from '../../src/main/gitAccess/targetAccessServic
 import { runProcess } from '../../src/main/proc/run'
 import { SshTarget } from '../../src/main/sandbox/target'
 import { Store } from '../../src/main/store/store'
+import { createE2eSsh, getE2eFixture, type E2eFixture } from './fixtures'
 
-const IMAGE = 'remodeck-e2e-sandbox:latest'
-const GIT_BIN = 'C:/Program Files/Git/usr/bin'
-const SSH = process.platform === 'win32' ? `${GIT_BIN}/ssh.exe` : 'ssh'
-const SSH_KEYGEN = process.platform === 'win32' ? `${GIT_BIN}/ssh-keygen.exe` : 'ssh-keygen'
 const ALIAS = 'gitaccess-box'
 const OURS = '/home/dev/.config/remodeck/git-access/git-credential-remodeck'
 
@@ -47,14 +42,14 @@ const FAKE_GH = [
 const GH_SETUP_GIT = `[credential "https://github.com"]\n\thelper =\n\thelper = !/usr/local/bin/gh auth git-credential\n`
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'remodeck-e2e-ga-'))
-const slash = (p: string): string => p.replaceAll('\\', '/')
-let box: StartedTestContainer
+let box: E2eFixture
+let ssh: string
 let store: Store
 let svc: TargetAccessService
 let hostId: string
 const ids: Record<string, string> = {}
 
-async function sx(script: string, user = 'dev'): Promise<string> {
+async function sx(script: string, user: 'dev' | 'root' = 'dev'): Promise<string> {
   const r = await box.exec(['bash', '-c', script], { user })
   if (r.exitCode !== 0) throw new Error(`exit ${r.exitCode}: ${script}\n${r.output}`)
   return r.output
@@ -62,7 +57,8 @@ async function sx(script: string, user = 'dev'): Promise<string> {
 
 /** Like an agent over a plain ssh session: sshd runs `bash -c`, which on Debian reads ~/.bashrc. */
 async function agent(cmd: string): Promise<string> {
-  const r = await runProcess(SSH, ['-o', 'BatchMode=yes', ALIAS, cmd], { timeoutMs: 30_000 })
+  const r = await runProcess(ssh, ['-o', 'BatchMode=yes', ALIAS, cmd], { timeoutMs: 30_000 })
+  if (r.code !== 0) throw new Error(`agent exit ${r.code}: ${cmd}\n${r.stderr}`)
   return r.stdout.trim()
 }
 
@@ -75,33 +71,9 @@ async function password(repoPath: string): Promise<string> {
 
 beforeAll(async () => {
   const home = path.join(tmp, 'home')
-  fs.mkdirSync(path.join(home, '.ssh'), { recursive: true })
+  ssh = createE2eSsh(home, [ALIAS])
   process.env.HOME = home
-  const key = path.join(home, '.ssh', 'id_e2e')
-  execFileSync(SSH_KEYGEN, ['-q', '-t', 'ed25519', '-N', '', '-f', key])
-  const pub = fs.readFileSync(`${key}.pub`, 'utf8').trim()
-
-  await GenericContainer.fromDockerfile(path.resolve('tests/e2e/sandbox')).build(IMAGE, { deleteOnExit: false })
-  box = await new GenericContainer(IMAGE)
-    .withEnvironment({ AUTHORIZED_KEY: pub })
-    .withExposedPorts(22)
-    .withWaitStrategy(Wait.forLogMessage(/Server listening on 0\.0\.0\.0/))
-    .start()
-  fs.writeFileSync(
-    path.join(home, '.ssh', 'config'),
-    [
-      `Host ${ALIAS}`,
-      '  HostName 127.0.0.1',
-      `  Port ${box.getMappedPort(22)}`,
-      '  User dev',
-      `  IdentityFile ${slash(key)}`,
-      '  IdentitiesOnly yes',
-      '  StrictHostKeyChecking no',
-      '  UserKnownHostsFile /dev/null',
-      '  LogLevel ERROR',
-      ''
-    ].join('\n')
-  )
+  box = getE2eFixture(ALIAS)
   await sx(`cat > /usr/local/bin/gh <<'EOF'\n${FAKE_GH}EOF\nchmod 755 /usr/local/bin/gh`, 'root')
   // a repo cloned from org A, as an agent would have it
   await sx('git init -q ~/work && git -C ~/work remote add origin https://github.com/org-a/app.git')
@@ -118,15 +90,26 @@ beforeAll(async () => {
     ['org-a/special', 'TOKEN-SPECIAL'],
     ['org-b', 'TOKEN-B']
   ]) {
-    const t = store.upsertGitToken({ provider: 'github', host: 'github.com', path: p, login: 'e2e', label: p, expiresAt: null })
+    const t = store.upsertGitToken({
+      provider: 'github',
+      host: 'github.com',
+      path: p,
+      login: 'e2e',
+      label: p,
+      expiresAt: null
+    })
     secrets.set(t.id, value)
     ids[p] = t.id
   }
-  svc = new TargetAccessService({ store, tokens, adapters, targetFor: () => new SshTarget(ALIAS, SSH) })
+  svc = new TargetAccessService({
+    store,
+    tokens,
+    adapters,
+    targetFor: () => new SshTarget(ALIAS, ssh)
+  })
 }, 900_000)
 
 afterAll(async () => {
-  await box?.stop()
   fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 })
 
@@ -136,7 +119,9 @@ describe('git access on a real Linux host', () => {
   beforeEach(async () => {
     // every test starts from a clean host with Debian's own ~/.bashrc
     await svc.remove(hostId)
-    await sx('cp /etc/skel/.bashrc ~/.bashrc && rm -f ~/.gitconfig && git config --global user.name "AI Agent"')
+    await sx(
+      'cp /etc/skel/.bashrc ~/.bashrc && rm -f ~/.gitconfig && git config --global user.name "AI Agent"'
+    )
   })
 
   it('installs over ssh and git picks the token by longest prefix', async () => {
@@ -159,7 +144,9 @@ describe('git access on a real Linux host', () => {
     const modes = await sx(
       'cd ~/.config/remodeck/git-access && stat -c "%a %n" . tokens tokens/github.com/org-a/@token git-credential-remodeck'
     )
-    expect(modes).toBe('700 .\n700 tokens\n600 tokens/github.com/org-a/@token\n700 git-credential-remodeck\n')
+    expect(modes).toBe(
+      '700 .\n700 tokens\n600 tokens/github.com/org-a/@token\n700 git-credential-remodeck\n'
+    )
     expect(await sx('stat -c %a ~/.local/bin/gh')).toBe('755\n')
   })
 
@@ -193,7 +180,9 @@ describe('git access on a real Linux host', () => {
     expect(await sx('stat -c %a ~/.bashrc')).toBe('640\n')
 
     await svc.remove(hostId)
-    await sx('cp /etc/skel/.bashrc ~/dotfiles-bashrc && rm ~/.bashrc && ln -s ~/dotfiles-bashrc ~/.bashrc')
+    await sx(
+      'cp /etc/skel/.bashrc ~/dotfiles-bashrc && rm ~/.bashrc && ln -s ~/dotfiles-bashrc ~/.bashrc'
+    )
     const status = await svc.install(hostId, all(), { pathBlock: true })
     expect(status.pathBlock).toBe('symlink')
     expect(await sx('cmp ~/dotfiles-bashrc /etc/skel/.bashrc && echo same')).toBe('same\n')

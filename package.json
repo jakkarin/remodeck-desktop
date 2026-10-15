@@ -13,14 +13,16 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "test": "vitest run",
+    "test": "node tests/docker/run-all.mjs",
+    "test:unit": "vitest run --project node --project renderer",
+    "test:integration": "node tests/docker/run-integration.mjs",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
-    "test:e2e": "vitest run -c vitest.e2e.config.ts"
+    "test:e2e": "node tests/docker/run-e2e.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
