@@ -3,8 +3,12 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type { Host } from '../../src/shared/types'
 import type { BuildRecord } from '../../src/shared/builds'
 
+const exitHandlers = vi.hoisted(() => new Set<(tabId: string, code: number) => void>())
 vi.mock('../../src/renderer/src/api', () => ({
-  api: { containers: { buildHistory: vi.fn(), openTerminal: vi.fn() } },
+  api: {
+    containers: { buildHistory: vi.fn(), openTerminal: vi.fn() },
+    on: vi.fn()
+  },
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 import { api } from '../../src/renderer/src/api'
@@ -27,7 +31,14 @@ beforeEach(() => {
     hostId: 'h1',
     label: 'prune · build cache'
   })
+  exitHandlers.clear()
+  vi.mocked(api.on).mockImplementation(((event: string, handler: never) => {
+    if (event === 'terminal-exit') exitHandlers.add(handler)
+    return () => exitHandlers.delete(handler)
+  }) as never)
 })
+
+const exitTerminal = (tabId: string): void => act(() => exitHandlers.forEach((h) => h(tabId, 0)))
 
 describe('BuildsView', () => {
   it('shows build metadata and refreshes history', async () => {
@@ -62,6 +73,24 @@ describe('BuildsView', () => {
     } finally {
       off()
     }
+  })
+
+  it('stays busy while the prune terminal runs and reloads history when it exits', async () => {
+    render(<BuildsView host={host} />)
+    await screen.findByText('shop')
+    fireEvent.click(screen.getByRole('button', { name: 'Prune build cache' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Prune build cache' })).toBeDisabled()
+    expect(api.containers.buildHistory).toHaveBeenCalledTimes(1)
+
+    exitTerminal('other-tab')
+    expect(api.containers.buildHistory).toHaveBeenCalledTimes(1)
+    vi.mocked(api.containers.buildHistory).mockResolvedValueOnce([{ ...build, name: 'after' }])
+    exitTerminal('prune-tab')
+    expect(await screen.findByText('after')).toBeInTheDocument()
+    expect(api.containers.buildHistory).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Prune build cache' })).toBeEnabled()
   })
 
   it('requires the protected host name and cancelling never prunes', async () => {

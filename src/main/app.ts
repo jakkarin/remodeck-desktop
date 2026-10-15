@@ -97,7 +97,6 @@ export function containersApi(deps: {
     | 'watchStats'
     | 'resources'
     | 'removeResource'
-    | 'prune'
   >
   terminal: Pick<TerminalService, 'openHost'>
   builds: Pick<BuildService, 'history'>
@@ -134,11 +133,6 @@ export function containersApi(deps: {
       const k = checkKind(kind)
       if (typeof ref !== 'string') throw new Error('Invalid resource ref')
       return deps.service.removeResource(hostId, k, ref)
-    },
-    prune: async (hostId, kind) => {
-      deps.hostOf(hostId)
-      deps.connection.requireConnected(hostId)
-      return deps.service.prune(hostId, checkKind(kind))
     },
     buildHistory: async (hostId) => {
       deps.hostOf(hostId)

@@ -4,7 +4,7 @@ import type { BuildRecord } from '../../../shared/builds'
 import type { Host } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { dangerLevel } from '../danger'
-import { openHostTerminal } from '../terminalEvents'
+import { useHostCommandTerminal } from '../useHostCommandTerminal'
 import { Banner } from './Banner'
 import { ConfirmDanger } from './ConfirmDanger'
 import { Badge } from './ui/badge'
@@ -29,7 +29,9 @@ function HostBuildsView({ host }: { host: Host }): React.JSX.Element {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [pending, setPending] = useState(false)
-  const [pruning, setPruning] = useState(false)
+  // Reload once the prune terminal exits or is closed.
+  const pruneTerminal = useHostCommandTerminal(host.id, () => setAttempt((n) => n + 1))
+  const pruning = pruneTerminal.running
   const loading = loaded === null || loaded.attempt !== attempt
 
   useEffect(() => {
@@ -47,14 +49,7 @@ function HostBuildsView({ host }: { host: Host }): React.JSX.Element {
     }
   }, [host.id, attempt])
 
-  const prune = async (): Promise<void> => {
-    setPruning(true)
-    try {
-      await openHostTerminal(host.id, { kind: 'build-cache-prune' })
-    } finally {
-      setPruning(false)
-    }
-  }
+  const prune = (): Promise<void> => pruneTerminal.run(host.id, { kind: 'build-cache-prune' })
   const rows = loaded?.rows ?? []
   return (
     <div className="flex flex-col gap-3">

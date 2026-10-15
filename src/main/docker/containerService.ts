@@ -10,12 +10,11 @@ import {
 import type { ContainerStats } from '../../shared/containerDetails'
 import { DockerError, type DockerClient } from './dockerClient'
 import { startStatsLoop } from './statsLoop'
-import type { PruneResult, ResourceKind, ResourceRow } from '../../shared/resources'
+import type { ResourceKind, ResourceRow } from '../../shared/resources'
 import {
   PREDEFINED_NETWORK_MESSAGE,
   dockerErrorMessage,
   listResources,
-  pruneResources,
   removeResource
 } from './resources'
 
@@ -161,10 +160,12 @@ export class ContainerService extends EventEmitter {
       sleep: this.sleep
     })
     st.stats = loop
-    void loop.done.catch(() => {}).then(() => {
-      if (st.stats === loop) st.stats = undefined
-      if (st.statsOn && !st.disposed && !st.stats) this.startStats(hostId, st)
-    })
+    void loop.done
+      .catch(() => {})
+      .then(() => {
+        if (st.stats === loop) st.stats = undefined
+        if (st.statsOn && !st.disposed && !st.stats) this.startStats(hostId, st)
+      })
   }
 
   async inspect(hostId: string, id: string): Promise<unknown> {
@@ -208,15 +209,6 @@ export class ContainerService extends EventEmitter {
         if (row?.builtIn) throw new Error(PREDEFINED_NETWORK_MESSAGE)
       }
       await removeResource(client, kind, ref)
-    } catch (e) {
-      throw dockerErrorMessage(kind, e)
-    }
-  }
-
-  async prune(hostId: string, kind: ResourceKind): Promise<PruneResult> {
-    const client = this.openClient(hostId)
-    try {
-      return await pruneResources(client, kind)
     } catch (e) {
       throw dockerErrorMessage(kind, e)
     }

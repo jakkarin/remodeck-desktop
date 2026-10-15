@@ -61,7 +61,6 @@ const remodeck: RemodeckApi = {
     inspect: invoke(C.containers.inspect),
     resources: invoke(C.containers.resources),
     removeResource: invoke(C.containers.removeResource),
-    prune: invoke(C.containers.prune),
     buildHistory: invoke(C.containers.buildHistory),
     watchStats: send(C.containers.watchStats)
   },

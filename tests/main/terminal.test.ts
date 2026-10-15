@@ -209,7 +209,7 @@ describe('TerminalService', () => {
     expect(spawn).toHaveBeenCalledTimes(2)
   })
 
-  it('close kills the pty and revokes bridge and approval sessions', async () => {
+  it('close kills the pty, revokes bridge and approval sessions and emits exit -1 once', async () => {
     const { svc, ptys, bridge, approval } = setup()
     const onExit = vi.fn()
     svc.on('exit', onExit)
@@ -221,7 +221,9 @@ describe('TerminalService', () => {
     expect(approval.revokeSession).toHaveBeenCalledWith(s.sessionId)
     ptys[0].exitCb({ exitCode: 0 })
     expect(bridge.revokeSession).toHaveBeenCalledTimes(1)
-    expect(onExit).not.toHaveBeenCalled()
+    // The killed pty's own exit is ignored.
+    expect(onExit).toHaveBeenCalledTimes(1)
+    expect(onExit).toHaveBeenCalledWith(tabId, -1)
   })
 
   it('write/resize hit the pty; unknown tabs are no-ops', async () => {

@@ -846,7 +846,6 @@ describe('ContainerService', () => {
       await expect(t.svc.removeResource('nope', 'volume', 'v')).rejects.toThrow(
         'This host is not open'
       )
-      await expect(t.svc.prune('nope', 'network')).rejects.toThrow('This host is not open')
       expect(t.json).not.toHaveBeenCalled()
     })
 
@@ -854,10 +853,9 @@ describe('ContainerService', () => {
       const t = setup({ sleep: never })
       await t.svc.open('h')
       t.json.mockImplementation(async (_m, path) =>
-        path === '/volumes' ? { Volumes: [{ Name: 'data' }] } : path === '/volumes/prune' ? {} : []
+        path === '/volumes' ? { Volumes: [{ Name: 'data' }] } : []
       )
       await expect(t.svc.resources('h', 'volume')).resolves.toHaveLength(1)
-      await expect(t.svc.prune('h', 'volume')).resolves.toEqual({ deleted: 0, reclaimed: null })
       t.json.mockImplementation(async (m) => {
         if (m === 'DELETE') throw new DockerError(409, 'volume is in use')
         return []

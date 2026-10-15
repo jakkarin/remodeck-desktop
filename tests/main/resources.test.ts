@@ -4,7 +4,6 @@ import {
   NETWORK_ID,
   VOLUME_NAME,
   isInUse,
-  parsePrune,
   toImageRows,
   toNetworkRows,
   toVolumeRows,
@@ -128,34 +127,6 @@ describe('isInUse', () => {
     expect(isInUse(row('volume', 'v2', 'v2'), cs)).toBe(false)
     expect(isInUse(row('network', 'n1', 'x'), cs)).toBe(true)
     expect(isInUse(row('network', 'n2', 'x'), cs)).toBe(false)
-  })
-})
-
-describe('parsePrune', () => {
-  it('per kind; null lists count 0', () => {
-    expect(
-      parsePrune('image', {
-        ImagesDeleted: [{ Untagged: 'a:1' }, { Deleted: 'sha256:1' }, { Deleted: 'sha256:2' }],
-        SpaceReclaimed: 99
-      })
-    ).toEqual({ deleted: 2, reclaimed: 99 })
-    expect(parsePrune('image', { ImagesDeleted: null, SpaceReclaimed: 0 })).toEqual({
-      deleted: 0,
-      reclaimed: 0
-    })
-    expect(parsePrune('volume', { VolumesDeleted: ['a'], SpaceReclaimed: 5 })).toEqual({
-      deleted: 1,
-      reclaimed: 5
-    })
-    expect(parsePrune('volume', { VolumesDeleted: null })).toEqual({ deleted: 0, reclaimed: null })
-    expect(parsePrune('network', { NetworksDeleted: ['a', 'b'] })).toEqual({
-      deleted: 2,
-      reclaimed: null
-    })
-    expect(parsePrune('network', { NetworksDeleted: null })).toEqual({
-      deleted: 0,
-      reclaimed: null
-    })
   })
 })
 

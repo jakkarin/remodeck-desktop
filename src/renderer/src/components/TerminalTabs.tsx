@@ -8,7 +8,7 @@ import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { createBusyIndicator } from '../busyIndicator'
 import { attachClipboard, attachImageDrop } from '../terminalClipboard'
-import { closeTerminal, onTerminalOpened, openTerminal } from '../terminalEvents'
+import { onTerminalOpened, openTerminal } from '../terminalEvents'
 import { cn } from 'cn'
 import { Button } from './ui/button'
 
@@ -174,6 +174,8 @@ export function TerminalTabs({
   const panes = useRef(new Map<string, PaneHandle>())
   // Output that arrives before a tab's xterm is mounted (e.g. the ssh banner) is kept here and flushed on mount.
   const pending = useRef(new Map<string, string[]>())
+  // Tabs the user closed while still running; main answers each with one exit to ignore.
+  const closed = useRef(new Set<string>())
 
   const deliver = useCallback((tabId: string, d: string) => {
     const pane = panes.current.get(tabId)
@@ -194,6 +196,7 @@ export function TerminalTabs({
   useEffect(() => {
     const offData = api.on('terminal-data', deliver)
     const offExit = api.on('terminal-exit', (tabId) => {
+      if (closed.current.delete(tabId)) return
       deliver(tabId, `\r\n${CLOSED}\r\n`)
       setTabs((prev) => prev.map((t) => (t.tabId === tabId ? { ...t, exited: true } : t)))
     })
@@ -214,9 +217,10 @@ export function TerminalTabs({
   }, [deliver])
 
   function close(tabId: string): void {
-    closeTerminal(tabId)
-    pending.current.delete(tabId)
     const closing = tabs.find((t) => t.tabId === tabId)
+    if (closing && !closing.exited) closed.current.add(tabId)
+    api.terminal.close(tabId)
+    pending.current.delete(tabId)
     const next = tabs.filter((t) => t.tabId !== tabId)
     setTabs(next)
     if (closing && activeByHost[closing.hostId] === tabId) {

@@ -2,11 +2,9 @@ import {
   IMAGE_REF,
   NETWORK_ID,
   VOLUME_NAME,
-  parsePrune,
   toImageRows,
   toNetworkRows,
   toVolumeRows,
-  type PruneResult,
   type ResourceKind,
   type ResourceRow
 } from '../../shared/resources'
@@ -49,11 +47,6 @@ export async function removeResource(
 ): Promise<void> {
   if (!VALID[kind].test(ref)) throw new Error(`Invalid ${kind} name`)
   await client.json('DELETE', `${BASE[kind]}/${encodePath(ref)}`, undefined, TIMEOUT)
-}
-
-export async function pruneResources(client: Client, kind: ResourceKind): Promise<PruneResult> {
-  const raw = await client.json('POST', `${BASE[kind]}/prune`, undefined, TIMEOUT)
-  return parsePrune(kind, raw)
 }
 
 export function dockerErrorMessage(kind: ResourceKind, e: unknown): Error {

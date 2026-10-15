@@ -69,7 +69,6 @@ function fakeApi(): MainApi {
       inspect: fn(),
       resources: fn(),
       removeResource: fn(),
-      prune: fn(),
       buildHistory: fn(),
       watchStats: vi.fn()
     },
