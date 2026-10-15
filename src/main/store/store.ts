@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   DEFAULT_PREFS,
+  LOCAL_HOST_ID,
   TERMINAL_FONT_MAX,
   TERMINAL_FONT_MIN,
   THEMES,
@@ -66,6 +67,22 @@ function loadHost(h: Host): Host {
   return { ...rest, protected: h.protected === true, ...(ok ? { gitAccess } : {}) }
 }
 
+/** Puts the local host first, creating it when missing; `changed` says whether the list moved. */
+function withLocalHost(hosts: Host[]): { hosts: Host[]; changed: boolean } {
+  const i = hosts.findIndex((h) => h.id === LOCAL_HOST_ID)
+  const old = i < 0 ? undefined : hosts[i]
+  const local: Host = {
+    id: LOCAL_HOST_ID,
+    kind: 'local',
+    sshHost: '',
+    label: old?.label || 'This computer',
+    protected: old?.protected === true
+  }
+  const rest = hosts.filter((h) => h.id !== LOCAL_HOST_ID)
+  const changed = i !== 0 || old?.kind !== 'local' || old?.sshHost !== ''
+  return { hosts: [local, ...rest], changed }
+}
+
 /** Drops anything that is not a token object with a valid scope, then sorts by scope. */
 function loadGitTokens(raw: unknown): GitToken[] {
   if (!Array.isArray(raw)) return []
@@ -87,6 +104,9 @@ export class Store {
   constructor(private readonly dir: string) {
     fs.mkdirSync(dir, { recursive: true })
     this.cfg = this.load()
+    const { hosts, changed } = withLocalHost(this.cfg.hosts)
+    this.cfg.hosts = hosts
+    if (changed) this.save()
   }
 
   get config(): Config {
@@ -196,6 +216,7 @@ export class Store {
   }
 
   removeHost(id: string): void {
+    if (id === LOCAL_HOST_ID) throw new Error('This computer cannot be removed')
     if (this.cfg.workspaces.some((w) => w.hostId === id)) {
       throw new Error(`Host ${id} still has workspaces`)
     }

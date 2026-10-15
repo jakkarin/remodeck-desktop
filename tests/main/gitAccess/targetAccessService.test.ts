@@ -150,7 +150,7 @@ describe('TargetAccessService with a recording target', () => {
     const target = new FakeTarget()
     target.handler = (s) => (s.includes('umask 077') ? ok('wrapper=gh:skipped\n') : ok())
     await service(target).install(hostId, [idA])
-    expect(store.config.hosts[0].gitAccess!.wrapperVersion).toBeNull()
+    expect(store.config.hosts[1].gitAccess!.wrapperVersion).toBeNull()
   })
 
   it('redacts the token from a failing script error and keeps stdout out of it', async () => {
@@ -162,7 +162,7 @@ describe('TargetAccessService with a recording target', () => {
     expect(msg).toContain('***')
     expect(msg).not.toContain('tok-secret')
     expect(msg).not.toContain('STDOUT-LINE')
-    expect(store.config.hosts[0].gitAccess).toBeUndefined()
+    expect(store.config.hosts[1].gitAccess).toBeUndefined()
   })
 
   it('truncates long stderr', async () => {
@@ -199,7 +199,7 @@ describe('TargetAccessService with a recording target', () => {
     expect(target.scripts).toHaveLength(1)
     expect(target.scripts[0]).toContain('include.path')
     expect(target.opts[0]).toEqual({ timeoutMs: 60_000 })
-    expect(store.config.hosts[0].gitAccess).toBeUndefined()
+    expect(store.config.hosts[1].gitAccess).toBeUndefined()
   })
 
   it('keeps the recorded access when remove fails', async () => {
@@ -207,7 +207,7 @@ describe('TargetAccessService with a recording target', () => {
     store.setHostGitAccess(hostId, { installedAt: 'x', installed: {}, wrapperVersion: 1 })
     target.handler = () => ({ code: 1, stdout: '', stderr: 'nope' })
     await expect(service(target).remove(hostId)).rejects.toThrow('nope')
-    expect(store.config.hosts[0].gitAccess).toBeDefined()
+    expect(store.config.hosts[1].gitAccess).toBeDefined()
   })
 
   it('status only runs the status script', async () => {

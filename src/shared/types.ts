@@ -2,12 +2,23 @@
 
 import type { GitToken, HostGitAccess } from './gitAccess'
 
+export type HostKind = 'ssh' | 'local'
+
 export type Host = {
   id: string
+  /** Missing means 'ssh' (configs written before the local host existed). */
+  kind?: HostKind
   sshHost: string
   label: string
   protected: boolean
   gitAccess?: HostGitAccess
+}
+
+/** The built-in host for this computer: always present, never removed. */
+export const LOCAL_HOST_ID = 'local'
+
+export function isLocalHost(h: Pick<Host, 'kind'>): boolean {
+  return h.kind === 'local'
 }
 
 export type Repo = {
