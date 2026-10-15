@@ -293,6 +293,26 @@ describe('containersApi.openTerminal', () => {
     )
   })
 
+  it('compose on the local host accepts Docker Desktop paths', async () => {
+    const t = setup()
+    t.hostOf.mockReturnValue({
+      id: 'local',
+      kind: 'local',
+      sshHost: '',
+      label: 'L',
+      protected: false
+    } as never)
+    t.service.project.mockReturnValue({
+      name: 'shop',
+      workingDir: 'D:\\shop',
+      configFiles: []
+    } as never)
+    await t.api.openTerminal('local', { kind: 'compose', project: 'shop', action: 'up' })
+    expect(t.terminal.openHost.mock.calls[0][1]).toBe(
+      `docker compose -p 'shop' --project-directory 'D:/shop' up -d`
+    )
+  })
+
   it('an invalid-named project in the list yields the Thai compose project error', async () => {
     const t = setup()
     await expect(

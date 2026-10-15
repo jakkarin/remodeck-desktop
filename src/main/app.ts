@@ -25,7 +25,7 @@ import { ConnectionService } from './connection/connectionService'
 import { ContainerService } from './docker/containerService'
 import { BuildService } from './docker/buildService'
 import { DockerClient } from './docker/dockerClient'
-import { sshDialStdio } from './docker/dialStdio'
+import { localDialStdio, sshDialStdio } from './docker/dialStdio'
 import { HostGit } from './git/hostGit'
 import { getGitHubCredential } from './github/credentials'
 import { GitTokenService } from './gitAccess/gitTokenService'
@@ -177,7 +177,7 @@ export function containersApi(deps: {
         if (!p) throw new Error('Compose project not found')
         return deps.terminal.openHost(
           hostId,
-          composeCommand(p, req.action),
+          composeCommand(p, req.action, { local: isLocalHost(deps.hostOf(hostId)) }),
           `${req.action} · ${p.name}`
         )
       }
@@ -293,7 +293,10 @@ export async function createApp(opts: {
   // One DockerClient per host, created lazily by the service; service.dispose destroys it.
   const containerService = new ContainerService({
     clientFor: (hostId) =>
-      new DockerClient({ connect: () => sshDialStdio(sshPath, sshHostFor(hostId)) })
+      new DockerClient({
+        connect: () =>
+          isLocalHost(hostOf(hostId)) ? localDialStdio() : sshDialStdio(sshPath, sshHostFor(hostId))
+      })
   })
   const containerWiring = wireContainerService(containerService, send)
   let terminal: TerminalService | null = null
