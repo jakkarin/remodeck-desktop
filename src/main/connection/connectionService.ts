@@ -9,6 +9,8 @@ import { ProbeCache } from './probeCache'
 export type ConnectionDeps = {
   targetFor(hostId: string): SandboxTarget
   sshHostFor(hostId: string): string
+  /** This computer: no ssh, so no forward check and no ssh hint in errors. */
+  isLocal(hostId: string): boolean
   checkForward(hostId: string): Promise<boolean>
   onDisconnect(hostId: string): void
 }
@@ -74,11 +76,14 @@ export class ConnectionService extends EventEmitter {
     const { gitVersion, remoteHttp } = parsePreflight(r.stdout)
     let cap: GitCapability | null = null
     if (gitVersion) {
-      let forward = false
-      try {
-        forward = await this.deps.checkForward(hostId)
-      } catch {
-        forward = false
+      // The local host reaches the bridge on 127.0.0.1 directly: there is no forward to check.
+      let forward = true
+      if (!this.deps.isLocal(hostId)) {
+        try {
+          forward = await this.deps.checkForward(hostId)
+        } catch {
+          forward = false
+        }
       }
       cap = { version: gitVersion, remoteHttp, forward }
     }
@@ -101,7 +106,9 @@ export class ConnectionService extends EventEmitter {
         ? this.status(hostId)
         : this.set(hostId, {
             state: 'error',
-            error: `${detail}\nTry running ssh ${this.deps.sshHostFor(hostId)} in your system terminal first`
+            error: this.deps.isLocal(hostId)
+              ? detail
+              : `${detail}\nTry running ssh ${this.deps.sshHostFor(hostId)} in your system terminal first`
           })
 
     let r: ProcResult

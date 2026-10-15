@@ -15,7 +15,7 @@ type Answers = {
   docker?: ProcResult
 }
 
-function make(answers: Answers, forward = true) {
+function make(answers: Answers, forward = true, local = false) {
   const calls = { connect: 0, preflight: 0, docker: 0 }
   const target: SandboxTarget = {
     exec: async (script: string) => {
@@ -40,6 +40,7 @@ function make(answers: Answers, forward = true) {
   const svc = new ConnectionService({
     targetFor: () => target,
     sshHostFor: () => 'ai-box',
+    isLocal: () => local,
     checkForward,
     onDisconnect
   })
@@ -71,6 +72,26 @@ describe('PREFLIGHT_SCRIPT on local bash', () => {
 })
 
 const GIT = 'git=git version 2.43.0\nremotehttp=1\n'
+
+describe('ConnectionService on the local host', () => {
+  it('local connect skips the forward check', async () => {
+    const { svc, checkForward } = make(
+      { connect: ok(''), preflight: ok('git=git version 2.47\nremotehttp=1\n') },
+      false,
+      true
+    )
+    await svc.connect('local')
+    const cap = await svc.probeGit('local')
+    expect(checkForward).not.toHaveBeenCalled()
+    expect(cap?.forward).toBe(true)
+  })
+
+  it('local connect error without bash', async () => {
+    const missing = 'Git for Windows is required: install it from https://git-scm.com'
+    const { svc } = make({ connect: new Error(missing) }, true, true)
+    expect(await svc.connect('local')).toEqual({ state: 'error', error: missing })
+  })
+})
 
 describe('ConnectionService', () => {
   it('starts disconnected', () => {

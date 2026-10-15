@@ -300,6 +300,7 @@ export async function createApp(opts: {
   const connection = new ConnectionService({
     targetFor,
     sshHostFor,
+    isLocal: (hostId) => isLocalHost(hostOf(hostId)),
     checkForward: (hostId) => checkRemoteForward(sshPath, sshHostFor(hostId)),
     onDisconnect: (hostId) => {
       terminal?.closeAllForHost(hostId)
