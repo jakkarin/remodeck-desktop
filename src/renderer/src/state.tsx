@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import {
   DEFAULT_PREFS,
+  LOCAL_HOST_ID,
   type DockerCapability,
   type GitCapability,
   type Host,
@@ -11,7 +12,7 @@ import {
   type SyncInfo,
   type Workspace
 } from '../../shared/types'
-import { api } from './api'
+import { api, errorMessage } from './api'
 import {
   pickHost,
   readActiveModule,
@@ -153,7 +154,8 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     setRepos(r)
     setWorkspaces(w)
     workspacesRef.current = w
-    const hostId = pickHost(h, activeHostRef.current ?? readActiveHost())
+    const startup = !loadedRef.current
+    const hostId = pickHost(h, activeHostRef.current ?? readActiveHost(), { startup })
     const hostChanged = hostId !== activeHostRef.current
     if (hostChanged) applyHost(hostId)
     const current = activeRef.current
@@ -167,7 +169,16 @@ export function AppStateProvider({ children }: { children: ReactNode }): React.J
     )
     setStatuses(Object.fromEntries(entries))
     for (const [id, st] of entries) if (st.state !== 'connected') dropCaps(id)
-  }, [applyHost, selectWorkspace, dropCaps])
+    const local = entries.find(([id]) => id === LOCAL_HOST_ID)
+    if (startup && local && local[1].state === 'disconnected') {
+      // No ssh involved: connecting This computer is instant, so do it for the user on launch.
+      setStatus(LOCAL_HOST_ID, { state: 'connecting' })
+      void api.hosts
+        .connect(LOCAL_HOST_ID)
+        .then((s) => setStatus(LOCAL_HOST_ID, s))
+        .catch((e: unknown) => setStatus(LOCAL_HOST_ID, { state: 'error', error: errorMessage(e) }))
+    }
+  }, [applyHost, selectWorkspace, dropCaps, setStatus])
 
   const updatePrefs = useCallback(async (patch: Partial<Prefs>) => {
     setPrefs(await api.prefs.update(patch))

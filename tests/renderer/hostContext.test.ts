@@ -32,6 +32,11 @@ describe('pickHost', () => {
   it('returns null with no hosts', () => {
     expect(pickHost([], 'a')).toBeNull()
   })
+  it('startup picks local over the saved host', () => {
+    expect(pickHost([h('local'), h('a')], 'a', { startup: true })).toBe('local')
+    expect(pickHost([h('local'), h('a')], 'a')).toBe('a')
+    expect(pickHost([h('a'), h('b')], 'b', { startup: true })).toBe('b')
+  })
 })
 
 describe('pickWorkspace', () => {

@@ -1,4 +1,4 @@
-import type { Host, Workspace } from '../../shared/types'
+import { LOCAL_HOST_ID, type Host, type Workspace } from '../../shared/types'
 import { readJson, writeJson } from './storage'
 
 const ACTIVE_HOST_KEY = 'remodeck.activeHost'
@@ -34,8 +34,16 @@ export function saveLastWorkspace(hostId: string, wsId: string): void {
   writeJson(LAST_WORKSPACE_KEY, { ...readLastWorkspaces(), [hostId]: wsId })
 }
 
-/** The preferred host when it still exists, else the first host, else null. */
-export function pickHost(hosts: Host[], preferred: string | null): string | null {
+/**
+ * At startup the local host when present (the app always opens on This computer); otherwise the preferred host
+ * when it still exists, else the first host, else null.
+ */
+export function pickHost(
+  hosts: Host[],
+  preferred: string | null,
+  opts?: { startup?: boolean }
+): string | null {
+  if (opts?.startup && hosts.some((h) => h.id === LOCAL_HOST_ID)) return LOCAL_HOST_ID
   if (preferred !== null && hosts.some((h) => h.id === preferred)) return preferred
   return hosts[0]?.id ?? null
 }
