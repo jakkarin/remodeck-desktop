@@ -309,6 +309,8 @@ export async function createApp(opts: {
   })
   terminal = new TerminalService({
     sshPath,
+    bashPath,
+    homeDir: os.homedir(),
     bridgePort: () => bridgePort,
     spawn: nodePtySpawner(),
     store,
