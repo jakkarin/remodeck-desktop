@@ -2,35 +2,66 @@
 
 **Git & Docker on your servers, over SSH.**
 
-Desktop app (Windows, Electron + TypeScript) for managing git in repos that live in an **AI sandbox**
-(Linux, reached over SSH) — while the sandbox **never holds a GitHub credential** and needs no network
-access to GitHub.
+Desktop app (Windows, Electron + TypeScript) for managing Git repositories and Docker on this computer
+and remote Linux hosts over SSH. In the default **Git Bridge** mode, GitHub credentials stay on your
+Windows computer; the remote host needs no direct connection to GitHub. An optional **Git access on
+this host** mode installs scoped tokens on a remote host; see the security boundary below.
 
-แอป desktop สำหรับจัดการ git ของ repo ใน AI sandbox (Linux) ผ่าน SSH โดย sandbox ไม่เคยถือ
-credential ของ GitHub: Clone / Sync / Review diff / Push / เปิด PR จากเครื่อง host และเปิด terminal
-ที่ push/pull ได้ผ่าน Git Bridge พร้อม popup อนุมัติ
+แอป desktop สำหรับจัดการ Git และ Docker บนเครื่อง Windows และ Linux host ผ่าน SSH:
+Clone / Sync / Review diff / Push / เปิด PR และเปิด terminal ที่ push/pull ผ่าน Git Bridge พร้อม popup
+อนุมัติ โดยค่าเริ่มต้น credential ของ GitHub อยู่บน Windows ส่วนโหมดติดตั้ง token บน host ต้องเปิดใช้เอง
+
+**Status:** early development. Windows x64 is the supported development and packaging target.
+macOS/Linux packaging scripts are experimental and are not validated by the Windows CI job.
+Try it with disposable repositories and hosts before using it with important work.
+
+## Quick start / เริ่มต้น
+
+For local repositories, install Git for Windows and Node.js 24, then run:
+
+```bash
+git clone https://github.com/jakkarin/remodeck-desktop.git
+cd remodeck-desktop
+npm ci
+npm run install:electron
+npm run dev
+```
+
+Select **This computer** to add an existing repository or clone one. For a remote repository, first
+configure an SSH alias, then add that host in remodeck. GitHub operations use your Windows Git Credential
+Manager login.
 
 ## Prerequisites / สิ่งที่ต้องมี
 
-- An SSH alias in `~/.ssh/config` so that `ssh <alias>` works from Windows (key loaded in ssh-agent)
+- **Windows x64** with **Git for Windows**, including Git Bash, and **Node.js 24 / npm 11**
+  (`.node-version` records the Node major used in CI).
+- For remote hosts: an SSH alias in `~/.ssh/config` so that `ssh <alias>` works from Windows (key loaded in ssh-agent)
   — ตั้ง alias ใน `~/.ssh/config` ให้ `ssh <alias>` ใช้ได้
-- `git` installed on the sandbox (and on Windows) — ติดตั้ง `git` บน sandbox เอง (แอปไม่ติดตั้งอะไรบน sandbox)
+- `git` installed on Windows and each remote host — ติดตั้ง `git` บน remote host เอง
 - GitHub login on Windows through Git Credential Manager:
   ```
   git credential-manager github login
   ```
-- Node.js + npm
+- Optional: Docker Desktop using Linux containers for local container management and Docker-based tests;
+  Docker Engine on a remote host for its containers. The Builds view also needs Docker Buildx with history support.
 
 ## Run / รัน
 
 ```bash
-npm install
-# if Electron's binary is missing / ถ้า electron binary หาย:
-node node_modules/electron/install.js
+npm ci          # use the committed lockfile
+npm run install:electron # download the Electron runtime (or reuse it if installed)
 
 npm run dev      # start the app (dev build)
+npm run lint     # ESLint (existing formatting warnings are advisory)
+npm run typecheck
 npm test         # unit + integration tests (Vitest)
+npm run build    # typecheck and build application bundles
+npm run build:win # create an unsigned Windows installer in dist/; never publishes
 ```
+
+See [development setup and troubleshooting](docs/development.md) for Git Bash setup and Docker tests.
+CI checks lint, types, tests, the dependency audit and the Windows installer.
+Docker end-to-end tests run separately on the supported Windows setup with an active Docker Engine.
 
 Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 
@@ -46,7 +77,7 @@ still goes through the Git Bridge and the approval popup. Containers use Docker 
 - Requires **Git for Windows** (its `bash.exe`; WSL's bash is never used). Without it, Connect shows how to install it.
 - Containers require Docker Desktop (or another local Docker engine).
 - This computer is not a sandbox: anything running here can already use your Git Credential Manager login.
-  The approval popup only covers pushes from terminals that remodeck opens. *Git access on this host* is
+  The approval popup only covers pushes from terminals that remodeck opens. _Git access on this host_ is
   not offered here, and This computer cannot be removed.
 
 host แรกในรายการคือ **This computer** และแอปเปิดมาที่ host นี้ทุกครั้ง ใช้จัดการ repo บนเครื่อง Windows นี้
@@ -77,9 +108,9 @@ volumes always require typing the host name, and protected hosts require it for 
 
 ## Security boundary / ขอบเขตความปลอดภัย
 
-- The GitHub token never enters the sandbox. Terminals opened from the app reach GitHub through the
+- In the default Git Bridge mode, the GitHub token stays on Windows. Terminals opened from the app reach GitHub through the
   local **Git Bridge** (`127.0.0.1`, via an ssh remote forward) which injects the credential on the host.
-  — GitHub token ไม่เคยเข้า sandbox ไม่ว่ากรณีใด
+  — โหมด Git Bridge ไม่ส่ง GitHub token ไป sandbox; โหมดติดตั้ง token บน host ด้านล่างเป็นการ opt-in แยกต่างหาก
 - Fetch/pull through the bridge needs no approval; every push needs approval in a popup on the host
   (Allow once / for this session / always for this repo / Deny; no answer in 60 s = Deny).
 - Fixed rules on the host (apply even with "always allow"; can be turned off per repo in Settings):
@@ -111,6 +142,20 @@ volumes always require typing the host name, and protected hosts require it for 
   ถ้าอีกคนกด Install หรือ Update host จาก remodeck ของเขา token บน host จะถูกแทนด้วยของเขา และ Remove from host จะลบทั้งหมด
   ถ้าต้องการแยก token ให้แต่ละคนใช้ Linux user ของตัวเอง
 - Every push (bridge or Review) is logged to `push-log.jsonl`.
-- Zero footprint: nothing is written to the repo's working tree or commits; in the sandbox the app only
+- In the default bridge flow, nothing is written to the repo's working tree or commits; in the sandbox the app
   does `git init`, sets `remote origin`, and updates `refs/remotes/origin/*` and tags. Removing a
   workspace in the app never deletes anything in the sandbox.
+
+Read [SECURITY.md](SECURITY.md) for the threat model, known limits and vulnerability reporting.
+
+## Contributing and project information
+
+- [Contributing](CONTRIBUTING.md): setup, checks, issues and pull requests. English and Thai are welcome.
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](CHANGELOG.md)
+- [Release checklist](docs/releasing.md)
+- [Secret and dependency audit](docs/open-source-readiness.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+Project code is available under the [MIT License](LICENSE). Third-party code, fonts and icons keep
+their respective licenses; see the notices above.
