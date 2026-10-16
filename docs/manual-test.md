@@ -1,7 +1,8 @@
 # Manual End-to-End Test Checklist
 
-Date: 2026-10-03  
-Version: Task 19 Manual verification
+Use this checklist for release verification on disposable hosts and repositories. The default
+Git Bridge checks assume **Git access on this host** is off. Test the optional token installation
+separately, and remove test tokens afterwards. Never paste real credentials into test logs.
 
 ## Setup
 
@@ -10,8 +11,8 @@ Have the following ready before testing:
 - **SSH access**: `ssh <alias>` works from a Windows terminal, with the SSH key loaded in ssh-agent
 - **Git installed**: on both Windows and the sandbox
 - **GitHub Credential Manager**: installed, and logged in with `git credential-manager github login` on Windows
-- **Node.js and npm**: installed
-- **Electron binary**: if missing, run `npm install && node node_modules/electron/install.js`
+- **Node.js and npm**: Node.js 24 and npm 11 installed
+- **Electron binary**: install dependencies with `npm ci`, then run `npm run install:electron`
 - **Development server**: run `npm run dev` to start the app
 
 ## Test Cases
@@ -20,7 +21,7 @@ Have the following ready before testing:
 
 | Step | Action                                                                                                            | Result |
 | ---- | ----------------------------------------------------------------------------------------------------------------- | ------ |
-| 1.1  | Open the app → the sidebar shows no hosts (disconnected)                                                          | ☐      |
+| 1.1  | Open the app → the sidebar starts with This computer; add an SSH host for this remote flow                        | ☐      |
 | 1.2  | Click Add Host → enter the SSH alias and label, save                                                              | ☐      |
 | 1.3  | Select the host → click Connect → preflight checks for `git` on the sandbox                                       | ☐      |
 | 1.4  | If git is missing → an install message and a Reload button are shown                                              | ☐      |
@@ -41,17 +42,17 @@ Have the following ready before testing:
 
 ### 2. Terminal from App — Git Push with Popup Authentication
 
-| Step | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Result |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 2.1  | Workspace → click Open Terminal → an xterm.js tab opens with the prompt in `<path>`                                                                                                                                                                                                                                                                                                                                                                                                                           | ☐      |
-| 2.2  | In the terminal: `git checkout -b feat-b`                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | ☐      |
-| 2.3  | Create a new file + `git add` + `git commit -m "feat-b"`                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ☐      |
-| 2.4  | `git push origin feat-b`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ☐      |
-| 2.5  | An approval popup appears in the app                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | ☐      |
-| 2.6  | It shows the repo name, ref (`feat-b`), old→new sha (short) and the originating terminal tab                                                                                                                                                                                                                                                                                                                                                                                                                  | ☐      |
-| 2.7  | "Allow once" → the push goes through and the terminal prints success                                                                                                                                                                                                                                                                                                                                                                                                                                          | ☐      |
-| 2.8  | Close the popup → in a plain SSH session, `git push origin feat-b` fails for lack of credentials                                                                                                                                                                                                                                                                                                                                                                                                              | ☐      |
-| 2.9  | The GitHub token is never written to any file in the sandbox → (a) search for the real token from `git credential fill` on Windows, passed over stdin (so the token never reaches the sandbox's disk/argv/history) — in Git Bash on Windows: `printf 'protocol=https\nhost=github.com\n\n' \| git credential fill \| sed -n 's/^password=//p' \| ssh <alias> 'grep -rlF -f - ~/ 2>/dev/null'` must print no file names (b) in the sandbox: `grep -rlE "gho_\|ghp_\|github_pat_" ~/ 2>/dev/null` must be empty | ☐      |
+| Step | Action                                                                                                                                                                                                   | Result |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2.1  | Workspace → click Open Terminal → an xterm.js tab opens with the prompt in `<path>`                                                                                                                      | ☐      |
+| 2.2  | In the terminal: `git checkout -b feat-b`                                                                                                                                                                | ☐      |
+| 2.3  | Create a new file + `git add` + `git commit -m "feat-b"`                                                                                                                                                 | ☐      |
+| 2.4  | `git push origin feat-b`                                                                                                                                                                                 | ☐      |
+| 2.5  | An approval popup appears in the app                                                                                                                                                                     | ☐      |
+| 2.6  | It shows the repo name, ref (`feat-b`), old→new sha (short) and the originating terminal tab                                                                                                             | ☐      |
+| 2.7  | "Allow once" → the push goes through and the terminal prints success                                                                                                                                     | ☐      |
+| 2.8  | Close the popup → in a plain SSH session, `git push origin feat-b` fails for lack of credentials                                                                                                         | ☐      |
+| 2.9  | With optional remote Git access off, inspect generated remote scripts/config and sanitized logs for token-shaped values. Do not copy a real Windows credential to the remote host to perform this check. | ☐      |
 
 ### 3. Protected Branch Blocking
 
@@ -143,17 +144,17 @@ Have the following ready before testing:
 
 ### 11. This computer
 
-| #    | Step                                                                                                                                  | Result |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| L.1  | Select an SSH host, quit, relaunch → the app opens on This computer, connected, without clicking Connect                              | ☐      |
-| L.2  | Add existing → type `D:\path\to\repo\` → Check resolves owner/name; Confirm adds it and the workspace path shows as `D:/path/to/repo` | ☐      |
-| L.3  | Add the same folder again typed as `d:/path/to/repo` → refused with "This workspace already exists"                                  | ☐      |
-| L.4  | Branches, commits and diff load; Push from Review succeeds and is logged                                                              | ☐      |
-| L.5  | Open a terminal → Git Bash in the repo folder; `git fetch` works; `git push` shows the approval popup                                 | ☐      |
-| L.6  | Open a terminal on a worktree from the worktree list → it starts in that worktree folder                                              | ☐      |
-| L.7  | Containers with Docker Desktop running → list loads; compose Up/Down for a project under `D:\` opens a terminal that runs             | ☐      |
-| L.8  | Host settings for This computer → no SSH host field and no Git access section; host menu has no Remove                                 | ☐      |
-| L.9  | Rename `C:/Program Files/Git` temporarily (or test on a machine without Git) → Connect shows "Git for Windows is required…"            | ☐      |
+| #   | Step                                                                                                                                  | Result |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| L.1 | Select an SSH host, quit, relaunch → the app opens on This computer, connected, without clicking Connect                              | ☐      |
+| L.2 | Add existing → type `D:\path\to\repo\` → Check resolves owner/name; Confirm adds it and the workspace path shows as `D:/path/to/repo` | ☐      |
+| L.3 | Add the same folder again typed as `d:/path/to/repo` → refused with "This workspace already exists"                                   | ☐      |
+| L.4 | Branches, commits and diff load; Push from Review succeeds and is logged                                                              | ☐      |
+| L.5 | Open a terminal → Git Bash in the repo folder; `git fetch` works; `git push` shows the approval popup                                 | ☐      |
+| L.6 | Open a terminal on a worktree from the worktree list → it starts in that worktree folder                                              | ☐      |
+| L.7 | Containers with Docker Desktop running → list loads; compose Up/Down for a project under `D:\` opens a terminal that runs             | ☐      |
+| L.8 | Host settings for This computer → no SSH host field and no Git access section; host menu has no Remove                                | ☐      |
+| L.9 | Rename `C:/Program Files/Git` temporarily (or test on a machine without Git) → Connect shows "Git for Windows is required…"           | ☐      |
 
 ## Automated Results
 
@@ -248,7 +249,7 @@ Check in real Electron, after the move to the three-column workspace:
 | C.14 | A container list taller than the window → scroll down and click a container name → the details panel is visible straight away (not off-screen), both wide and below 720px                                                                                                                                                                             | ☐      |
 | C.15 | Images tab → image list (tag, size, created) with an `in use` badge on images a container uses; the Volumes and Networks tabs show lists and badges too; switching tabs clears the filter; the Containers \| Images \| Volumes \| Networks bar sits above the toolbar, styled like the Terminal tab bar, and stays visible while loading and on error | ☐      |
 | C.16 | Click Remove on an image a container uses → confirm dialog (a click is enough on a normal host) → the error banner says "This image is in use by a container — remove that container first" and the list reloads; repeat with an in-use volume and network                                                                                            | ☐      |
-| C.17 | Prune Images, Volumes or Networks → confirmation opens a terminal showing live command output; a collapsed dock expands; the resource list refreshes after command exit; protected hosts require typing the host name | ☐ |
+| C.17 | Prune Images, Volumes or Networks → confirmation opens a terminal showing live command output; a collapsed dock expands; the resource list refreshes after command exit; protected hosts require typing the host name                                                                                                                                 | ☐      |
 | C.18 | Remove volume and Prune volumes → always require typing the host name, even on a normal host                                                                                                                                                                                                                                                          | ☐      |
 | C.19 | Networks tab → built-in networks (bridge / host / none) have no Remove button, and the Remove buttons of other networks stay in place                                                                                                                                                                                                                 | ☐      |
 | C.20 | A list taller than the window scrolls under the tab bar (Containers, Images, Volumes and Networks); compose project names sit at the left edge                                                                                                                                                                                                        | ☐      |
@@ -259,34 +260,34 @@ Check in real Electron, after the move to the three-column workspace:
 
 Use an SSH host with Docker Buildx and BuildKit history support. Run destructive checks on a test host.
 
-| Step | Action                                                                                                                                                     | Result |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| B.1  | Open Containers → Builds → compare names, IDs, statuses, creation times and durations with `docker buildx history ls` on the same host and current builder | ☐      |
-| B.2  | Complete or fail another build on that host → Refresh → the new record appears with its status                                                             | ☐      |
-| B.3  | Open Builds on a host without history support → a useful error appears; return to a supported host → its own history appears                               | ☐      |
-| B.4  | Click Prune build cache → Cancel → no terminal opens; confirm on a test host → a focused terminal runs the prune and shows output; a collapsed dock expands | ☐ |
-| B.5  | Enable host protection → Prune build cache requires the exact host name; terminal opening errors stay in the dialog; command failures appear in the terminal | ☐ |
-| B.6  | Open the prune dialog and switch hosts → the old dialog and history disappear; the new host has its own data                                               | ☐      |
+| Step | Action                                                                                                                                                       | Result |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| B.1  | Open Containers → Builds → compare names, IDs, statuses, creation times and durations with `docker buildx history ls` on the same host and current builder   | ☐      |
+| B.2  | Complete or fail another build on that host → Refresh → the new record appears with its status                                                               | ☐      |
+| B.3  | Open Builds on a host without history support → a useful error appears; return to a supported host → its own history appears                                 | ☐      |
+| B.4  | Click Prune build cache → Cancel → no terminal opens; confirm on a test host → a focused terminal runs the prune and shows output; a collapsed dock expands  | ☐      |
+| B.5  | Enable host protection → Prune build cache requires the exact host name; terminal opening errors stay in the dialog; command failures appear in the terminal | ☐      |
+| B.6  | Open the prune dialog and switch hosts → the old dialog and history disappear; the new host has its own data                                                 | ☐      |
 
 ### Git access on target hosts (manual)
 
 Use one real host with `git`, `gh` and Claude Code or Codex. Create fine-grained tokens (Contents RW, Pull requests RW, short expiry) for org A, org B and one repo of org A (the override).
 
-| #   | Step                                                                                                                                                                                                                                             | Result |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| G.1 | Settings → Git tokens: add a token for org A, one for org B and one for a single repo of org A → the repo override is listed under org A                                                                                                         | ☐      |
-| G.2 | Host settings → enable Git access on this host → the plain-text warning shows; select all three tokens, Install, confirm → status shows helper, include and gh wrapper active (login and non-login shell)                                        | ☐      |
-| G.3 | On the host, open a plain SSH session (not a remodeck terminal) and have Claude Code or Codex clone, commit, push a branch and open a PR in a repo of org A, a repo of org B, and the override repo → all three succeed, each with its own token | ☐      |
-| G.4 | Open a terminal from remodeck on the same host and push → it still goes through the Git Bridge and asks for approval                                                                                                                             | ☐      |
-| G.5 | Replace one token in Settings → reopen Host settings → the row shows "Changed since install"; Update host clears it                                                                                                                              | ☐      |
-| G.6 | Remove from host and confirm → push and `gh pr create` from the same repos now fail, and `~/.config/remodeck/git-access`, `~/.local/bin/gh` (ours) and the `include.path` line in `~/.gitconfig` are gone                                        | ☐      |
-| G.7 | On a host where `gh auth setup-git` was already run, enable Git access and Install → the status list warns that credential helper "gh" for github.com is asked before remodeck's and may answer with its own login | ☐ |
-| G.8 | On a host without git, Install → it fails, the error ends with "Try Update host again or Remove from host.", and Remove from host is offered and works | ☐ |
-| G.9 | Try to remove a host (Settings → Hosts) that still has git access → refused with "Remove git access from this host first"; after Remove from host the host can be removed | ☐ |
-| G.10 | In a remodeck terminal on a host with git access, run `gh pr list` in a repo whose `origin` is a github.com URL of org A → it uses the token for org A (the repo comes from the configured origin) | ☐ |
-| G.11 | On a host where status says "Not active in non-login shells", tick "Add ~/.local/bin to PATH in ~/.bashrc…" and Update host → the top of `~/.bashrc` has the remodeck block, status shows "Active in non-login shells" and "PATH line in ~/.bashrc added by remodeck"; Update host again does not add a second block | ☐ |
-| G.12 | Leave the PATH box unticked and Install → `~/.bashrc` is byte-for-byte unchanged | ☐ |
-| G.13 | Remove from host after G.11 → the block is gone and the rest of `~/.bashrc` is unchanged | ☐ |
-| G.14 | After G.7, tick "Ask remodeck's credential helper before the others…" and Update host → the gh row now says it is asked after remodeck's; push to an org A repo uses the org A token, and push to a repo with no remodeck token still works through `gh auth` | ☐ |
-| G.15 | After G.14, run `gh auth setup-git` again on the host → status shows that a later reset hides remodeck's helper; Update host (box still ticked) → back to "asked after remodeck's" | ☐ |
-| G.16 | Untick the box from G.14 and Update host → the gh row warns again that it is asked before remodeck's; Remove from host leaves the `[credential]` block of gh in `~/.gitconfig` untouched | ☐ |
+| #    | Step                                                                                                                                                                                                                                                                                                                 | Result |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| G.1  | Settings → Git tokens: add a token for org A, one for org B and one for a single repo of org A → the repo override is listed under org A                                                                                                                                                                             | ☐      |
+| G.2  | Host settings → enable Git access on this host → the plain-text warning shows; select all three tokens, Install, confirm → status shows helper, include and gh wrapper active (login and non-login shell)                                                                                                            | ☐      |
+| G.3  | On the host, open a plain SSH session (not a remodeck terminal) and have Claude Code or Codex clone, commit, push a branch and open a PR in a repo of org A, a repo of org B, and the override repo → all three succeed, each with its own token                                                                     | ☐      |
+| G.4  | Open a terminal from remodeck on the same host and push → it still goes through the Git Bridge and asks for approval                                                                                                                                                                                                 | ☐      |
+| G.5  | Replace one token in Settings → reopen Host settings → the row shows "Changed since install"; Update host clears it                                                                                                                                                                                                  | ☐      |
+| G.6  | Remove from host and confirm → push and `gh pr create` from the same repos now fail, and `~/.config/remodeck/git-access`, `~/.local/bin/gh` (ours) and the `include.path` line in `~/.gitconfig` are gone                                                                                                            | ☐      |
+| G.7  | On a host where `gh auth setup-git` was already run, enable Git access and Install → the status list warns that credential helper "gh" for github.com is asked before remodeck's and may answer with its own login                                                                                                   | ☐      |
+| G.8  | On a host without git, Install → it fails, the error ends with "Try Update host again or Remove from host.", and Remove from host is offered and works                                                                                                                                                               | ☐      |
+| G.9  | Try to remove a host (Settings → Hosts) that still has git access → refused with "Remove git access from this host first"; after Remove from host the host can be removed                                                                                                                                            | ☐      |
+| G.10 | In a remodeck terminal on a host with git access, run `gh pr list` in a repo whose `origin` is a github.com URL of org A → it uses the token for org A (the repo comes from the configured origin)                                                                                                                   | ☐      |
+| G.11 | On a host where status says "Not active in non-login shells", tick "Add ~/.local/bin to PATH in ~/.bashrc…" and Update host → the top of `~/.bashrc` has the remodeck block, status shows "Active in non-login shells" and "PATH line in ~/.bashrc added by remodeck"; Update host again does not add a second block | ☐      |
+| G.12 | Leave the PATH box unticked and Install → `~/.bashrc` is byte-for-byte unchanged                                                                                                                                                                                                                                     | ☐      |
+| G.13 | Remove from host after G.11 → the block is gone and the rest of `~/.bashrc` is unchanged                                                                                                                                                                                                                             | ☐      |
+| G.14 | After G.7, tick "Ask remodeck's credential helper before the others…" and Update host → the gh row now says it is asked after remodeck's; push to an org A repo uses the org A token, and push to a repo with no remodeck token still works through `gh auth`                                                        | ☐      |
+| G.15 | After G.14, run `gh auth setup-git` again on the host → status shows that a later reset hides remodeck's helper; Update host (box still ticked) → back to "asked after remodeck's"                                                                                                                                   | ☐      |
+| G.16 | Untick the box from G.14 and Update host → the gh row warns again that it is asked before remodeck's; Remove from host leaves the `[credential]` block of gh in `~/.gitconfig` untouched                                                                                                                             | ☐      |

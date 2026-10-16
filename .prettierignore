@@ -4,3 +4,6 @@ pnpm-lock.yaml
 LICENSE.md
 tsconfig.json
 tsconfig.*.json
+
+# Keep the pinned upstream stylesheet byte-for-byte for license/provenance checks.
+src/renderer/src/assets/shadcn.css

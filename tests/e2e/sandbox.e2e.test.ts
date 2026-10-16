@@ -19,7 +19,9 @@ vi.mock('electron', () => ({
     static isSupported(): boolean {
       return false
     }
-    show(): void {}
+    show(): void {
+      // The test notification has no UI.
+    }
   },
   shell: { openExternal: async () => undefined }
 }))

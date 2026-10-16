@@ -1,7 +1,8 @@
 import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
-const include = (globs: string[]) => globs.flatMap((g) => [`${g}.test.ts`, `${g}.test.tsx`])
+const include = (globs: string[]): string[] =>
+  globs.flatMap((g) => [`${g}.test.ts`, `${g}.test.tsx`])
 
 export default defineConfig({
   test: {

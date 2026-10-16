@@ -165,7 +165,9 @@ describe('workspace queries', () => {
     expect(list).toHaveLength(2)
     expect(list[0]).toMatchObject({ branch: 'main', dirty: 0 })
     expect(list[1]).toMatchObject({ branch: 'other', dirty: 1 })
-    expect(list[1].path.replaceAll('\\', '/')).toBe(wt.replaceAll('\\', '/'))
+    // Git reports long paths; the temp dir may be an 8.3 short path (e.g. RUNNER~1).
+    const real = (p: string): string => fs.realpathSync.native(p).replaceAll('\\', '/')
+    expect(real(list[1].path)).toBe(real(wt))
   })
 
   it('uses origin/<name> as base when GitHub has the branch', async () => {

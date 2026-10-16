@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import os from 'node:os'
-import { Notification, clipboard, dialog, shell, type BrowserWindow } from 'electron'
+import { Notification, clipboard, dialog, nativeImage, shell, type BrowserWindow } from 'electron'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -517,9 +517,16 @@ export async function createApp(opts: {
       resize: (tabId, c, r) => term.resize(tabId, c, r),
       close: (tabId) => term.close(tabId),
       pasteImage: async (tabId) => {
-        const img = clipboard.readImage()
-        if (img.isEmpty()) return null
-        return term.uploadImage(tabId, new Uint8Array(img.toPNG()), 'png')
+        for (const item of await clipboard.read()) {
+          const type = item.types.includes('image/png')
+            ? 'image/png'
+            : item.types.find((value): value is `image/${string}` => value.startsWith('image/'))
+          if (!type) continue
+          const blob = await item.getType(type)
+          const img = nativeImage.createFromBuffer(Buffer.from(await blob.arrayBuffer()))
+          if (!img.isEmpty()) return term.uploadImage(tabId, new Uint8Array(img.toPNG()), 'png')
+        }
+        return null
       },
       uploadImage: async (tabId, bytes, ext) => {
         if (!(bytes instanceof Uint8Array)) throw new Error('Invalid image data')

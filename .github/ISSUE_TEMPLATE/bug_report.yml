@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible problem (English or Thai).
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For suspected security vulnerabilities, follow SECURITY.md instead of posting details here.
+        Remove credentials, private hostnames, personal data and private repository content from logs and screenshots.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: App version or commit, Windows version, and relevant Git/SSH/Docker versions.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include whether this uses This computer, an SSH host, Git Bridge, or optional remote token access.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Review attachments for secrets before submitting.

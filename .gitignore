@@ -5,3 +5,34 @@ dist
 .eslintcache
 
 *.tsbuildinfo
+
+# Local checkouts and development state
+.claude/worktrees/
+.worktrees/
+
+# AI agent skills and generated design plans stay local.
+.agents/
+docs/superpowers/
+state/
+
+# Credentials and machine-specific settings; commit sanitized examples instead.
+.env
+.env.*
+!.env.example
+!.env.*.example
+.npmrc
+# The root .npmrc holds install policy only (no tokens).
+!/.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+secrets.json
+secrets.json.tmp
+push-log.jsonl
+
+# Secret scanner reports may contain sensitive findings.
+gitleaks*.json
+gitleaks*.sarif
