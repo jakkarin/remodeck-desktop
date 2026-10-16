@@ -4,9 +4,10 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  main: {},
-  preload: {},
+  main: { build: { license: { fileName: 'THIRD_PARTY_LICENSES.md' } } },
+  preload: { build: { license: { fileName: 'THIRD_PARTY_LICENSES.md' } } },
   renderer: {
+    build: { license: { fileName: 'THIRD_PARTY_LICENSES.md' } },
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src')

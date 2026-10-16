@@ -1,10 +1,18 @@
 {
   "name": "remodeck-desktop",
   "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "Manage Git repositories and Docker on Windows and remote SSH hosts, with local GitHub credentials and push approvals.",
   "main": "./out/main/index.js",
   "author": "jakkarin",
-  "homepage": "https://electron-vite.org",
+  "license": "MIT",
+  "homepage": "https://github.com/jakkarin/remodeck-desktop#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jakkarin/remodeck-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jakkarin/remodeck-desktop/issues"
+  },
   "engines": {
     "node": "24.x",
     "npm": "11.x"
