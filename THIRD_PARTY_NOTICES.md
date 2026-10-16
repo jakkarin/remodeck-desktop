@@ -5,13 +5,13 @@ retain their own copyright and license terms; they are not relicensed by the roo
 
 ## Copied source and bundled assets
 
-| Material                                                                                                        | Source                                                                                         | License and retained text                                                 |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| shadcn/ui components in `src/renderer/src/components/ui/`, CSS, and the vendored `.agents/skills/shadcn/` skill | [shadcn-ui/ui](https://github.com/shadcn-ui/ui)                                                | MIT, copyright 2023 shadcn; [license](licenses/shadcn-MIT.txt)            |
-| Geist variable fonts                                                                                            | [Geist](https://github.com/vercel/geist-font), installed via `@fontsource-variable/geist`      | SIL Open Font License 1.1; [license](licenses/geist-OFL-1.1.txt)          |
-| Geist Mono variable fonts                                                                                       | [Geist](https://github.com/vercel/geist-font), installed via `@fontsource-variable/geist-mono` | SIL Open Font License 1.1; [license](licenses/geist-mono-OFL-1.1.txt)     |
-| Lucide icons, including upstream Feather-derived icons identified in the license                                | [Lucide](https://github.com/lucide-icons/lucide)                                               | ISC and retained upstream notices; [license](licenses/lucide-LICENSE.txt) |
-| Class Variance Authority used by UI components                                                                  | [CVA](https://github.com/joe-bell/cva)                                                         | Apache-2.0; [license](licenses/class-variance-authority-Apache-2.0.txt)   |
+| Material                                                                         | Source                                                                                         | License and retained text                                                 |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| shadcn/ui components in `src/renderer/src/components/ui/` and CSS                | [shadcn-ui/ui](https://github.com/shadcn-ui/ui)                                                | MIT, copyright 2023 shadcn; [license](licenses/shadcn-MIT.txt)            |
+| Geist variable fonts                                                             | [Geist](https://github.com/vercel/geist-font), installed via `@fontsource-variable/geist`      | SIL Open Font License 1.1; [license](licenses/geist-OFL-1.1.txt)          |
+| Geist Mono variable fonts                                                        | [Geist](https://github.com/vercel/geist-font), installed via `@fontsource-variable/geist-mono` | SIL Open Font License 1.1; [license](licenses/geist-mono-OFL-1.1.txt)     |
+| Lucide icons, including upstream Feather-derived icons identified in the license | [Lucide](https://github.com/lucide-icons/lucide)                                               | ISC and retained upstream notices; [license](licenses/lucide-LICENSE.txt) |
+| Class Variance Authority used by UI components                                   | [CVA](https://github.com/joe-bell/cva)                                                         | Apache-2.0; [license](licenses/class-variance-authority-Apache-2.0.txt)   |
 
 Additional CSS-only assets retain their full notices separately because they are not included in
 the generated JavaScript dependency report:

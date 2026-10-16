@@ -107,9 +107,7 @@ Use [the manual checklist](manual-test.md) for application UI and real-host veri
 - `src/renderer/`: React UI, terminal display and styles.
 - `tests/main/`, `tests/renderer/`, `tests/e2e/`: the corresponding automated checks.
 
-Read [design guidelines](design-guidelines.md) for UI changes. Documents in `docs/superpowers/`
-record earlier designs and implementation plans; current source, tests and user documentation take
-precedence when an older plan differs from implemented behavior.
+Read [design guidelines](design-guidelines.md) for UI changes.
 
 ## Application data
 

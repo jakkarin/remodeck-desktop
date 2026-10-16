@@ -8,8 +8,11 @@ dist
 
 # Local checkouts and development state
 .claude/worktrees/
-.superpowers/
 .worktrees/
+
+# AI agent skills and generated design plans stay local.
+.agents/
+docs/superpowers/
 state/
 
 # Credentials and machine-specific settings; commit sanitized examples instead.
