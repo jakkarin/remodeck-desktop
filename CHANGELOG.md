@@ -10,7 +10,7 @@ a public release or installer has been published.
 - Add explicit Electron runtime installation and clipboard regression tests for the upgraded runtime.
 - Adopt the MIT License and preserve third-party license notices.
 - Document development, contribution, security boundaries and release preparation.
-- Delay new dependency versions by seven days in npm and Dependabot to reduce supply-chain risk.
+- Delay new dependency versions by seven days in npm to reduce supply-chain risk.
 - Add CI for Windows lint, type checks, tests and unsigned installer builds.
 
 Current functionality includes local and SSH Git workspaces, Git Bridge push approvals, optional
