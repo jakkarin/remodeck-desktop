@@ -18,6 +18,8 @@ state/
 !.env.example
 !.env.*.example
 .npmrc
+# The root .npmrc holds install policy only (no tokens).
+!/.npmrc
 *.pem
 *.key
 *.p12

@@ -63,6 +63,12 @@ in the Electron runtime used by the application.
 Run `npm audit` against the complete lockfile, including devDependencies: renderer libraries and build
 tools live there. CI fails when the audit reports any vulnerabilities.
 
+The committed `.npmrc` sets `min-release-age=7`: `npm install` and `npm update` only resolve versions
+published at least seven days ago, which keeps freshly compromised releases out of the lockfile.
+`npm ci` installs the lockfile as-is. Dependabot does not read `.npmrc`, so `.github/dependabot.yml`
+applies the same seven-day cooldown. To take an urgent security fix sooner, install it explicitly with
+`--min-release-age=0` and review the change. Keep registry auth tokens in your user-level `~/.npmrc`.
+
 Electron is on the 44.x line. A scoped npm override supplies `@electron/get` 5.x to `app-builder-lib`
 until electron-builder updates its downloader dependency. That release uses native fetch instead of
 the vulnerable got/global-agent dependency chain. Builds are validated with a fresh cache. If your
