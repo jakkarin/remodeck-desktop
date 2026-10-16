@@ -28,17 +28,10 @@ architecture, and Python supported by node-gyp.
 
 ## Git Bash in tests
 
-Some integration tests invoke `bash` by name. Run tests from Git Bash, or ensure Git for Windows'
-`bin` directory precedes Windows/WSL's `bash.exe` in your process's PATH. In PowerShell, for the
-current session only:
-
-```powershell
-$env:PATH = "$env:ProgramFiles\Git\bin;$env:ProgramFiles\Git\usr\bin;$env:PATH"
-npm test -- --maxWorkers=4
-```
-
-This is also how the Windows CI job selects Git Bash. No change to your global PATH is required.
-Tests need permission to launch Git/Bash and listen on loopback ports. A restricted sandbox may
+Integration tests run their scripts through `LocalTarget`, which always resolves Git for Windows'
+`bash.exe` (as the app does) and never uses `bash` from PATH, which on Windows is usually WSL's. Run
+`npm test` from any shell; if Git for Windows is not installed, those tests fail with an install
+message instead of falling back to another bash. Tests need permission to launch Git/Bash and listen on loopback ports. A restricted sandbox may
 deny those operations even when the app works outside that sandbox.
 
 ## Checks and builds
