@@ -107,7 +107,7 @@ export class GitBridge {
     const repo = this.deps.store.config.repos.find((r) => r.id === session.repo.id)
     if (!repo) return fail(res, 403, 'forbidden')
 
-    let credential: Credential | null = null
+    let credential: Credential | null
     try {
       credential = await this.deps.credential()
     } catch {
@@ -185,7 +185,7 @@ export class GitBridge {
         log(commands, 'blocked', verdict.reason)
         return fail(res, 403, verdict.reason)
       }
-      let approved = false
+      let approved: boolean
       try {
         approved = await this.deps.approval.request({
           repoId: session.repo.id,

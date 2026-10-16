@@ -131,6 +131,8 @@ export class TargetAccessService {
     try {
       return await fn()
     } catch (e) {
+      // No `cause`: the original error may contain the unredacted token.
+      // eslint-disable-next-line preserve-caught-error
       throw new Error(redact(e instanceof Error ? e.message : String(e), secrets))
     }
   }
