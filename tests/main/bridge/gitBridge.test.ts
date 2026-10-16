@@ -151,7 +151,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await bridge.stop()
   await backend.close()
-  fs.rmSync(tmp, { recursive: true, force: true })
+  // Windows may briefly keep handles open after git child processes exit.
+  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
 })
 
 describe('GitBridge', () => {
