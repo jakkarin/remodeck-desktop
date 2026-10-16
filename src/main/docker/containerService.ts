@@ -127,12 +127,12 @@ export class ContainerService extends EventEmitter {
       if (e instanceof DockerError) {
         if (e.status === 404) {
           await this.refetch(hostId, st, id).catch(() => {})
-          throw new Error('This container no longer exists')
+          throw new Error('This container no longer exists', { cause: e })
         }
         if (e.status === 409 && action === 'remove' && /running/i.test(e.message)) {
-          throw new Error('Stop the container before removing it')
+          throw new Error('Stop the container before removing it', { cause: e })
         }
-        throw new Error(e.message)
+        throw new Error(e.message, { cause: e })
       }
       throw e
     }
@@ -177,9 +177,9 @@ export class ContainerService extends EventEmitter {
       if (e instanceof DockerError) {
         if (e.status === 404) {
           await this.refetch(hostId, st, id).catch(() => {})
-          throw new Error('This container no longer exists')
+          throw new Error('This container no longer exists', { cause: e })
         }
-        throw new Error(e.message)
+        throw new Error(e.message, { cause: e })
       }
       throw e
     }
