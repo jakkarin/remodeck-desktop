@@ -29,7 +29,6 @@ class FakePty implements PtyLike {
 const NOTICE = '\r\n[remodeck] tunnel port busy, retrying…\r\n'
 const FORWARD_ERR = 'Warning: remote port forwarding failed for listen port 30000\r\n'
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function setup(
   connected: (h: string) => boolean = () => true,
   bashPath: string | null = 'C:/Git/bin/bash.exe'

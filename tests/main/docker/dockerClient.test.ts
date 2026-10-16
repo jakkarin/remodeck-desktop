@@ -11,7 +11,10 @@ let client: DockerClient | undefined
 let connections = 0
 const sockets = new Set<net.Socket>()
 
-async function start(handler: http.RequestListener, opts: { timeoutMs?: number; idleMs?: number } = {}) {
+async function start(
+  handler: http.RequestListener,
+  opts: { timeoutMs?: number; idleMs?: number } = {}
+) {
   connections = 0
   server = http.createServer(handler)
   server.on('connection', (s) => {
@@ -118,7 +121,9 @@ describe('DockerClient', () => {
 
   it('rejects when the dial stream dies mid-request', async () => {
     const dead = new Duplex({
-      read() {},
+      read() {
+        // This stream only models a failed write.
+      },
       write(_chunk, _enc, cb) {
         cb()
         setImmediate(() => dead.destroy(new Error('dial died')))
@@ -191,10 +196,13 @@ describe('DockerClient', () => {
 
   it('follow-up request succeeds after a timeout', async () => {
     let n = 0
-    const c = await start((_req, res) => {
-      if (n++ === 0) return
-      res.end('{"ok":true}')
-    }, { timeoutMs: 100 })
+    const c = await start(
+      (_req, res) => {
+        if (n++ === 0) return
+        res.end('{"ok":true}')
+      },
+      { timeoutMs: 100 }
+    )
     await expect(c.json('GET', '/slow')).rejects.toThrow('timed out')
     await expect(c.json('GET', '/fast')).resolves.toEqual({ ok: true })
   })
@@ -216,7 +224,7 @@ describe('DockerClient', () => {
       return Duplex.from({ readable: sock, writable: sock }) as Duplex
     }
     const withClient = async (handler: http.RequestListener) => {
-      const c = await start(handler)
+      await start(handler)
       client.destroy()
       const port = (server!.address() as AddressInfo).port
       const dials = { n: 0 }
