@@ -18,7 +18,6 @@ vi.mock('../../src/renderer/src/api', () => ({
     containers: {
       resources: vi.fn(),
       removeResource: vi.fn(),
-      prune: vi.fn(),
       openTerminal: vi.fn()
     },
     on: vi.fn((event: string, handler: ExitHandler) => {
@@ -33,7 +32,6 @@ vi.mock('../../src/renderer/src/api', () => ({
 
 import { api } from '../../src/renderer/src/api'
 import { ResourcesView } from '../../src/renderer/src/components/ResourcesView'
-import { closeTerminal } from '../../src/renderer/src/terminalEvents'
 
 const host: Host = { id: 'h1', sshHost: 'a', label: 'Box', protected: false }
 
@@ -146,7 +144,6 @@ describe('ResourcesView actions', () => {
   beforeEach(() => {
     vi.mocked(api.containers.resources).mockResolvedValue([img])
     vi.mocked(api.containers.removeResource).mockResolvedValue(undefined)
-    vi.mocked(api.containers.prune).mockResolvedValue({ deleted: 0, reclaimed: null })
     vi.mocked(api.containers.openTerminal).mockResolvedValue({
       tabId: 'prune-tab',
       label: 'prune',
@@ -236,7 +233,6 @@ describe('ResourcesView actions', () => {
         kind: 'resource-prune',
         resource: kind
       })
-      expect(api.containers.prune).not.toHaveBeenCalled()
     }
   )
 
@@ -255,15 +251,14 @@ describe('ResourcesView actions', () => {
     expect(screen.queryByText('nginx:latest')).toBeNull()
   })
 
-  it('releases busy state and reloads when the user closes the prune terminal', async () => {
+  it('finishes the prune once, even if its tab reports exit again', async () => {
     render(<ResourcesView host={host} kind="image" containers={[]} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Prune images' }))
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Prune' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    act(() => closeTerminal('other-tab'))
-    expect(api.containers.resources).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button', { name: 'Prune images' })).toBeDisabled()
-    act(() => closeTerminal('prune-tab'))
+    // Main answers a user close with exit -1, the same path as a finished command.
+    exitTerminal('prune-tab')
     await waitFor(() => expect(screen.getByRole('button', { name: 'Prune images' })).toBeEnabled())
     expect(api.containers.resources).toHaveBeenCalledTimes(2)
     exitTerminal('prune-tab')

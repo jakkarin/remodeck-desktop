@@ -92,7 +92,10 @@ export class TerminalService extends EventEmitter {
     super()
   }
 
-  async open(workspaceId: string, path?: string): Promise<{ tabId: string; label: string; hostId: string }> {
+  async open(
+    workspaceId: string,
+    path?: string
+  ): Promise<{ tabId: string; label: string; hostId: string }> {
     const { store, connection, bridge } = this.deps
     const ws = store.config.workspaces.find((w) => w.id === workspaceId)
     if (!ws) throw new Error('Workspace not found')
@@ -163,7 +166,11 @@ export class TerminalService extends EventEmitter {
   }
 
   /** Opens a tab running a remote command on a connected host. No bridge session, idle events or retry. */
-  openHost(hostId: string, remoteCmd: string, label: string): { tabId: string; label: string; hostId: string } {
+  openHost(
+    hostId: string,
+    remoteCmd: string,
+    label: string
+  ): { tabId: string; label: string; hostId: string } {
     const { store, connection, spawn, sshPath } = this.deps
     connection.requireConnected(hostId)
     const host = store.config.hosts.find((h) => h.id === hostId)
@@ -222,32 +229,32 @@ export class TerminalService extends EventEmitter {
     return uploadImage(this.deps.targetFor(tab.hostId), bytes, ext)
   }
 
-  /** Renderer-initiated close: the renderer already dropped the tab, so no exit event. */
+  /** Renderer-initiated close: emits exit -1 so views waiting on the command can finish. */
   close(tabId: string): void {
-    this.closeTab(tabId, false)
+    this.closeTab(tabId)
   }
 
   /** Main-initiated (Disconnect, dispose): emits exit -1 per tab so the renderer marks it closed. */
   closeAllForHost(hostId: string): void {
     for (const [id, tab] of [...this.tabs]) {
-      if (tab.hostId === hostId) this.closeTab(id, true)
+      if (tab.hostId === hostId) this.closeTab(id)
     }
   }
 
   /** Main-initiated (workspace removal): emits exit -1 per tab. */
   closeAllForWorkspace(workspaceId: string): void {
     for (const [id, tab] of [...this.tabs]) {
-      if (tab.kind === 'workspace' && tab.workspaceId === workspaceId) this.closeTab(id, true)
+      if (tab.kind === 'workspace' && tab.workspaceId === workspaceId) this.closeTab(id)
     }
   }
 
-  private closeTab(tabId: string, notify: boolean): void {
+  private closeTab(tabId: string): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
     this.release(tabId, tab)
     tab.cancelAttempt()
     tab.pty?.kill()
-    if (notify) this.emit('exit', tabId, -1)
+    this.emit('exit', tabId, -1)
   }
 
   private release(tabId: string, tab: Tab): void {

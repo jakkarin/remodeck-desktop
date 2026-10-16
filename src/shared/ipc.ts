@@ -1,7 +1,7 @@
 // Typed IPC contract between main and renderer: types and channel names only, no node imports.
 import type { ContainerStats } from './containerDetails'
 import type { BuildRecord } from './builds'
-import type { PruneResult, ResourceKind, ResourceRow } from './resources'
+import type { ResourceKind, ResourceRow } from './resources'
 import type { ContainerAction, ContainerInfo, HostTerminalRequest } from './containers'
 import type { GitAccessStatus, GitToken, InstallOptions } from './gitAccess'
 import type {
@@ -100,7 +100,6 @@ export interface RemodeckApi {
     /** Fresh list of images, volumes or networks (not cached). */
     resources(hostId: string, kind: ResourceKind): Promise<ResourceRow[]>
     removeResource(hostId: string, kind: ResourceKind, ref: string): Promise<void>
-    prune(hostId: string, kind: ResourceKind): Promise<PruneResult>
     /** History of the host's current Buildx builder. */
     buildHistory(hostId: string): Promise<BuildRecord[]>
     /** Starts or stops the live CPU/RAM polling for the host's running containers (fire-and-forget). */
@@ -217,7 +216,6 @@ export const IPC_CHANNELS = {
     inspect: 'containers:inspect',
     resources: 'containers:resources',
     removeResource: 'containers:removeResource',
-    prune: 'containers:prune',
     buildHistory: 'containers:buildHistory',
     watchStats: 'containers:watchStats'
   },

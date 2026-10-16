@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { ContainerInfo } from '../../../shared/containers'
 import { isInUse, type ResourceKind, type ResourceRow } from '../../../shared/resources'
 import type { Host } from '../../../shared/types'
@@ -7,7 +7,7 @@ import { Trash2 } from 'lucide-react'
 import { cn } from 'cn'
 import { formatMem } from '../containerPresentation'
 import { dangerLevel, type DangerAction } from '../danger'
-import { onTerminalClosed, openHostTerminal } from '../terminalEvents'
+import { useHostCommandTerminal } from '../useHostCommandTerminal'
 import { ConfirmDanger } from './ConfirmDanger'
 import { Banner } from './Banner'
 import { Badge } from './ui/badge'
@@ -60,8 +60,6 @@ type Loaded =
   | { hostId: string; kind: ResourceKind; rows: ResourceRow[]; error: null }
   | { hostId: string; kind: ResourceKind; rows: null; error: string }
 
-type PruneSession = { key: string; tabId: string | null; exited: Set<string> }
-
 export function ResourcesView({
   host,
   kind,
@@ -77,44 +75,10 @@ export function ResourcesView({
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
-  const pruneSession = useRef<PruneSession | null>(null)
   const titleId = useId()
   const title = TITLES[kind]
-
-  const finishPrune = useCallback((session: PruneSession): void => {
-    if (pruneSession.current !== session) return
-    pruneSession.current = null
-    setBusy((keys) => {
-      const next = new Set(keys)
-      next.delete(session.key)
-      return next
-    })
-    setAttempt((n) => n + 1)
-  }, [])
-
-  useEffect(() => {
-    // Subscribe before opening: a short command can exit before IPC returns its tab id.
-    const finished = (tabId: string): void => {
-      const session = pruneSession.current
-      if (!session) return
-      if (session.tabId === null) session.exited.add(tabId)
-      else if (session.tabId === tabId) finishPrune(session)
-    }
-    const off = api.on('terminal-exit', finished)
-    const offClose = onTerminalClosed(finished)
-    return () => {
-      off()
-      offClose()
-      const session = pruneSession.current
-      pruneSession.current = null
-      if (session)
-        setBusy((keys) => {
-          const next = new Set(keys)
-          next.delete(session.key)
-          return next
-        })
-    }
-  }, [host.id, kind, finishPrune])
+  // Reload once the prune terminal exits; switching host or kind abandons it.
+  const pruneTerminal = useHostCommandTerminal(`${host.id}:${kind}`, () => setAttempt((n) => n + 1))
 
   // A confirm opened for another host must never act on this one.
   const stale = pending !== null && pending.hostId !== host.id
@@ -154,24 +118,8 @@ export function ResourcesView({
     })
   const prune = (): void =>
     confirmFirst(`${kind}-prune`, PRUNE_SUMMARY[kind], 'Prune', async () => {
-      const key = `prune:${kind}`
-      const session: PruneSession = { key, tabId: null, exited: new Set() }
-      pruneSession.current = session
-      mark(key, true)
-      try {
-        const tab = await openHostTerminal(host.id, { kind: 'resource-prune', resource: kind })
-        if (pruneSession.current !== session) return
-        session.tabId = tab.tabId
-        if (session.exited.has(tab.tabId)) finishPrune(session)
-        session.exited.clear()
-        setActionError(null)
-      } catch (e) {
-        if (pruneSession.current === session) {
-          pruneSession.current = null
-          mark(key, false)
-        }
-        throw e
-      }
+      await pruneTerminal.run(host.id, { kind: 'resource-prune', resource: kind })
+      setActionError(null)
     })
 
   useEffect(() => {
@@ -244,7 +192,7 @@ export function ResourcesView({
                   size="sm"
                   aria-label={`Prune ${title.toLowerCase()}`}
                   className="text-destructive"
-                  disabled={busy.has(`prune:${kind}`)}
+                  disabled={pruneTerminal.running}
                   onClick={prune}
                 >
                   Prune

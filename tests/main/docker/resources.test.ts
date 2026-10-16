@@ -2,7 +2,6 @@ import { describe, expect, it, vi, type Mock } from 'vitest'
 import {
   dockerErrorMessage,
   listResources,
-  pruneResources,
   removeResource
 } from '../../../src/main/docker/resources'
 import { DockerError } from '../../../src/main/docker/dockerClient'
@@ -59,24 +58,6 @@ describe('resources', () => {
       'Invalid network name'
     )
     expect(t.json).not.toHaveBeenCalled()
-  })
-
-  it('prune posts to the right path and parses the result', async () => {
-    const i = fake({
-      ImagesDeleted: [{ Deleted: 'a' }, { Deleted: 'b' }, { Untagged: 'c' }],
-      SpaceReclaimed: 10
-    })
-    await expect(pruneResources(i.client, 'image')).resolves.toEqual({ deleted: 2, reclaimed: 10 })
-    expect(i.json).toHaveBeenCalledWith('POST', '/images/prune', undefined, { timeoutMs: 120000 })
-    const v = fake({ VolumesDeleted: ['a'], SpaceReclaimed: 3 })
-    await expect(pruneResources(v.client, 'volume')).resolves.toEqual({ deleted: 1, reclaimed: 3 })
-    expect(v.json.mock.calls[0][1]).toBe('/volumes/prune')
-    const n = fake({ NetworksDeleted: ['x'] })
-    await expect(pruneResources(n.client, 'network')).resolves.toEqual({
-      deleted: 1,
-      reclaimed: null
-    })
-    expect(n.json.mock.calls[0][1]).toBe('/networks/prune')
   })
 
   it('dockerErrorMessage maps 404/409/403 cases to the Thai copy and passes others through', () => {

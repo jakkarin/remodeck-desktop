@@ -17,8 +17,6 @@ export type ResourceRow = {
   builtIn: boolean
 }
 
-export type PruneResult = { deleted: number; reclaimed: number | null }
-
 // Docker reference grammar: [domain[:port]/]component(/component)*[:tag][@sha256:digest], or a full id.
 const PATH_COMPONENT = String.raw`[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*`
 const DOMAIN_COMPONENT = String.raw`[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?`
@@ -138,20 +136,5 @@ export function isInUse(row: ResourceRow, containers: ContainerInfo[]): boolean 
       return containers.some((c) => c.volumes.includes(row.name))
     case 'network':
       return containers.some((c) => c.networks.includes(row.name))
-  }
-}
-
-export function parsePrune(kind: ResourceKind, raw: unknown): PruneResult {
-  const r = asRecord(raw)
-  switch (kind) {
-    case 'image':
-      return {
-        deleted: list(r.ImagesDeleted).filter((e) => 'Deleted' in asRecord(e)).length,
-        reclaimed: num(r.SpaceReclaimed)
-      }
-    case 'volume':
-      return { deleted: list(r.VolumesDeleted).length, reclaimed: num(r.SpaceReclaimed) }
-    case 'network':
-      return { deleted: list(r.NetworksDeleted).length, reclaimed: null }
   }
 }
