@@ -1,5 +1,5 @@
 import { runProcess, type ProcResult } from '../proc/run'
-import { BASH_MISSING } from '../proc/bashPath'
+import { BASH_MISSING, resolveBashPath } from '../proc/bashPath'
 
 export interface SandboxTarget {
   exec(script: string, opts?: { timeoutMs?: number }): Promise<ProcResult>
@@ -29,18 +29,16 @@ export class SshTarget implements SandboxTarget {
   }
 }
 
-const GIT_BASH_FALLBACK = 'C:/Program Files/Git/bin/bash.exe'
-
 /**
- * Runs scripts on this computer with homeDir as HOME. The app passes Git for Windows' bash (or null when it is
- * missing, which makes exec reject); tests leave bashPath out to use whatever bash is available.
+ * Runs scripts on this computer with homeDir as HOME, always under Git for Windows' bash (never `bash` from PATH,
+ * which is usually WSL's). bashPath defaults to the resolved one; null means it is missing, which makes exec reject.
  */
 export class LocalTarget implements SandboxTarget {
   private readonly homeDir: string
 
   constructor(
     homeDir: string,
-    private readonly bashPath?: string | null
+    private readonly bashPath: string | null = resolveBashPath()
   ) {
     this.homeDir = homeDir.replaceAll('\\', '/')
   }
@@ -52,13 +50,7 @@ export class LocalTarget implements SandboxTarget {
       timeoutMs: execOpts?.timeoutMs
     }
     if (this.bashPath === null) throw new Error(BASH_MISSING)
-    if (this.bashPath !== undefined) return runProcess(this.bashPath, ['-s'], opts)
-    try {
-      return await runProcess('bash', ['-s'], opts)
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
-      return runProcess(GIT_BASH_FALLBACK, ['-s'], opts)
-    }
+    return runProcess(this.bashPath, ['-s'], opts)
   }
 
   gitUrl(path: string): string {

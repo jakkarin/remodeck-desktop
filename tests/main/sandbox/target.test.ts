@@ -36,6 +36,22 @@ describe('LocalTarget', () => {
     expect(r.stdout).toBe('ok\n')
     expect(existsSync(join(home, "it's here"))).toBe(true)
   })
+  it('runs under Git for Windows bash with HOME=homeDir, even when PATH lists another bash first', async () => {
+    const savedPath = process.env.PATH
+    process.env.PATH = `${process.env.SystemRoot ?? 'C:/Windows'}\\System32;${savedPath}`
+    try {
+      const r = await new LocalTarget(home).exec('uname -s; cygpath -m "$HOME"')
+      const [system, scriptHome] = r.stdout.trim().split('\n')
+      expect(system).toMatch(/^(MINGW|MSYS)/)
+      expect(scriptHome.toLowerCase()).toBe(home.toLowerCase())
+    } finally {
+      process.env.PATH = savedPath
+    }
+  })
+  it('rejects without running anything when Git for Windows bash is missing', async () => {
+    await expect(new LocalTarget(home, null).exec('touch "$HOME/ran"')).rejects.toThrow('Git for Windows is required')
+    expect(existsSync(join(home, 'ran'))).toBe(false)
+  })
   it('gitUrl resolves ~', () => {
     const t = new LocalTarget(home)
     expect(t.gitUrl('~/x')).toBe(`${home}/x`)
