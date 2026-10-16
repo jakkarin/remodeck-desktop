@@ -1,5 +1,6 @@
+import { FolderOpen } from 'lucide-react'
 import { useState } from 'react'
-import type { ExistingRepoInfo, Workspace } from '../../../shared/types'
+import { isLocalHost, type ExistingRepoInfo, type Workspace } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { Alert, AlertDescription } from './ui/alert'
@@ -20,6 +21,8 @@ export function AddExistingDialog({
 }): React.JSX.Element {
   const { hosts } = useAppState()
   const [hostId, setHostId] = useState(hostIds[0] ?? '')
+  const selected = hosts.find((h) => h.id === hostId)
+  const local = !!selected && isLocalHost(selected)
   const [path, setPath] = useState('')
   // Set after a successful Check: the repo the sandbox's origin resolves to, awaiting the user's confirmation.
   const [info, setInfo] = useState<ExistingRepoInfo | null>(null)
@@ -51,6 +54,17 @@ export function AddExistingDialog({
     } catch (e) {
       setError(errorMessage(e))
       setBusy(false)
+    }
+  }
+
+  const browse = async (): Promise<void> => {
+    try {
+      const picked = await api.dialogs.pickFolder(path.trim() || undefined)
+      if (picked === null) return
+      setPath(picked)
+      setInfo(null)
+    } catch (e) {
+      setError(errorMessage(e))
     }
   }
 
@@ -91,18 +105,32 @@ export function AddExistingDialog({
           )}
           <Field>
             <FieldLabel htmlFor="existing-path">Path</FieldLabel>
-            <Input
-              id="existing-path"
-              className="font-mono"
-              value={path}
-              placeholder="~/work/my-app"
-              onChange={(e) => {
-                setPath(e.target.value)
-                setInfo(null)
-              }}
-              disabled={locked}
-              autoFocus
-            />
+            <div className="flex gap-2">
+              <Input
+                id="existing-path"
+                className="font-mono"
+                value={path}
+                placeholder={local ? 'D:/projects/my-app' : '~/work/my-app'}
+                onChange={(e) => {
+                  setPath(e.target.value)
+                  setInfo(null)
+                }}
+                disabled={locked}
+                autoFocus
+              />
+              {local && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Browse for a folder"
+                  title="Browse for a folder"
+                  onClick={() => void browse()}
+                  disabled={locked}
+                >
+                  <FolderOpen />
+                </Button>
+              )}
+            </div>
           </Field>
           {info && (
             <div className="flex flex-col gap-2 text-sm">

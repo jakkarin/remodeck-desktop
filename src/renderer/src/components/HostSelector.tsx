@@ -3,13 +3,14 @@ import {
   Check,
   ChevronDown,
   Lock,
+  Monitor,
   MoreHorizontal,
   Plus,
   Server,
   SlidersHorizontal
 } from 'lucide-react'
 import { cn } from 'cn'
-import type { Host, HostState, HostStatus } from '../../../shared/types'
+import { isLocalHost, type Host, type HostState, type HostStatus } from '../../../shared/types'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
 import { useReturnFocus } from '../useReturnFocus'
@@ -137,7 +138,7 @@ export function HostSelector(): React.JSX.Element {
             const sub =
               status.state === 'error'
                 ? (status.error ?? STATE_TEXT.error)
-                : `ssh ${host.sshHost} · ${STATE_TEXT[status.state]}`
+                : `${isLocalHost(host) ? 'This computer' : `ssh ${host.sshHost}`} · ${STATE_TEXT[status.state]}`
             return (
               <div
                 key={host.id}
@@ -160,6 +161,13 @@ export function HostSelector(): React.JSX.Element {
                   <StatusDot state={status.state} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 font-medium">
+                      {isLocalHost(host) && (
+                        <Monitor
+                          size={13}
+                          aria-hidden="true"
+                          className="shrink-0 text-muted-foreground"
+                        />
+                      )}
                       <span className="truncate">{host.label}</span>
                       {host.protected && <ProtectedBadge />}
                     </span>
@@ -216,17 +224,21 @@ export function HostSelector(): React.JSX.Element {
                         Disconnect
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem
-                      disabled={hasWorkspaces}
-                      title={hasWorkspaces ? 'Remove the workspaces on this host first' : undefined}
-                      className="data-disabled:pointer-events-auto"
-                      onSelect={() => {
-                        closeForDialog()
-                        setRemovingHost(host)
-                      }}
-                    >
-                      Remove host…
-                    </DropdownMenuItem>
+                    {!isLocalHost(host) && (
+                      <DropdownMenuItem
+                        disabled={hasWorkspaces}
+                        title={
+                          hasWorkspaces ? 'Remove the workspaces on this host first' : undefined
+                        }
+                        className="data-disabled:pointer-events-auto"
+                        onSelect={() => {
+                          closeForDialog()
+                          setRemovingHost(host)
+                        }}
+                      >
+                        Remove host…
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

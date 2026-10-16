@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildLocalHostCommand, buildLocalTerminal } from '../../src/main/terminal/localCommand'
 import { buildTerminalSshArgs, randomPort } from '../../src/main/terminal/sshCommand'
 import { IDLE_MS, TerminalService, type PtyLike } from '../../src/main/terminal/terminalService'
 
@@ -29,20 +30,30 @@ const NOTICE = '\r\n[remodeck] tunnel port busy, retrying…\r\n'
 const FORWARD_ERR = 'Warning: remote port forwarding failed for listen port 30000\r\n'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function setup(connected: (h: string) => boolean = () => true) {
+function setup(
+  connected: (h: string) => boolean = () => true,
+  bashPath: string | null = 'C:/Git/bin/bash.exe'
+) {
   const ptys: FakePty[] = []
   const calls: string[][] = []
-  const spawn = vi.fn((_file: string, args: string[]) => {
-    calls.push(args)
-    const p = new FakePty()
-    ptys.push(p)
-    return p
-  })
+  const files: string[] = []
+  const opts: Array<{ cwd?: string; env?: Record<string, string> }> = []
+  const spawn = vi.fn(
+    (file: string, args: string[], o: { cwd?: string; env?: Record<string, string> }) => {
+      files.push(file)
+      opts.push(o)
+      calls.push(args)
+      const p = new FakePty()
+      ptys.push(p)
+      return p
+    }
+  )
   const store = {
     config: {
       hosts: [
         { id: 'h1', sshHost: 'box1', label: 'Box One', protected: false },
-        { id: 'h2', sshHost: 'box2', label: 'Box Two', protected: false }
+        { id: 'h2', sshHost: 'box2', label: 'Box Two', protected: false },
+        { id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false }
       ],
       repos: [
         {
@@ -57,7 +68,8 @@ function setup(connected: (h: string) => boolean = () => true) {
       ],
       workspaces: [
         { id: 'w1', repoId: 'r1', hostId: 'h1', sandboxPath: '~/repos/api' },
-        { id: 'w2', repoId: 'r1', hostId: 'h2', sandboxPath: '/srv/x/api' }
+        { id: 'w2', repoId: 'r1', hostId: 'h2', sandboxPath: '/srv/x/api' },
+        { id: 'w3', repoId: 'r1', hostId: 'local', sandboxPath: 'D:/develop/app' }
       ]
     }
   }
@@ -79,6 +91,8 @@ function setup(connected: (h: string) => boolean = () => true) {
   }))
   const svc = new TerminalService({
     sshPath: 'ssh',
+    bashPath,
+    homeDir: 'C:/Users/u',
     bridgePort: () => 4242,
     spawn,
     store: store as never,
@@ -87,7 +101,7 @@ function setup(connected: (h: string) => boolean = () => true) {
     connection: connection as never,
     targetFor: targetFor as never
   })
-  return { svc, targetFor, ptys, calls, spawn, bridge, approval, connection }
+  return { svc, targetFor, ptys, calls, files, opts, spawn, bridge, approval, connection }
 }
 
 const rportOf = (args: string[]): string => args[args.indexOf('-R') + 1].split(':')[1]
@@ -111,6 +125,78 @@ describe('buildTerminalSshArgs', () => {
       'box1',
       `cd "$HOME"/'repos/api' && export GIT_CONFIG_COUNT=3 GIT_CONFIG_KEY_0='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_0='https://github.com/' GIT_CONFIG_KEY_1='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_1='git@github.com:' GIT_CONFIG_KEY_2='url.http://127.0.0.1:30000/s/tok/.insteadOf' GIT_CONFIG_VALUE_2='ssh://git@github.com/' && exec "$SHELL" -l`
     ])
+  })
+})
+
+describe('buildLocalTerminal', () => {
+  const base = { bashPath: 'B', bridgePort: 4000, token: 'tok', homeDir: 'C:/Users/x' }
+
+  it('buildLocalTerminal sets bridge env', () => {
+    const t = buildLocalTerminal({ ...base, path: 'D:/a' })
+    expect(t.file).toBe('B')
+    expect(t.args).toEqual(['--login', '-i'])
+    expect(t.env).toMatchObject({
+      GIT_CONFIG_COUNT: '3',
+      GIT_CONFIG_KEY_0: 'url.http://127.0.0.1:4000/s/tok/.insteadOf',
+      GIT_CONFIG_VALUE_0: 'https://github.com/',
+      GIT_CONFIG_VALUE_1: 'git@github.com:',
+      GIT_CONFIG_VALUE_2: 'ssh://git@github.com/'
+    })
+  })
+
+  it('local terminal cwd keeps spaces', () => {
+    expect(buildLocalTerminal({ ...base, path: '~/Jane Doe/a' }).cwd).toBe('C:/Users/x/Jane Doe/a')
+  })
+
+  it('buildLocalHostCommand runs bash -c', () => {
+    expect(buildLocalHostCommand('B', 'docker ps')).toEqual({
+      file: 'B',
+      args: ['--login', '-c', 'docker ps']
+    })
+  })
+})
+
+describe('local host tabs', () => {
+  it('opens a local workspace tab once with bash', async () => {
+    const { svc, ptys, files, calls, opts, bridge, approval } = setup()
+    const onExit = vi.fn()
+    svc.on('exit', onExit)
+    const { tabId, label } = await svc.open('w3')
+    expect(label).toBe('This computer:app')
+    expect(files).toEqual(['C:/Git/bin/bash.exe'])
+    expect(calls[0]).toEqual(['--login', '-i'])
+    expect(opts[0].cwd).toBe('D:/develop/app')
+    expect(opts[0].env?.GIT_CONFIG_KEY_0).toMatch(
+      /^url\.http:\/\/127\.0\.0\.1:4242\/s\/[A-Za-z0-9_-]{43}\/\.insteadOf$/
+    )
+    expect(bridge.registerSession).toHaveBeenCalledOnce()
+    ptys[0].dataCb(FORWARD_ERR)
+    ptys[0].exitCb({ exitCode: 255 })
+    expect(files).toHaveLength(1)
+    expect(onExit).toHaveBeenCalledWith(tabId, 255)
+    expect(bridge.revokeSession).toHaveBeenCalledOnce()
+    expect(approval.revokeSession).toHaveBeenCalledOnce()
+  })
+
+  it('local open normalises an msys worktree path', async () => {
+    const { svc, opts } = setup()
+    await svc.open('w3', '/d/develop/app-wt')
+    expect(opts[0].cwd).toBe('D:/develop/app-wt')
+  })
+
+  it('openHost on local runs bash -c', () => {
+    const { svc, files, calls } = setup()
+    svc.openHost('local', 'docker buildx prune --force', 'prune')
+    expect(files).toEqual(['C:/Git/bin/bash.exe'])
+    expect(calls[0]).toEqual(['--login', '-c', 'docker buildx prune --force'])
+  })
+
+  it('local open without bash throws', async () => {
+    const { svc, bridge } = setup(() => true, null)
+    await expect(svc.open('w3')).rejects.toThrow(
+      'Git for Windows is required: install it from https://git-scm.com'
+    )
+    expect(bridge.registerSession).not.toHaveBeenCalled()
   })
 })
 
@@ -443,10 +529,7 @@ describe('TerminalService.uploadImage', () => {
       svc.on('exit', (id: string, c: number) => events.push(`exit:${id}:${c}`))
       const { tabId } = svc.openHost('h1', 'docker ps', 'logs')
       ptys[0].exitCb({ exitCode: 130 })
-      expect(events).toEqual([
-        'data:\r\n[remodeck] exited with code 130\r\n',
-        `exit:${tabId}:130`
-      ])
+      expect(events).toEqual(['data:\r\n[remodeck] exited with code 130\r\n', `exit:${tabId}:130`])
       expect(bridge.revokeSession).not.toHaveBeenCalled()
     })
 

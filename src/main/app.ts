@@ -1,5 +1,6 @@
 import fs from 'node:fs'
-import { Notification, clipboard, shell, type BrowserWindow } from 'electron'
+import os from 'node:os'
+import { Notification, clipboard, dialog, shell, type BrowserWindow } from 'electron'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -8,6 +9,7 @@ import type {
   Repo,
   Workspace
 } from '../shared/types'
+import { isLocalHost } from '../shared/types'
 import {
   COMPOSE_ACTIONS,
   CONTAINER_ID,
@@ -23,7 +25,7 @@ import { ConnectionService } from './connection/connectionService'
 import { ContainerService } from './docker/containerService'
 import { BuildService } from './docker/buildService'
 import { DockerClient } from './docker/dockerClient'
-import { sshDialStdio } from './docker/dialStdio'
+import { localDialStdio, sshDialStdio } from './docker/dialStdio'
 import { HostGit } from './git/hostGit'
 import { getGitHubCredential } from './github/credentials'
 import { GitTokenService } from './gitAccess/gitTokenService'
@@ -32,10 +34,12 @@ import { SecretStore, electronEncryptor } from './gitAccess/secretStore'
 import { TargetAccessService } from './gitAccess/targetAccessService'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
+import { pickFolder } from './dialogs/pickFolder'
+import { resolveBashPath } from './proc/bashPath'
 import { resolveSshPath } from './proc/sshPath'
 import { checkRemoteForward } from './sandbox/preflight'
-import { validateSandboxPath } from './sandbox/shell'
-import { SshTarget } from './sandbox/target'
+import { normalizeLocalPath, validateSandboxPath } from './sandbox/shell'
+import { LocalTarget, SshTarget, type SandboxTarget } from './sandbox/target'
 import { Store } from './store/store'
 import { AutoSync } from './sync/autoSync'
 import {
@@ -174,7 +178,7 @@ export function containersApi(deps: {
         if (!p) throw new Error('Compose project not found')
         return deps.terminal.openHost(
           hostId,
-          composeCommand(p, req.action),
+          composeCommand(p, req.action, { local: isLocalHost(deps.hostOf(hostId)) }),
           `${req.action} · ${p.name}`
         )
       }
@@ -239,7 +243,13 @@ export async function createApp(opts: {
     if (!r) throw new Error('Repo not found')
     return r
   }
-  const targetFor = (hostId: string): SshTarget => new SshTarget(hostOf(hostId).sshHost, sshPath)
+  const bashPath = resolveBashPath()
+  const targetFor = (hostId: string): SandboxTarget => {
+    const host = hostOf(hostId)
+    return isLocalHost(host)
+      ? new LocalTarget(os.homedir(), bashPath)
+      : new SshTarget(host.sshHost, sshPath)
+  }
   const sshHostFor = (hostId: string): string => hostOf(hostId).sshHost
 
   const adapters = [createGithubAdapter()]
@@ -284,13 +294,17 @@ export async function createApp(opts: {
   // One DockerClient per host, created lazily by the service; service.dispose destroys it.
   const containerService = new ContainerService({
     clientFor: (hostId) =>
-      new DockerClient({ connect: () => sshDialStdio(sshPath, sshHostFor(hostId)) })
+      new DockerClient({
+        connect: () =>
+          isLocalHost(hostOf(hostId)) ? localDialStdio() : sshDialStdio(sshPath, sshHostFor(hostId))
+      })
   })
   const containerWiring = wireContainerService(containerService, send)
   let terminal: TerminalService | null = null
   const connection = new ConnectionService({
     targetFor,
     sshHostFor,
+    isLocal: (hostId) => isLocalHost(hostOf(hostId)),
     checkForward: (hostId) => checkRemoteForward(sshPath, sshHostFor(hostId)),
     onDisconnect: (hostId) => {
       terminal?.closeAllForHost(hostId)
@@ -299,6 +313,8 @@ export async function createApp(opts: {
   })
   terminal = new TerminalService({
     sshPath,
+    bashPath,
+    homeDir: os.homedir(),
     bridgePort: () => bridgePort,
     spawn: nodePtySpawner(),
     store,
@@ -389,11 +405,13 @@ export async function createApp(opts: {
       clone: async (hostId, repoInput, sandboxPath) => {
         const parsed = parseRepoInput(repoInput)
         if (!parsed) throw new Error('Invalid repo format')
-        validateSandboxPath(sandboxPath)
-        hostOf(hostId)
+        const local = isLocalHost(hostOf(hostId))
+        validateSandboxPath(sandboxPath, { local })
         connection.requireConnected(hostId)
         const repo = store.upsertRepo(parsed.owner, parsed.name)
-        const ws = store.addWorkspace(repo.id, hostId, sandboxPath)
+        // Progress events keep the path as typed: the renderer matches them against its input.
+        const stored = local ? normalizeLocalPath(sandboxPath, os.homedir()) : sandboxPath
+        const ws = store.addWorkspace(repo.id, hostId, stored)
         try {
           await sync.cloneToSandbox(ws, (p) => send(EV['clone-progress'], hostId, sandboxPath, p))
         } catch (err) {
@@ -407,15 +425,13 @@ export async function createApp(opts: {
         return ws
       },
       inspectExisting: async (hostId, sandboxPath) => {
-        validateSandboxPath(sandboxPath)
-        hostOf(hostId)
+        validateSandboxPath(sandboxPath, { local: isLocalHost(hostOf(hostId)) })
         connection.requireConnected(hostId)
         // Read-only: resolves owner/name from the sandbox's origin; nothing is written or fetched.
         return sync.describeExisting(hostId, sandboxPath)
       },
       addExisting: async (hostId, sandboxPath, expected) => {
-        validateSandboxPath(sandboxPath)
-        hostOf(hostId)
+        validateSandboxPath(sandboxPath, { local: isLocalHost(hostOf(hostId)) })
         connection.requireConnected(hostId)
         // Rejects duplicates and a changed origin before any write, then rolls back only our own records on failure.
         return sync.addExisting(hostId, sandboxPath, expected)
@@ -565,6 +581,21 @@ export async function createApp(opts: {
         hostOf(hostId)
         return gitAccess.remove(hostId)
       }
+    },
+    dialogs: {
+      pickFolder: (start) =>
+        pickFolder(
+          (o) => {
+            const opts = {
+              ...o,
+              properties: ['openDirectory' as const, 'createDirectory' as const]
+            }
+            const win = liveWindow()
+            return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts)
+          },
+          start,
+          os.homedir()
+        )
     }
   }
 

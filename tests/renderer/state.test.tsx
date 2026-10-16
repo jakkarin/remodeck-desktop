@@ -4,7 +4,13 @@ import type { Host, Workspace } from '../../src/shared/types'
 
 vi.mock('../../src/renderer/src/api', () => ({
   api: {
-    hosts: { list: vi.fn(), status: vi.fn(), probeGit: vi.fn(), probeDocker: vi.fn() },
+    hosts: {
+      list: vi.fn(),
+      status: vi.fn(),
+      connect: vi.fn(),
+      probeGit: vi.fn(),
+      probeDocker: vi.fn()
+    },
     repos: { list: vi.fn() },
     workspaces: { list: vi.fn(), remove: vi.fn(), setActive: vi.fn() },
     on: vi.fn()
@@ -73,6 +79,33 @@ beforeEach(() => {
   vi.mocked(api.hosts.list).mockResolvedValue(hs('h1'))
   vi.mocked(api.hosts.status).mockResolvedValue({ state: 'connected' })
   vi.mocked(api.repos.list).mockResolvedValue([])
+})
+
+describe('AppStateProvider on This computer', () => {
+  it('state starts on local and connects it', async () => {
+    localStorage.setItem('remodeck.activeHost', JSON.stringify('a'))
+    vi.mocked(api.hosts.list).mockResolvedValue([
+      { id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false },
+      ...hs('a')
+    ])
+    vi.mocked(api.hosts.status).mockResolvedValue({ state: 'disconnected' })
+    vi.mocked(api.hosts.connect).mockResolvedValue({ state: 'connected' })
+    vi.mocked(api.workspaces.list).mockResolvedValue([])
+    mount()
+    await waitFor(() => expect(screen.getByTestId('host').textContent).toBe('local'))
+    await waitFor(() => expect(api.hosts.connect).toHaveBeenCalledWith('local'))
+    expect(api.hosts.connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reconnect local when it is already connected', async () => {
+    vi.mocked(api.hosts.list).mockResolvedValue([
+      { id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false }
+    ])
+    vi.mocked(api.workspaces.list).mockResolvedValue([])
+    mount()
+    await waitFor(() => expect(screen.getByTestId('host').textContent).toBe('local'))
+    expect(api.hosts.connect).not.toHaveBeenCalled()
+  })
 })
 
 describe('AppStateProvider', () => {

@@ -36,6 +36,24 @@ Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 
 UI tokens and reusable component usage: [Neutral design guidelines](docs/design-guidelines.md).
 
+## This computer / เครื่องนี้
+
+The host list always starts with **This computer**, and the app opens on it every time. It manages repos on
+this Windows machine with no SSH: Clone, Add existing (paths like `D:/projects/app` or `D:\projects\app`),
+Sync, Review, Push and PR work as on any host. Terminals open Git Bash in the repo, and `git push` from them
+still goes through the Git Bridge and the approval popup. Containers use Docker on this machine.
+
+- Requires **Git for Windows** (its `bash.exe`; WSL's bash is never used). Without it, Connect shows how to install it.
+- Containers require Docker Desktop (or another local Docker engine).
+- This computer is not a sandbox: anything running here can already use your Git Credential Manager login.
+  The approval popup only covers pushes from terminals that remodeck opens. *Git access on this host* is
+  not offered here, and This computer cannot be removed.
+
+host แรกในรายการคือ **This computer** และแอปเปิดมาที่ host นี้ทุกครั้ง ใช้จัดการ repo บนเครื่อง Windows นี้
+โดยไม่ต้องใช้ SSH ทำได้ทุกอย่างเหมือน host อื่น terminal เปิดเป็น Git Bash และ push ยังต้องอนุมัติเหมือนเดิม
+ต้องติดตั้ง Git for Windows (และ Docker Desktop ถ้าใช้ Containers) เครื่องนี้ไม่ใช่ sandbox:
+โปรแกรมบนเครื่องใช้ login ของ Git Credential Manager ได้อยู่แล้ว popup อนุมัติครอบคลุมเฉพาะ terminal ที่เปิดจาก remodeck
+
 ## Docker builds / ประวัติ build
 
 In the Containers module, **Builds** lists the current Buildx builder's history on the selected SSH

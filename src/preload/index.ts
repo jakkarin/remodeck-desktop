@@ -80,6 +80,7 @@ const remodeck: RemodeckApi = {
     install: invoke(C.gitAccess.install),
     remove: invoke(C.gitAccess.remove)
   },
+  dialogs: { pickFolder: invoke(C.dialogs.pickFolder) },
   on(event: RemodeckEvent, cb: (...args: never[]) => void): () => void {
     const channel = C.events[event]
     if (!channel) throw new Error(`Unknown event ${String(event)}`)

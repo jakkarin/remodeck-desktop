@@ -4,7 +4,10 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Store } from '../../src/main/store/store'
 import { scopeKey } from '../../src/shared/gitAccess'
-import { DEFAULT_PREFS, type PushLogEntry } from '../../src/shared/types'
+import { DEFAULT_PREFS, isLocalHost, type PushLogEntry } from '../../src/shared/types'
+
+/** Hosts other than the built-in local one. */
+const ssh = (h: { id: string }): boolean => h.id !== 'local'
 
 let dir: string
 beforeEach(() => {
@@ -25,7 +28,7 @@ describe('Store', () => {
   it('starts empty and creates missing dir', () => {
     const nested = path.join(dir, 'a', 'b')
     const s = new Store(nested)
-    expect(s.config).toEqual({
+    expect({ ...s.config, hosts: s.config.hosts.filter(ssh) }).toEqual({
       hosts: [],
       repos: [],
       workspaces: [],
@@ -43,7 +46,7 @@ describe('Store', () => {
     const r = s.upsertRepo('acme', 'api')
     const w = s.addWorkspace(r.id, h.id, '/home/x/api')
     const s2 = new Store(dir)
-    expect(s2.config.hosts).toEqual([h])
+    expect(s2.config.hosts.filter(ssh)).toEqual([h])
     expect(s2.config.repos).toEqual([r])
     expect(s2.config.workspaces).toEqual([w])
     expect(h.id).toHaveLength(8)
@@ -87,7 +90,7 @@ describe('Store', () => {
     s.removeWorkspace(w.id)
     expect(() => s.removeWorkspace(w.id)).toThrow()
     s.removeHost(h.id)
-    expect(s.config.hosts).toEqual([])
+    expect(s.config.hosts.filter(ssh)).toEqual([])
   })
 
   it('removeHost refuses while git access is set on the host', () => {
@@ -95,10 +98,10 @@ describe('Store', () => {
     const h = s.addHost('dev', 'Dev')
     s.setHostGitAccess(h.id, { installedAt: 't', installed: {}, wrapperVersion: null })
     expect(() => s.removeHost(h.id)).toThrow('Remove git access from this host first')
-    expect(s.config.hosts).toHaveLength(1)
+    expect(s.config.hosts.filter(ssh)).toHaveLength(1)
     s.setHostGitAccess(h.id, null)
     s.removeHost(h.id)
-    expect(s.config.hosts).toEqual([])
+    expect(s.config.hosts.filter(ssh)).toEqual([])
   })
 
   it('push log returns newest first and limited', () => {
@@ -125,7 +128,7 @@ describe('Store', () => {
     for (const bad of ['', '-oProxyCommand=calc', 'a b', ' box', 'box\t']) {
       expect(() => s.addHost(bad, 'x'), JSON.stringify(bad)).toThrow('Invalid ssh host')
     }
-    expect(s.config.hosts).toEqual([])
+    expect(s.config.hosts.filter(ssh)).toEqual([])
     expect(s.addHost('user@box.example', 'Box').sshHost).toBe('user@box.example')
   })
 
@@ -197,7 +200,7 @@ describe('Store', () => {
     const h = s.addHost('box', 'Box')
     const u = s.updateHost(h.id, { label: '  Work box ' })
     expect(u).toEqual({ id: h.id, sshHost: 'box', label: 'Work box', protected: false })
-    expect(new Store(dir).config.hosts[0].label).toBe('Work box')
+    expect(new Store(dir).config.hosts.filter(ssh)[0].label).toBe('Work box')
     expect(() => s.updateHost(h.id, { label: '   ' })).toThrow()
     expect(() => s.updateHost('nope', { label: 'x' })).toThrow('Unknown host')
   })
@@ -218,7 +221,7 @@ describe('Store', () => {
       })
     )
     const s = new Store(dir)
-    expect(s.config.hosts.map((h) => h.protected)).toEqual([false, false])
+    expect(s.config.hosts.filter(ssh).map((h) => h.protected)).toEqual([false, false])
   })
 
   it('updates protected without touching the label', () => {
@@ -228,7 +231,7 @@ describe('Store', () => {
       label: 'Box',
       protected: true
     })
-    expect(new Store(dir).config.hosts[0].protected).toBe(true)
+    expect(new Store(dir).config.hosts.filter(ssh)[0].protected).toBe(true)
   })
 
   it('rejects a non-boolean protected', () => {
@@ -291,10 +294,10 @@ describe('Store git access', () => {
       installed: { [t.id]: t.updatedAt },
       wrapperVersion: 1
     })
-    expect(new Store(dir).config.hosts[0].gitAccess?.wrapperVersion).toBe(1)
+    expect(new Store(dir).config.hosts.filter(ssh)[0].gitAccess?.wrapperVersion).toBe(1)
     s.setHostGitAccess(h.id, null)
-    expect(s.config.hosts[0].gitAccess).toBeUndefined()
-    expect(new Store(dir).config.hosts[0].gitAccess).toBeUndefined()
+    expect(s.config.hosts.filter(ssh)[0].gitAccess).toBeUndefined()
+    expect(new Store(dir).config.hosts.filter(ssh)[0].gitAccess).toBeUndefined()
     expect(() => s.setHostGitAccess('nope', null)).toThrow(/Unknown host/)
   })
 
@@ -329,7 +332,56 @@ describe('Store git access', () => {
     )
     const c = new Store(dir).config
     expect(c.gitTokens.map((t) => t.id)).toEqual(['a'])
-    expect(c.hosts[0].gitAccess).toBeDefined()
-    expect(c.hosts[1].gitAccess).toBeUndefined()
+    expect(c.hosts.filter(ssh)[0].gitAccess).toBeDefined()
+    expect(c.hosts.filter(ssh)[1].gitAccess).toBeUndefined()
+  })
+})
+
+describe('Store local host', () => {
+  const LOCAL = {
+    id: 'local',
+    kind: 'local',
+    sshHost: '',
+    label: 'This computer',
+    protected: false
+  }
+  const writeRaw = (cfg: unknown): void =>
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(cfg))
+
+  it('adds This computer on a fresh store', () => {
+    const s = new Store(dir)
+    expect(s.config.hosts[0]).toEqual(LOCAL)
+    const disk = JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf8'))
+    expect(disk.hosts[0]).toEqual(LOCAL)
+  })
+
+  it('moves an existing local host to the top and keeps its label', () => {
+    writeRaw({
+      hosts: [
+        { id: 'a', sshHost: 'a', label: 'A', protected: false },
+        { id: 'local', sshHost: 'x', label: 'Mine', protected: true }
+      ],
+      repos: [],
+      workspaces: []
+    })
+    const s = new Store(dir)
+    expect(s.config.hosts.map((h) => h.id)).toEqual(['local', 'a'])
+    expect(s.config.hosts[0]).toEqual({ ...LOCAL, label: 'Mine', protected: true })
+  })
+
+  it('loads old ssh hosts without kind', () => {
+    writeRaw({
+      hosts: [{ id: 'a', sshHost: 'a', label: 'A', protected: false }],
+      repos: [],
+      workspaces: []
+    })
+    const a = new Store(dir).config.hosts.find((h) => h.id === 'a')!
+    expect(a.kind).toBeUndefined()
+    expect(isLocalHost(a)).toBe(false)
+  })
+
+  it('refuses to remove This computer', () => {
+    const s = new Store(dir)
+    expect(() => s.removeHost('local')).toThrow('This computer cannot be removed')
   })
 })

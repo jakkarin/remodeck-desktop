@@ -5,7 +5,11 @@ import type { GitBridge } from '../bridge/gitBridge'
 import type { ConnectionService } from '../connection/connectionService'
 import type { Store } from '../store/store'
 import type { SandboxTarget } from '../sandbox/target'
+import { isLocalHost } from '../../shared/types'
 import { buildHostSshArgs } from '../docker/hostCommands'
+import { BASH_MISSING } from '../proc/bashPath'
+import { normalizeLocalPath } from '../sandbox/shell'
+import { buildLocalHostCommand, buildLocalTerminal } from './localCommand'
 import { uploadImage, type ImageExt } from './imageUpload'
 import { buildTerminalSshArgs, randomPort } from './sshCommand'
 
@@ -20,11 +24,14 @@ export interface PtyLike {
 export type PtySpawner = (
   file: string,
   args: string[],
-  opts: { cols: number; rows: number }
+  opts: { cols: number; rows: number; cwd?: string; env?: Record<string, string> }
 ) => PtyLike
 
 type Deps = {
   sshPath: string
+  /** Git for Windows' bash for the local host; null when it is not installed. */
+  bashPath: string | null
+  homeDir: string
   bridgePort: () => number
   spawn: PtySpawner
   store: Store
@@ -63,7 +70,8 @@ export function nodePtySpawner(): PtySpawner {
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
-      env: process.env as Record<string, string>
+      cwd: opts.cwd,
+      env: opts.env ?? (process.env as Record<string, string>)
     })
     return {
       onData: (cb) => void p.onData(cb),
@@ -93,7 +101,10 @@ export class TerminalService extends EventEmitter {
     const repo = store.config.repos.find((r) => r.id === ws.repoId)
     if (!host || !repo) throw new Error('Workspace host or repo not found')
 
-    const cwd = path ?? ws.sandboxPath
+    const local = isLocalHost(host)
+    if (local && this.deps.bashPath === null) throw new Error(BASH_MISSING)
+    // git worktree list may hand back Git Bash's /d/... form; node-pty needs D:/...
+    const cwd = local ? normalizeLocalPath(path ?? ws.sandboxPath) : (path ?? ws.sandboxPath)
     const label = `${host.label}:${basename(cwd)}`
     const tabId = crypto.randomUUID()
     const sessionId = crypto.randomUUID()
@@ -111,8 +122,44 @@ export class TerminalService extends EventEmitter {
     this.tabs.set(tabId, tab)
     bridge.registerSession({ token, sessionId, workspaceId, repo, tabLabel: label })
 
-    this.attempt(tabId, tab, host.sshHost, cwd, 1, new Set())
+    if (local) this.spawnLocal(tabId, tab, cwd)
+    else this.attempt(tabId, tab, host.sshHost, cwd, 1, new Set())
     return { tabId, label, hostId: ws.hostId }
+  }
+
+  /** Local workspace tab: one Git Bash, no tunnel and so no retry. */
+  private spawnLocal(tabId: string, tab: Tab, cwd: string): void {
+    const { deps } = this
+    const t = buildLocalTerminal({
+      bashPath: deps.bashPath ?? '',
+      bridgePort: deps.bridgePort(),
+      token: tab.token,
+      path: cwd,
+      homeDir: deps.homeDir
+    })
+    let pty: PtyLike
+    try {
+      pty = deps.spawn(t.file, t.args, { ...DEFAULT_SIZE, cwd: t.cwd, env: t.env })
+    } catch (err) {
+      this.release(tabId, tab)
+      throw err
+    }
+    tab.pty = pty
+    let cancelled = false
+    tab.cancelAttempt = () => {
+      cancelled = true
+    }
+    pty.onData((d) => {
+      if (cancelled) return
+      this.emit('data', tabId, d)
+      this.armIdle(tab)
+    })
+    pty.onExit(({ exitCode }) => {
+      if (cancelled) return
+      cancelled = true
+      this.release(tabId, tab)
+      this.emit('exit', tabId, exitCode)
+    })
   }
 
   /** Opens a tab running a remote command on a connected host. No bridge session, idle events or retry. */
@@ -122,7 +169,14 @@ export class TerminalService extends EventEmitter {
     const host = store.config.hosts.find((h) => h.id === hostId)
     if (!host) throw new Error('Host not found')
 
-    const pty = spawn(sshPath, buildHostSshArgs(host.sshHost, remoteCmd), DEFAULT_SIZE)
+    let pty: PtyLike
+    if (isLocalHost(host)) {
+      if (this.deps.bashPath === null) throw new Error(BASH_MISSING)
+      const c = buildLocalHostCommand(this.deps.bashPath, remoteCmd)
+      pty = spawn(c.file, c.args, { ...DEFAULT_SIZE, cwd: this.deps.homeDir })
+    } else {
+      pty = spawn(sshPath, buildHostSshArgs(host.sshHost, remoteCmd), DEFAULT_SIZE)
+    }
     const tabId = crypto.randomUUID()
     const tab: Tab = {
       kind: 'host',
@@ -282,6 +336,6 @@ export class TerminalService extends EventEmitter {
 }
 
 function basename(p: string): string {
-  const parts = p.split('/').filter(Boolean)
+  const parts = p.split(/[\\/]/).filter(Boolean)
   return parts[parts.length - 1] ?? p
 }

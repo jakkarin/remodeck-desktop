@@ -6,6 +6,7 @@ import {
   type GitToken
 } from '../../../shared/gitAccess'
 import type { Host } from '../../../shared/types'
+import { cn } from 'cn'
 import { CheckIcon, TriangleAlertIcon } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { useOpenSettings } from '../settingsOpener'
@@ -116,20 +117,22 @@ function CheckRow({
   id,
   checked,
   disabled,
+  center,
   onChange,
   children
 }: {
   id: string
   checked: boolean
   disabled?: boolean
+  center?: boolean
   onChange(on: boolean): void
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <div className="flex items-start gap-2 text-xs">
+    <div className={cn('flex gap-2 text-xs', center ? 'items-center' : 'items-start')}>
       <Checkbox
         id={id}
-        className="mt-0.5"
+        className={center ? undefined : 'mt-0.5'}
         checked={checked}
         disabled={disabled}
         onCheckedChange={(c) => onChange(c === true)}
@@ -297,6 +300,7 @@ export function HostGitAccessPanel({
                       id={`git-access-token-${t.id}`}
                       checked={checked.has(t.id)}
                       disabled={busy}
+                      center
                       onChange={(on) => toggle(t.id, on)}
                     >
                       {scopeKey(t)} ({t.label})

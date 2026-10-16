@@ -9,7 +9,17 @@ export type TerminalSshOptions = {
 }
 
 /** GitHub URL prefixes (https, scp-style ssh, ssh://) rewritten to the bridge; env only, nothing is written to disk. */
-const INSTEAD_OF = ['https://github.com/', 'git@github.com:', 'ssh://git@github.com/']
+export const INSTEAD_OF = ['https://github.com/', 'git@github.com:', 'ssh://git@github.com/']
+
+/** GIT_CONFIG_* env that rewrites GitHub URLs to the bridge at `baseUrl` (ends with `/`). */
+export function bridgeGitEnv(baseUrl: string): Record<string, string> {
+  const env: Record<string, string> = { GIT_CONFIG_COUNT: String(INSTEAD_OF.length) }
+  INSTEAD_OF.forEach((v, i) => {
+    env[`GIT_CONFIG_KEY_${i}`] = `url.${baseUrl}.insteadOf`
+    env[`GIT_CONFIG_VALUE_${i}`] = v
+  })
+  return env
+}
 
 /** ssh args for an interactive shell in the sandbox repo, with the git bridge tunnelled in. */
 export function buildTerminalSshArgs(o: TerminalSshOptions): string[] {

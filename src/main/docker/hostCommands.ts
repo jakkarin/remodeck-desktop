@@ -1,4 +1,4 @@
-import { shQuote, shPath, validateSandboxPath } from '../sandbox/shell'
+import { normalizeLocalPath, shQuote, shPath, validateSandboxPath } from '../sandbox/shell'
 import {
   CONTAINER_ID,
   COMPOSE_ACTIONS,
@@ -22,20 +22,25 @@ export function shellCommand(id: string): string {
 
 export function composeCommand(
   p: { name: string; workingDir: string; configFiles: string[] },
-  action: ComposeAction
+  action: ComposeAction,
+  opts?: { local?: boolean }
 ): string {
+  const local = opts?.local === true
+  // Docker Desktop labels hold Windows paths (D:\proj); Git Bash takes them as D:/proj.
+  const dir = (p: string): string => {
+    validateSandboxPath(p, { local })
+    return shPath(local ? normalizeLocalPath(p) : p)
+  }
   if (!COMPOSE_PROJECT.test(p.name)) throw new Error('Invalid compose project name')
   if (!COMPOSE_ACTIONS.includes(action)) throw new Error('Invalid compose action')
   if (action !== 'down' && !p.workingDir && p.configFiles.length === 0)
     throw new Error(`Cannot run ${action}: the compose project path is unknown`)
   const parts = ['docker compose', '-p', shQuote(p.name)]
   if (p.workingDir) {
-    validateSandboxPath(p.workingDir)
-    parts.push('--project-directory', shPath(p.workingDir))
+    parts.push('--project-directory', dir(p.workingDir))
   }
   for (const f of p.configFiles) {
-    validateSandboxPath(f)
-    parts.push('-f', shPath(f))
+    parts.push('-f', dir(f))
   }
   parts.push(action === 'up' ? 'up -d' : action)
   return parts.join(' ')

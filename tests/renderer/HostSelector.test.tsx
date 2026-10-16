@@ -277,3 +277,22 @@ describe('HostSelector', () => {
     await waitFor(() => expect(screen.queryByText('Beta')).toBeNull())
   })
 })
+
+describe('HostSelector with This computer', () => {
+  const local = {
+    id: 'local',
+    kind: 'local' as const,
+    sshHost: '',
+    label: 'This computer',
+    protected: false
+  }
+
+  it('local row says This computer and offers no Remove', () => {
+    renderWith({ local: up }, { hosts: [local], activeHostId: 'local', workspaces: [] })
+    open()
+    expect(screen.getByText('This computer · connected')).toBeInTheDocument()
+    expect(screen.queryByText(/^ssh /)).toBeNull()
+    openRowMenu('This computer')
+    expect(screen.queryByRole('menuitem', { name: /Remove host/ })).toBeNull()
+  })
+})

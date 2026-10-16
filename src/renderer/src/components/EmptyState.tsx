@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isLocalHost } from '../../../shared/types'
 import { GitBranch } from 'lucide-react'
 import { useAppState } from '../state'
 import { Button as ShButton } from './ui/button'
@@ -42,7 +43,7 @@ export function EmptyState(): React.JSX.Element {
       <StatePanel
         icon={<GitBranch size={18} />}
         title="No workspaces yet"
-        description="Clone from GitHub, or add a repo already on the host."
+        description={`Clone from GitHub, or add a repo already on ${isLocalHost(host) ? 'this computer' : 'the host'}.`}
       >
         <div className="flex gap-2">
           <ShButton size="lg" onClick={() => setCloning(true)}>

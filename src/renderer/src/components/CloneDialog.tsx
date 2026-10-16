@@ -1,7 +1,7 @@
-import { BookMarked, RefreshCw, Search } from 'lucide-react'
+import { BookMarked, FolderOpen, RefreshCw, Search } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from 'cn'
-import type { CloneProgress, Workspace } from '../../../shared/types'
+import { isLocalHost, type CloneProgress, type Workspace } from '../../../shared/types'
 import { parseRepoInput } from '../../../shared/validate'
 import { api, errorMessage } from '../api'
 import { useAppState } from '../state'
@@ -77,18 +77,37 @@ export function CloneDialog({
     load()
   }
 
+  const selectedHost = hosts.find((h) => h.id === hostId)
+  const local = !!selectedHost && isLocalHost(selectedHost)
+  // The folder new clones go into; Browse on This computer replaces it.
+  const [base, setBase] = useState('~/repos')
+  const inBase = (name: string, parent = base): string => `${parent.replace(/\/+$/, '')}/${name}`
+
   // The last path we filled in ourselves; a path the user typed is never overwritten.
   const autoPath = useRef('')
   const setAutoPath = (name: string): void => {
     if (path !== '' && path !== autoPath.current) return
-    autoPath.current = `~/repos/${name}`
+    autoPath.current = inBase(name)
     setPath(autoPath.current)
   }
 
   const pick = (r: GhRepo): void => {
     setRepoInput(fullName(r))
-    autoPath.current = `~/repos/${r.name}`
+    autoPath.current = inBase(r.name)
     setPath(autoPath.current)
+  }
+
+  const browse = async (): Promise<void> => {
+    try {
+      const picked = await api.dialogs.pickFolder(base)
+      if (picked === null) return
+      setBase(picked)
+      const name = parseRepoInput(repoInput)?.name
+      autoPath.current = name ? inBase(name, picked) : picked
+      setPath(autoPath.current)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
   }
 
   const changeRepo = (value: string): void => {
@@ -314,14 +333,28 @@ export function CloneDialog({
           )}
           <Field>
             <FieldLabel htmlFor="clone-path">Path</FieldLabel>
-            <Input
-              id="clone-path"
-              className="font-mono"
-              value={path}
-              placeholder="~/repos/name"
-              onChange={(e) => setPath(e.target.value)}
-              disabled={busy}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="clone-path"
+                className="font-mono"
+                value={path}
+                placeholder="~/repos/name"
+                onChange={(e) => setPath(e.target.value)}
+                disabled={busy}
+              />
+              {local && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Browse for a folder"
+                  title="Choose the folder to clone into"
+                  onClick={() => void browse()}
+                  disabled={busy}
+                >
+                  <FolderOpen />
+                </Button>
+              )}
+            </div>
             <FieldDescription>Filled from the repo name until you edit it.</FieldDescription>
           </Field>
           {busy && (

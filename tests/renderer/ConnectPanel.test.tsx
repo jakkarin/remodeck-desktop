@@ -109,3 +109,24 @@ describe('ConnectPanel', () => {
     expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled()
   })
 })
+
+describe('ConnectPanel for This computer', () => {
+  it('says it runs on this computer instead of ssh', () => {
+    const local: Host = {
+      id: 'local',
+      kind: 'local',
+      sshHost: '',
+      label: 'This computer',
+      protected: false
+    }
+    render(
+      <AppStateContext.Provider
+        value={makeState({ hosts: [local], statuses: { local: { state: 'disconnected' } } })}
+      >
+        <ConnectPanel host={local} />
+      </AppStateContext.Provider>
+    )
+    expect(screen.getByText('Runs on this computer with Git Bash')).toBeInTheDocument()
+    expect(screen.queryByText(/^ssh /)).toBeNull()
+  })
+})

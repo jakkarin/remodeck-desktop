@@ -77,7 +77,8 @@ function fakeApi(): MainApi {
     prefs: { get: fn(), update: fn() },
     pushLog: { read: fn() },
     gitTokens: { list: fn(), add: fn(), replace: fn(), setLabel: fn(), remove: fn() },
-    gitAccess: { status: fn(), install: fn(), remove: fn() }
+    gitAccess: { status: fn(), install: fn(), remove: fn() },
+    dialogs: { pickFolder: fn() }
   } as unknown as MainApi
 }
 

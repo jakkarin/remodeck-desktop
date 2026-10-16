@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Duplex } from 'node:stream'
-import { spawnDuplex, sshDialArgs } from '../../../src/main/docker/dialStdio'
+import { localDialArgs, spawnDuplex, sshDialArgs } from '../../../src/main/docker/dialStdio'
 
 let duplex: Duplex | undefined
 afterEach(() => {
@@ -50,5 +50,11 @@ describe('spawnDuplex', () => {
     duplex.resume()
     const err = await new Promise<Error>((resolve) => duplex!.once('error', resolve))
     expect(err.message).toBe('boom')
+  })
+})
+
+describe('localDialArgs', () => {
+  it('localDialArgs is docker system dial-stdio', () => {
+    expect(localDialArgs()).toEqual(['system', 'dial-stdio'])
   })
 })

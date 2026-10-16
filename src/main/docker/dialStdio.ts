@@ -68,3 +68,12 @@ export function sshDialArgs(sshHost: string): string[] {
 export function sshDialStdio(sshPath: string, sshHost: string): Duplex {
   return spawnDuplex(sshPath, sshDialArgs(sshHost))
 }
+
+export function localDialArgs(): string[] {
+  return ['system', 'dial-stdio']
+}
+
+/** Docker on this computer (Docker Desktop), same protocol as the ssh dial. */
+export function localDialStdio(): Duplex {
+  return spawnDuplex('docker', localDialArgs())
+}
