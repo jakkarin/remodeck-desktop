@@ -1,81 +1,81 @@
 # Remodeck design guidelines — Neutral
 
-แนวทางที่เลือก: desktop UI โทน neutral บน shadcn/ui และ Tailwind v4 โดยคง layout เดิม
-(rail ด้านซ้าย, pane Branches / Changes / Diff และ terminal ด้านล่าง) รวมถึงการลากปรับขนาดและค่าที่บันทึกไว้เดิม
-หน้าจอทั้งหมดใช้ component และ token ชุดเดียวกันแล้ว
+Chosen direction: a neutral desktop UI on shadcn/ui and Tailwind v4 that keeps the existing layout
+(left rail, Branches / Changes / Diff panes and the terminal at the bottom), including drag-to-resize and the saved sizes.
+Every screen now uses the same components and tokens.
 
 ## Source of truth
 
-- `src/renderer/src/assets/tokens.css`: ค่า token ดิบของ light/dark (สี ระยะห่าง มุมโค้ง ฟอนต์ และ duration)
-- `src/renderer/src/assets/main.css`: `@theme inline` ผูก token เข้ากับ Tailwind utility (`bg-ground`, `bg-selected`, `rounded-md` ฯลฯ)
-  และกำหนด reduced motion ระดับ global
-- `src/renderer/src/components/ui/*.tsx`: component ของ shadcn ที่ใช้ในโปรเจกต์ (แก้ไขได้ตามต้องการ)
-- `src/renderer/src/assets/legacy.css`: เหลือเฉพาะ base style ของ element ดิบ (button/input ที่ยังไม่มี `data-slot`), diff, error และ spinner
-- `src/renderer/src/motion.ts`: ค่า duration และ spring ของ animation ทั้งหมดในหน้าจอ
-- `src/renderer/src/theme.ts`: mapping token ให้ xterm
+- `src/renderer/src/assets/tokens.css`: raw light/dark token values (color, spacing, radius, fonts and durations)
+- `src/renderer/src/assets/main.css`: `@theme inline` maps tokens to Tailwind utilities (`bg-ground`, `bg-selected`, `rounded-md`, etc.)
+  and sets reduced motion globally
+- `src/renderer/src/components/ui/*.tsx`: shadcn components used in the project (edit them as needed)
+- `src/renderer/src/assets/legacy.css`: only base styles for raw elements (buttons/inputs without `data-slot`), diff, error and spinner
+- `src/renderer/src/motion.ts`: every animation duration and spring on screen
+- `src/renderer/src/theme.ts`: token mapping for xterm
 
-ใช้ semantic tokens แทนการใส่สี hex ใน component ธีมตามระบบด้วย `prefers-color-scheme`
-และ terminal เปลี่ยนสีตามระบบด้วยโดยไม่ต้องเปิดใหม่ ผู้ใช้เลือกบังคับ light/dark ได้ใน Settings > General
-(เก็บใน config ของ remodeck) โดยตั้ง `data-theme` บน `<html>`; ค่า System จะไม่มี attribute นี้
+Use semantic tokens instead of hex colors in components. The theme follows the system through `prefers-color-scheme`,
+and the terminal also follows system color changes without reopening. Users can force light/dark in Settings > General
+(stored in remodeck's config), which sets `data-theme` on `<html>`; System leaves the attribute unset.
 
 ## Surfaces and color
 
-ค่าด้านล่างอ้างอิงจาก `tokens.css` (ค่าเดียวกับ light/dark ที่ประกาศไว้ใน `:root` และ `:root[data-theme='dark']`)
+Values below come from `tokens.css` (the same light/dark values declared in `:root` and `:root[data-theme='dark']`).
 
-| Token                             | Dark                                 | Light                 | การใช้งาน                               |
-| --------------------------------- | ------------------------------------ | --------------------- | --------------------------------------- |
-| `--ground`                        | `#111113`                            | `#f4f4f5`             | พื้นหลังรอบ card (ช่องว่างระหว่าง pane) |
-| `--bg`                            | `#1c1c1f`                            | `#ffffff`             | surface ของ pane, dialog และ popover    |
-| `--bg-inset`                      | `#18181b`                            | `#fafafa`             | พื้น diff และ terminal                  |
-| `--bg-subtle`                     | `#222226`                            | `#fafafa`             | หัว pane, แถบด้านบน                     |
-| `--bg-control`                    | `#1c1c1f`                            | `#ffffff`             | พื้นของ control และเมนู                 |
-| `--bg-hover`                      | `#2a2a2e`                            | `#f4f4f5`             | hover และ tab ที่ยังไม่ถูกเลือก         |
-| `--selected-bg` / `--selected-fg` | `rgb(138 180 248 / 14%)` / `#f0f0f0` | `#e8eef7` / `#18181b` | รายการที่เลือก (selection pill)         |
-| `--fg`                            | `#ececee`                            | `#18181b`             | ข้อความหลัก                             |
-| `--fg-muted`                      | `#a0a0a0`                            | `#63636b`             | metadata และข้อความรอง                  |
-| `--border` / `--border-strong`    | `#2e2e33` / `#505050`                | `#e4e4e7` / `#bdbdbd` | เส้นแบ่งพื้นผิว / เส้นขอบ control       |
-| `--accent`                        | `#8ab4f8`                            | `#245fa8`             | keyboard focus ring และสถานะใหม่        |
-| `--primary-bg` / `--primary-fg`   | `#dfdfdf` / `#202020`                | `#282828` / `#ffffff` | primary action                          |
-| `--success` / `--success-bg`      | `#61ce91` / `#17301f`                | `#1f7a45` / `#e6f4ea` | สถานะสำเร็จ                             |
-| `--danger` / `--danger-bg`        | `#f08080` / `#362222`                | `#b42318` / `#fce8e8` | ข้อผิดพลาดและ action อันตราย            |
-| `--attention` / `--attention-bg`  | `#e2bd75` / `#332b1e`                | `#8a5a00` / `#fdf3dc` | คำเตือน                                 |
-| `--diff-add-bg` / `--diff-del-bg` | `#193526` / `#3c2222`                | `#e3f2e8` / `#fae5e5` | บรรทัด diff เพิ่ม/ลบ                    |
-| `--terminal-selection`            | `#3d4b60`                            | `#cbd5e4`             | การเลือกข้อความใน terminal              |
+| Token                             | Dark                                 | Light                 | Usage                                        |
+| --------------------------------- | ------------------------------------ | --------------------- | -------------------------------------------- |
+| `--ground`                        | `#111113`                            | `#f4f4f5`             | Background around cards (gaps between panes) |
+| `--bg`                            | `#1c1c1f`                            | `#ffffff`             | Pane, dialog and popover surface             |
+| `--bg-inset`                      | `#18181b`                            | `#fafafa`             | Diff and terminal background                 |
+| `--bg-subtle`                     | `#222226`                            | `#fafafa`             | Pane headers, top bar                        |
+| `--bg-control`                    | `#1c1c1f`                            | `#ffffff`             | Control and menu background                  |
+| `--bg-hover`                      | `#2a2a2e`                            | `#f4f4f5`             | Hover and unselected tabs                    |
+| `--selected-bg` / `--selected-fg` | `rgb(138 180 248 / 14%)` / `#f0f0f0` | `#e8eef7` / `#18181b` | Selected item (selection pill)               |
+| `--fg`                            | `#ececee`                            | `#18181b`             | Primary text                                 |
+| `--fg-muted`                      | `#a0a0a0`                            | `#63636b`             | Metadata and secondary text                  |
+| `--border` / `--border-strong`    | `#2e2e33` / `#505050`                | `#e4e4e7` / `#bdbdbd` | Surface dividers / control borders           |
+| `--accent`                        | `#8ab4f8`                            | `#245fa8`             | Keyboard focus ring and new state            |
+| `--primary-bg` / `--primary-fg`   | `#dfdfdf` / `#202020`                | `#282828` / `#ffffff` | Primary action                               |
+| `--success` / `--success-bg`      | `#61ce91` / `#17301f`                | `#1f7a45` / `#e6f4ea` | Success state                                |
+| `--danger` / `--danger-bg`        | `#f08080` / `#362222`                | `#b42318` / `#fce8e8` | Errors and dangerous actions                 |
+| `--attention` / `--attention-bg`  | `#e2bd75` / `#332b1e`                | `#8a5a00` / `#fdf3dc` | Warnings                                     |
+| `--diff-add-bg` / `--diff-del-bg` | `#193526` / `#3c2222`                | `#e3f2e8` / `#fae5e5` | Added/removed diff lines                     |
+| `--terminal-selection`            | `#3d4b60`                            | `#cbd5e4`             | Text selection in the terminal               |
 
-ใช้สีเขียว/แดงสำหรับสถานะและ diff เพิ่ม/ลบ สีเหลืองสำหรับคำเตือน อย่าใช้สีสถานะ
-เป็นพื้นของรายการที่เลือก ปุ่ม Push ใช้ primary neutral; ผลลัพธ์ Pushed ใช้ success
-diff มีเครื่องหมาย `+`/`-` และแถบสีริมบรรทัดประกอบกัน จึงไม่สื่อความหมายด้วยสีเพียงอย่างเดียว
-terminal selection ใช้ `--terminal-selection` เพื่อให้เห็นการเลือกข้อความชัดเจนกว่าสีเลือกแถว
+Use green/red for status and added/removed diff lines, and yellow for warnings. Never use a status color
+as the background of a selected item. The Push button uses the neutral primary; the Pushed result uses success.
+Diff lines carry `+`/`-` markers and a colored edge bar together, so meaning never relies on color alone.
+Terminal selection uses `--terminal-selection` so selected text stands out more than the row selection color.
 
 ## Typography, spacing, shape
 
-**ฟอนต์** (bundle มากับแอป ไม่โหลดจาก network):
+**Fonts** (bundled with the app, never loaded from the network):
 
 - UI: Geist Variable (`--font-ui`, fallback Segoe UI / system-ui)
-- Code ใน UI: Geist Mono Variable (`--font-code`, Tailwind `font-mono`)
-- Terminal (xterm): Cascadia Code (`--font-terminal`) ไม่เปลี่ยนเป็น Geist Mono เพราะ xterm วัดขนาดฟอนต์ตอนเปิด
-  และเลือกใช้ตัวอักษรที่คงที่ตามที่ตั้งไว้
+- Code in the UI: Geist Mono Variable (`--font-code`, Tailwind `font-mono`)
+- Terminal (xterm): Cascadia Code (`--font-terminal`). It stays off Geist Mono because xterm measures the font when it opens
+  and relies on the fixed glyphs configured there.
 
-**ขนาดตัวอักษร**: Tailwind utility `text-xs` / `text-sm` / `text-base` ใช้ 12 / 13 / 14px (ประกาศใน `@theme inline`)
-ส่วน `var(--text-*)` จาก `tokens.css` ยังเป็น 11 / 12 / 13px และใช้เฉพาะใน `legacy.css` และ xterm
-ใน component ใหม่ให้ใช้ utility ของ Tailwind เท่านั้น
+**Font sizes**: the Tailwind utilities `text-xs` / `text-sm` / `text-base` are 12 / 13 / 14px (declared in `@theme inline`).
+`var(--text-*)` from `tokens.css` is still 11 / 12 / 13px and is used only in `legacy.css` and xterm.
+New components use Tailwind utilities only.
 
-**Spacing**: `--space-1` ถึง `--space-5` = 4, 8, 12, 16, 24px (ใช้ Tailwind spacing ตามปกติได้ เช่น `gap-2`, `p-3`)
+**Spacing**: `--space-1` to `--space-5` = 4, 8, 12, 16, 24px (normal Tailwind spacing such as `gap-2` or `p-3` is fine).
 
-**มุมโค้ง**:
+**Radius**:
 
 - `tokens.css`: `--radius-sm` 6px, `--radius-md` 8px, `--radius-lg` 12px
 - Tailwind (`@theme inline`): `rounded-sm` 4px, `rounded-md` 6px, `rounded-lg` 8px, `rounded-xl` 11px, `rounded-2xl` 14px
-- แนวทาง: badge ใช้ `rounded-sm`; control และแถว `rounded-md`/`rounded-lg`; dialog และ popover ใช้ค่าที่ shadcn กำหนด
+- Guidance: badges use `rounded-sm`; controls and rows use `rounded-md`/`rounded-lg`; dialogs and popovers keep shadcn's values
 
-**ขนาดอื่น**: ไอคอนใช้ Lucide 14–16px; ปุ่มไอคอน 30 × 30px; แถวข้อมูลสูงอย่างน้อย 30–32px; หัว pane สูงอย่างน้อย 40px;
-title bar 46px; rail 52px
-ใช้เส้นขอบ 1px; shadow เฉพาะ dialog และ popover (`--shadow-popover`, `--shadow-dialog`) ไม่ใส่ shadow ในแต่ละ pane
+**Other sizes**: Lucide icons at 14–16px; icon buttons 30 × 30px; data rows at least 30–32px tall; pane headers at least 40px;
+title bar 46px; rail 52px.
+Use 1px borders. Shadows only on dialogs and popovers (`--shadow-popover`, `--shadow-dialog`), never on individual panes.
 
 ## Motion
 
-ค่าทั้งหมดอยู่ใน `motion.ts` (`DURATION`, `TRANSITIONS`, `transitionFor`) และ CSS duration ของ `tokens.css` (`--duration-fast` 120ms)
-ห้ามใส่ค่า duration ตัวเลขใหม่ใน component
+All values live in `motion.ts` (`DURATION`, `TRANSITIONS`, `transitionFor`) and the CSS duration in `tokens.css` (`--duration-fast` 120ms).
+Never add a new numeric duration in a component.
 
 | Name   | Value                                     | Used for                                   |
 | ------ | ----------------------------------------- | ------------------------------------------ |
@@ -84,34 +84,34 @@ title bar 46px; rail 52px
 | exit   | 120 ms ease-in                            | Everything that leaves                     |
 | layout | 220 ms, spring stiffness 400 / damping 36 | List reorder, selection pill, panel resize |
 
-- Dialog: opacity 0→1, scale .96→1, y 6→0 (`dialogMotion`); backdrop แค่ fade
-- Selection pill เลื่อนระหว่างแถวใน branch list, file list และ rail
-- Toast เข้าจากขวา x 16→0; toast เก่ากว่า scale .94; error toast อยู่จนกว่าจะกดปิด
-- หลัง Sync แถวไฟล์ใหม่ค่อย ๆ ขยายเข้า และแถวที่ถูกลบยุบออก
-- เปลี่ยน module ใช้ crossfade 120 ms ไม่มี slide; terminal dock ยังคง mount และไม่เคลื่อนที่
-- Pulse เฉพาะตอน connecting และ restarting
+- Dialog: opacity 0→1, scale .96→1, y 6→0 (`dialogMotion`); the backdrop only fades
+- The selection pill slides between rows in the branch list, file list and rail
+- Toasts enter from the right, x 16→0; older toasts scale to .94; error toasts stay until dismissed
+- After Sync, new file rows expand in and removed rows collapse out
+- Module switches crossfade over 120 ms with no slide; the terminal dock stays mounted and does not move
+- Pulse only while connecting and restarting
 
-**Never animate**: diff lines, terminal output, การ scroll, list ที่มากกว่า 100 แถว และทุกอย่างระหว่างลากปรับขนาด pane
+**Never animate**: diff lines, terminal output, scrolling, lists longer than 100 rows, and anything during pane resizing.
 
-**Reduced motion**: เมื่อระบบตั้ง reduced motion (`prefers-reduced-motion`) transform เปลี่ยนเป็น 0 ms และ opacity fade ยังคง 80 ms
-(กำหนดทั้งใน `motion.ts` และ `main.css` ที่ cap animation/transition duration ทุกตัวไว้ที่ 80 ms)
-spring เป็น interruptible จึงหยุดกลางคันได้เมื่อผู้ใช้ทำ action ใหม่
+**Reduced motion**: when the system sets reduced motion (`prefers-reduced-motion`), transforms drop to 0 ms and opacity fades stay at 80 ms
+(set in both `motion.ts` and `main.css`, which caps every animation/transition duration at 80 ms).
+Springs are interruptible, so they stop midway when the user starts a new action.
 
 ## Shadcn components
 
-Component ทั้งหมดอยู่ใน `src/renderer/src/components/ui/` เป็นโค้ดของโปรเจกต์เอง แก้ไขได้โดยตรง
+All components live in `src/renderer/src/components/ui/`. They are the project's own code and can be edited directly.
 
-**เพิ่ม component ใหม่**
+**Adding a component**
 
 ```powershell
 npx shadcn@latest add <name>
 npx prettier --write src/renderer/src/components/ui/<name>.tsx
 ```
 
-หลังเพิ่มให้แทน overlay แบบ `bg-black/NN` ด้วย `bg-(--backdrop)` เสมอ
-library ใหม่ของ renderer ให้ใส่ใน `devDependencies` ตามแนวทางของโปรเจกต์
+After adding one, always replace `bg-black/NN` overlays with `bg-(--backdrop)`.
+New renderer libraries go in `devDependencies`, following the project convention.
 
-**ใช้งานใน component**
+**Using components**
 
 ```tsx
 import { cn } from 'cn'
@@ -131,46 +131,46 @@ import { GitBranch, Settings } from 'lucide-react'
 </div>
 ```
 
-- `cn` import จาก `'cn'` (ไม่ใช่ path ของ shadcn ที่ generate มา) ใช้รวม class แบบมีเงื่อนไข
-- import ด้วย alias `@renderer/...`
-- ไอคอนใช้ `lucide-react` ทุกที่ ใส่ `aria-hidden="true"` เมื่อไม่ได้เป็นชื่อของปุ่ม
+- Import `cn` from `'cn'` (not the path shadcn generates); use it to combine conditional classes
+- Import with the `@renderer/...` alias
+- Use `lucide-react` for every icon, with `aria-hidden="true"` when it is not the button's name
 
-**สี: ใช้ token utility เท่านั้น**
+**Color: token utilities only**
 
-- พื้นและข้อความ: `bg-background`, `text-foreground`, `bg-ground`, `bg-muted`, `text-muted-foreground`, `bg-accent` (hover),
+- Background and text: `bg-background`, `text-foreground`, `bg-ground`, `bg-muted`, `text-muted-foreground`, `bg-accent` (hover),
   `bg-selected`, `text-selected-foreground`, `bg-primary` / `text-primary-foreground`
-- สถานะ: `text-destructive`, `bg-destructive-soft`, `text-success`, `bg-success-soft`, `text-warning`, `bg-warning-soft`
-- เส้นและ focus: `border-border`, `ring-ring`
-- สี accent เป็นข้อความ: `text-(--accent)`; ค่าดิบอื่นใช้ `var(--token)` ใน class เช่น `bg-(--backdrop)`
-- **ห้ามใส่ hex ใน `.tsx`** ถ้า token ที่ต้องการยังไม่มี ให้เพิ่มใน `tokens.css` และ `@theme inline` ก่อน แล้วค่อยใช้ utility
+- Status: `text-destructive`, `bg-destructive-soft`, `text-success`, `bg-success-soft`, `text-warning`, `bg-warning-soft`
+- Lines and focus: `border-border`, `ring-ring`
+- Accent as text: `text-(--accent)`; other raw values use `var(--token)` in the class, such as `bg-(--backdrop)`
+- **No hex in `.tsx`.** If a token you need does not exist yet, add it to `tokens.css` and `@theme inline` first, then use the utility
 
-**Legacy**: `legacy.css` ไม่ควรมี rule ใหม่สำหรับ component ที่ migrate แล้ว style ของ component ใหม่ต้องอยู่ที่ component หรือ utility
+**Legacy**: `legacy.css` should get no new rules for migrated components. Styles for new components belong in the component or in utilities.
 
 ## Interaction and accessibility
 
-- Hover: เปลี่ยนพื้นผิว/เส้นขอบเล็กน้อย; selected: พื้นเทาและข้อความชัด
-- Keyboard focus: ring หรือ outline 2px สี `--accent` พร้อม offset; ต้องมองเห็นบนทุกพื้นผิว
-- Disabled: ใช้ native `disabled` และ opacity; อย่าเปลี่ยนเป็นข้อความธรรมดาที่คลิกได้
-- ทุก icon-only action ต้องมี accessible name (`aria-label`); ทุก input ต้องมี label หรือ aria-label
-- Checkbox/radio ใช้ความกว้าง native ไม่ยืดเต็มพื้นที่เหมือน text input
-- เมื่อตัดชื่อไฟล์ยาวในหัว diff ให้มี `title` แสดงชื่อเต็ม
-- Reduced motion ปิด transform และ spinner ตาม section Motion
-- Theme switching ต้องอัปเดต terminal foreground/background/cursor/selection พร้อม UI
+- Hover: a slight surface/border change; selected: gray background and stronger text
+- Keyboard focus: a 2px `--accent` ring or outline with offset, visible on every surface
+- Disabled: use native `disabled` and opacity; never turn it into clickable plain text
+- Every icon-only action needs an accessible name (`aria-label`); every input needs a label or aria-label
+- Checkboxes/radios keep their native width instead of stretching like text inputs
+- When a long file name is truncated in the diff header, add a `title` with the full name
+- Reduced motion turns off transforms and spinners as described in Motion
+- Theme switching must update the terminal foreground/background/cursor/selection together with the UI
 
 ## Review checklist
 
-1. ตรวจ dark/light: title bar, branch/file selection, diff, terminal, workspace menu, settings
-2. ตรวจ Add existing repo ทั้ง Check และ Confirm รวม disabled, warning และ error
-3. ใช้ Tab ดู focus ปุ่ม/ช่องกรอก; ตรวจชื่อปุ่มไอคอนและ label
-4. ลากแยก pane และยุบ/ขยาย terminal; เปิดแอปใหม่เพื่อเช็กค่าขนาดเดิม
-5. เช็กชื่อ branch/file ยาวและข้อความไทย; scroll แนวนอนของ diff
-6. ตรวจ hardcoded hex ใน `.tsx` (ควรไม่มี) และ duration ที่ไม่มาจาก `motion.ts`
-7. รัน `npm run typecheck`, `npx vitest run --project renderer`, `npx electron-vite build` และ `npx eslint .`
+1. Check dark/light: title bar, branch/file selection, diff, terminal, workspace menu, settings
+2. Check Add existing repo through both Check and Confirm, including disabled, warning and error states
+3. Tab through buttons/inputs to check focus; check icon button names and labels
+4. Drag pane splitters and collapse/expand the terminal; reopen the app to confirm sizes are kept
+5. Check long branch/file names and Thai text; check horizontal scrolling in the diff
+6. Check for hardcoded hex in `.tsx` (there should be none) and durations not taken from `motion.ts`
+7. Run `npm run typecheck`, `npx vitest run --project renderer`, `npx electron-vite build` and `npx eslint .`
 
-ใช้ component และ tokens ชุดนี้กับหน้าที่เพิ่มภายหลังเพื่อคง design เดียวกัน
+Use these components and tokens for pages added later to keep one design.
 
-บน Windows หาก `bash` ใน PATH ชี้ไปที่ WSL ให้เลือก Git Bash ใน session ที่รัน tests
-เพื่อให้ sandbox fixtures ใช้ path แบบ Windows ได้:
+On Windows, if `bash` on PATH points to WSL, select Git Bash in the session that runs tests
+so the sandbox fixtures can use Windows paths:
 
 ```powershell
 $env:PATH = 'C:\Program Files\Git\bin;' + $env:PATH
