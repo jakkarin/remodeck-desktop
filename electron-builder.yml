@@ -31,7 +31,6 @@ linux:
   icon: build/icon.png
   target:
     - AppImage
-    - snap
     - deb
   maintainer: jakkarin <Jakkarinwebmaster@gmail.com>
   category: Utility

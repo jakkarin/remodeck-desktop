@@ -52,5 +52,10 @@ and migration steps. Calculate SHA-256 checksums for the exact installer being r
 artifact is suitable for testing; it is not a published release.
 
 Code signing requires a separately managed certificate or signing service. Keep its credentials
-in GitHub environment/repository secrets, never in this repository. Add release publishing only when
-the owner explicitly authorizes it; `npm run build:win` intentionally uses `--publish never`.
+in GitHub environment/repository secrets, never in this repository. The build scripts use
+`--publish never`; electron-builder itself never publishes.
+
+Publishing a GitHub release runs the Release workflow. It checks that the tag equals `v` plus the
+`package.json` version, builds on Windows (`-setup.exe`), macOS (`.dmg`, `.zip`) and Linux
+(`.AppImage`, `.deb`) runners, then attaches the installers and `SHA256SUMS.txt` to that release.
+All of them are unsigned, and the macOS build is not notarized.
