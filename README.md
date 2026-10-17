@@ -2,20 +2,18 @@
 
 **Git & Docker on your servers, over SSH.**
 
+English | [ภาษาไทย](README.th.md)
+
 Desktop app (Windows, Electron + TypeScript) for managing Git repositories and Docker on this computer
 and remote Linux hosts over SSH. In the default **Git Bridge** mode, GitHub credentials stay on your
 Windows computer; the remote host needs no direct connection to GitHub. An optional **Git access on
 this host** mode installs scoped tokens on a remote host; see the security boundary below.
 
-แอป desktop สำหรับจัดการ Git และ Docker บนเครื่อง Windows และ Linux host ผ่าน SSH:
-Clone / Sync / Review diff / Push / เปิด PR และเปิด terminal ที่ push/pull ผ่าน Git Bridge พร้อม popup
-อนุมัติ โดยค่าเริ่มต้น credential ของ GitHub อยู่บน Windows ส่วนโหมดติดตั้ง token บน host ต้องเปิดใช้เอง
-
 **Status:** early development. Windows x64 is the supported development and packaging target.
 macOS/Linux packaging scripts are experimental and are not validated by the Windows CI job.
 Try it with disposable repositories and hosts before using it with important work.
 
-## Quick start / เริ่มต้น
+## Quick start
 
 For local repositories, install Git for Windows and Node.js 24, then run:
 
@@ -31,13 +29,12 @@ Select **This computer** to add an existing repository or clone one. For a remot
 configure an SSH alias, then add that host in remodeck. GitHub operations use your Windows Git Credential
 Manager login.
 
-## Prerequisites / สิ่งที่ต้องมี
+## Prerequisites
 
 - **Windows x64** with **Git for Windows**, including Git Bash, and **Node.js 24 / npm 11**
   (`.node-version` records the Node major used in CI).
-- For remote hosts: an SSH alias in `~/.ssh/config` so that `ssh <alias>` works from Windows (key loaded in ssh-agent)
-  — ตั้ง alias ใน `~/.ssh/config` ให้ `ssh <alias>` ใช้ได้
-- `git` installed on Windows and each remote host — ติดตั้ง `git` บน remote host เอง
+- For remote hosts: an SSH alias in `~/.ssh/config` so that `ssh <alias>` works from Windows (key loaded in ssh-agent).
+- `git` installed on Windows and each remote host.
 - GitHub login on Windows through Git Credential Manager:
   ```
   git credential-manager github login
@@ -45,7 +42,7 @@ Manager login.
 - Optional: Docker Desktop using Linux containers for local container management and Docker-based tests;
   Docker Engine on a remote host for its containers. The Builds view also needs Docker Buildx with history support.
 
-## Run / รัน
+## Run
 
 ```bash
 npm ci          # use the committed lockfile
@@ -67,7 +64,7 @@ Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
 
 UI tokens and reusable component usage: [Neutral design guidelines](docs/design-guidelines.md).
 
-## This computer / เครื่องนี้
+## This computer
 
 The host list always starts with **This computer**, and the app opens on it every time. It manages repos on
 this Windows machine with no SSH: Clone, Add existing (paths like `D:/projects/app` or `D:\projects\app`),
@@ -80,12 +77,7 @@ still goes through the Git Bridge and the approval popup. Containers use Docker 
   The approval popup only covers pushes from terminals that remodeck opens. _Git access on this host_ is
   not offered here, and This computer cannot be removed.
 
-host แรกในรายการคือ **This computer** และแอปเปิดมาที่ host นี้ทุกครั้ง ใช้จัดการ repo บนเครื่อง Windows นี้
-โดยไม่ต้องใช้ SSH ทำได้ทุกอย่างเหมือน host อื่น terminal เปิดเป็น Git Bash และ push ยังต้องอนุมัติเหมือนเดิม
-ต้องติดตั้ง Git for Windows (และ Docker Desktop ถ้าใช้ Containers) เครื่องนี้ไม่ใช่ sandbox:
-โปรแกรมบนเครื่องใช้ login ของ Git Credential Manager ได้อยู่แล้ว popup อนุมัติครอบคลุมเฉพาะ terminal ที่เปิดจาก remodeck
-
-## Docker builds / ประวัติ build
+## Docker builds
 
 In the Containers module, **Builds** lists the current Buildx builder's history on the selected SSH
 host: name, build ID, status, creation time and duration. **Refresh** reloads the history. The host
@@ -98,19 +90,14 @@ if collapsed, and displays progress, errors and the reclaimed space directly. It
 cache of the current builder. This action does not delete build history records, containers or volumes; later
 builds may take longer while rebuilding the cache.
 
-แท็บ **Builds** แสดงประวัติของ builder ปัจจุบันบน SSH host ที่เลือก กด Refresh เพื่อโหลดใหม่
-และกด **Prune build cache** เพื่อเปิด terminal ล้าง cache ที่ไม่ใช้งาน หลังยืนยันใน dialog
-ถ้าเปิด protection ต้องพิมพ์ชื่อ host ก่อนยืนยัน
-
 **Prune** in Images, Volumes and Networks also opens a terminal on the selected host. The list
 refreshes when that terminal command ends. Each command keeps Docker's default prune scope;
 volumes always require typing the host name, and protected hosts require it for images and networks too.
 
-## Security boundary / ขอบเขตความปลอดภัย
+## Security boundary
 
 - In the default Git Bridge mode, the GitHub token stays on Windows. Terminals opened from the app reach GitHub through the
   local **Git Bridge** (`127.0.0.1`, via an ssh remote forward) which injects the credential on the host.
-  — โหมด Git Bridge ไม่ส่ง GitHub token ไป sandbox; โหมดติดตั้ง token บน host ด้านล่างเป็นการ opt-in แยกต่างหาก
 - Fetch/pull through the bridge needs no approval; every push needs approval in a popup on the host
   (Allow once / for this session / always for this repo / Deny; no answer in 60 s = Deny).
 - Fixed rules on the host (apply even with "always allow"; can be turned off per repo in Settings):
@@ -134,13 +121,6 @@ volumes always require typing the host name, and protected hosts require it for 
   People who log in to the host as the same Linux user share one install. They can read and use each other's tokens,
   Install or Update host from another person's remodeck replaces the tokens there with their own selection, and their
   Remove from host deletes everything. Give each person their own Linux user to keep tokens apart.
-  — ค่าเริ่มต้นยังไม่มี token ใน sandbox แต่ถ้า opt-in ต่อ host token จะถูกเก็บเป็น plain text บน host นั้น
-  และ process ใดที่รันเป็น user เดียวกันอ่านได้ การป้องกันจริงมาจาก scope/วันหมดอายุของ token และ ruleset ของ GitHub
-  ถ้าติ๊กยินยอมตอน install จะเพิ่ม `~/.local/bin` ไว้หน้า `PATH` ที่บนสุดของ `~/.bashrc` และลบออกให้ตอน Remove
-  ถ้ามี credential helper อื่นอยู่ (เช่น `gh auth setup-git`) ติ๊กให้ helper ของ remodeck ถูกถามก่อนได้ helper เดิมยังเป็น fallback
-  คนที่ login เข้า host ด้วย Linux user เดียวกันจะใช้ชุดติดตั้งเดียวกัน อ่านและใช้ token ของกันได้
-  ถ้าอีกคนกด Install หรือ Update host จาก remodeck ของเขา token บน host จะถูกแทนด้วยของเขา และ Remove from host จะลบทั้งหมด
-  ถ้าต้องการแยก token ให้แต่ละคนใช้ Linux user ของตัวเอง
 - Every push (bridge or Review) is logged to `push-log.jsonl`.
 - In the default bridge flow, nothing is written to the repo's working tree or commits; in the sandbox the app
   does `git init`, sets `remote origin`, and updates `refs/remotes/origin/*` and tags. Removing a
