@@ -12,7 +12,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['tests/smoke.test.ts', ...include(['tests/main/**/*'])],
+          include: ['tests/smoke.test.ts', ...include(['tests/main/**/*', 'tests/scripts/**/*'])],
           globalSetup: ['tests/main/globalSetup.ts'],
           testTimeout: 30000
         }
