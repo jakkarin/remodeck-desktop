@@ -24,10 +24,14 @@ export async function checkRemoteForward(sshPath: string, sshHost: string): Prom
     const r = await runProcess(
       sshPath,
       [
-        '-o', 'BatchMode=yes',
-        '-o', 'ConnectTimeout=10',
-        '-o', 'ExitOnForwardFailure=yes',
-        '-R', `127.0.0.1:${port}:127.0.0.1:9`,
+        '-o',
+        'BatchMode=yes',
+        '-o',
+        'ConnectTimeout=10',
+        '-o',
+        'ExitOnForwardFailure=yes',
+        '-R',
+        `127.0.0.1:${port}:127.0.0.1:9`,
         sshHost,
         'true'
       ],

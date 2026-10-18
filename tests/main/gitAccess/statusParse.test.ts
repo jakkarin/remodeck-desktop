@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { parseStatusOutput, computeStatus, type RawStatus } from '../../../src/main/gitAccess/statusParse'
+import {
+  parseStatusOutput,
+  computeStatus,
+  type RawStatus
+} from '../../../src/main/gitAccess/statusParse'
 import type { GitToken, HostGitAccess } from '../../../src/shared/gitAccess'
 
 const raw = (over: Partial<RawStatus> = {}): RawStatus => ({
@@ -34,7 +38,9 @@ const access = (installed: Record<string, string>): HostGitAccess => ({
 describe('parseStatusOutput', () => {
   it('reads the key=value lines', () => {
     expect(
-      parseStatusOutput('helper=1\ninclude=1\nscope=github.com/org-a\nwrapper=ours:1\ncli_version=2.62.0\n')
+      parseStatusOutput(
+        'helper=1\ninclude=1\nscope=github.com/org-a\nwrapper=ours:1\ncli_version=2.62.0\n'
+      )
     ).toMatchObject({
       helper: true,
       include: true,
@@ -52,7 +58,12 @@ describe('parseStatusOutput', () => {
     expect(r.scopes).toEqual(['a/b', 'c/d'])
     expect(r.otherHelpers).toEqual(['store', 'cache'])
     expect(r.wrapper).toEqual({ state: 'foreign', version: null })
-    expect(r).toMatchObject({ helper: false, cliPath: null, loginResolves: '/usr/bin/gh', nonLoginResolves: null })
+    expect(r).toMatchObject({
+      helper: false,
+      cliPath: null,
+      loginResolves: '/usr/bin/gh',
+      nonLoginResolves: null
+    })
     expect(parseStatusOutput('').wrapper).toEqual({ state: 'none', version: null })
   })
 })
@@ -69,7 +80,13 @@ describe('computeStatus', () => {
       stale: [],
       missing: []
     })
-    expect(s.wrapper).toEqual({ state: 'ours', version: 1, outdated: false, loginShell: true, nonLoginShell: true })
+    expect(s.wrapper).toEqual({
+      state: 'ours',
+      version: 1,
+      outdated: false,
+      loginShell: true,
+      nonLoginShell: true
+    })
   })
 
   it('flags a token changed since install as stale', () => {
@@ -79,7 +96,12 @@ describe('computeStatus', () => {
   })
 
   it('flags an installed scope that is not on the target as missing', () => {
-    const s = computeStatus(raw(), access({ a: 't1', b: 't1' }), [tok('a', 'org-a'), tok('b', 'org-b')], 1)
+    const s = computeStatus(
+      raw(),
+      access({ a: 't1', b: 't1' }),
+      [tok('a', 'org-a'), tok('b', 'org-b')],
+      1
+    )
     expect(s.missing).toEqual(['b'])
     expect(s.stale).toEqual([])
   })
@@ -89,14 +111,23 @@ describe('computeStatus', () => {
   })
 
   it('marks an older wrapper outdated', () => {
-    expect(computeStatus(raw({ wrapper: { state: 'ours', version: 0 } }), undefined, [], 1).wrapper.outdated).toBe(true)
-    expect(computeStatus(raw({ wrapper: { state: 'foreign', version: null } }), undefined, [], 1).wrapper.outdated).toBe(
-      false
-    )
+    expect(
+      computeStatus(raw({ wrapper: { state: 'ours', version: 0 } }), undefined, [], 1).wrapper
+        .outdated
+    ).toBe(true)
+    expect(
+      computeStatus(raw({ wrapper: { state: 'foreign', version: null } }), undefined, [], 1).wrapper
+        .outdated
+    ).toBe(false)
   })
 
   it('loginShell / nonLoginShell are true only when the command resolves to our wrapper', () => {
-    const s = computeStatus(raw({ loginResolves: '/usr/bin/gh', nonLoginResolves: null }), undefined, [], 1)
+    const s = computeStatus(
+      raw({ loginResolves: '/usr/bin/gh', nonLoginResolves: null }),
+      undefined,
+      [],
+      1
+    )
     expect(s.wrapper).toMatchObject({ loginShell: false, nonLoginShell: false })
     // some other user's .local/bin/gh is not ours
     const other = computeStatus(raw({ loginResolves: '/home/v/.local/bin/gh' }), undefined, [], 1)
@@ -106,8 +137,13 @@ describe('computeStatus', () => {
       loginShell: false,
       nonLoginShell: false
     })
-    const q = parseStatusOutput('home=/home/u\nresolve_login=?\nresolve_nonlogin=/home/u/.local/bin/gh\n')
+    const q = parseStatusOutput(
+      'home=/home/u\nresolve_login=?\nresolve_nonlogin=/home/u/.local/bin/gh\n'
+    )
     expect(q.loginResolves).toBeNull()
-    expect(computeStatus(q, undefined, [], 1).wrapper).toMatchObject({ loginShell: false, nonLoginShell: true })
+    expect(computeStatus(q, undefined, [], 1).wrapper).toMatchObject({
+      loginShell: false,
+      nonLoginShell: true
+    })
   })
 })

@@ -15,13 +15,8 @@ import { withLock } from '../git/lock'
 import { parseRefs, parseSymrefHead } from '../git/parsers'
 import type { MirrorService } from '../mirror/mirrorService'
 import type { SandboxTarget } from '../sandbox/target'
-import {
-  normalizeLocalPath,
-  sameSandboxPath,
-  shPath,
-  shQuote,
-  validateSandboxPath
-} from '../sandbox/shell'
+import { localPlatform, type LocalPlatform } from '../platform/localPlatform'
+import { shPath, shQuote, validateSandboxPath } from '../sandbox/shell'
 import type { Store } from '../store/store'
 import { cloneProgressTracker } from './cloneProgress'
 
@@ -50,6 +45,8 @@ export class SyncService {
   private readonly targetFor: (hostId: string) => SandboxTarget
   /** This computer's home, so `~/x` and the absolute path compare equal for the local host. */
   private readonly homeDir: string
+  /** This computer's OS rules for local sandbox paths. */
+  private readonly platform: LocalPlatform
 
   constructor(deps: {
     git: HostGit
@@ -57,12 +54,14 @@ export class SyncService {
     store: Store
     targetFor: (hostId: string) => SandboxTarget
     homeDir?: string
+    platform?: LocalPlatform
   }) {
     this.git = deps.git
     this.mirror = deps.mirror
     this.store = deps.store
     this.targetFor = deps.targetFor
     this.homeDir = deps.homeDir ?? os.homedir()
+    this.platform = deps.platform ?? localPlatform
   }
 
   private readonly rewritten = new Map<string, Set<string>>()
@@ -232,7 +231,7 @@ export class SyncService {
   async cloneToSandbox(ws: Workspace, onProgress?: (p: CloneProgress) => void): Promise<void> {
     const progress = onProgress && cloneProgressTracker(onProgress)
     progress?.at('fetch', 0)
-    validateSandboxPath(ws.sandboxPath, { local: this.isLocal(ws.hostId) })
+    validateSandboxPath(ws.sandboxPath, this.localRules(ws.hostId))
     const target = this.targetFor(ws.hostId)
     const repo = this.store.config.repos.find((r) => r.id === ws.repoId)
     if (!repo) throw new Error(`Unknown repo ${ws.repoId}`)
@@ -375,21 +374,23 @@ export class SyncService {
 
   /** Validates the path and rejects duplicates; returns the normalised path. */
   private checkExistingPath(hostId: string, sandboxPath: string): string {
-    const local = this.isLocal(hostId)
-    validateSandboxPath(sandboxPath, { local })
-    const path = local
-      ? normalizeLocalPath(sandboxPath, this.homeDir)
-      : sandboxPath.replace(/\/+$/, '')
+    const local = this.localRules(hostId)
+    validateSandboxPath(sandboxPath, local)
+    const trim = (p: string): string => p.replace(/\/+$/, '')
+    const path = local ? local.normalizePath(sandboxPath, this.homeDir) : trim(sandboxPath)
     const dup = this.store.config.workspaces.find(
-      (w) => w.hostId === hostId && sameSandboxPath(w.sandboxPath, path, local, this.homeDir)
+      (w) =>
+        w.hostId === hostId &&
+        (local ? local.samePath(w.sandboxPath, path, this.homeDir) : trim(w.sandboxPath) === path)
     )
     if (dup) throw new Error(`This workspace already exists: ${dup.sandboxPath}`)
     return path
   }
 
-  private isLocal(hostId: string): boolean {
+  /** The OS path rules when hostId is This computer; undefined for a remote host. */
+  private localRules(hostId: string): LocalPlatform | undefined {
     const host = this.store.config.hosts.find((h) => h.id === hostId)
-    return !!host && isLocalHost(host)
+    return host && isLocalHost(host) ? this.platform : undefined
   }
 
   /**
@@ -425,7 +426,7 @@ export class SyncService {
         'toppath=""',
         '[ -n "$top" ] && toppath="$(cd "$top" 2>/dev/null && pwd -P)"',
         // Windows paths are case-insensitive and pwd keeps the case the user typed
-        this.isLocal(hostId)
+        this.localRules(hostId)?.shellFoldsCase
           ? `[ "\${toppath,,}" = "\${real,,}" ] || { printf '%s' "$toppath"; exit ${NOT_ROOT_CODE}; }`
           : `[ "$toppath" = "$real" ] || { printf '%s' "$toppath"; exit ${NOT_ROOT_CODE}; }`,
         'url="$(git -C "$p" config --get remote.origin.url 2>/dev/null)"',

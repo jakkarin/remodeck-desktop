@@ -14,7 +14,12 @@ import type { ProcResult } from '../../../src/main/proc/run'
 import type { CliSpec } from '../../../src/main/gitAccess/providers'
 import { GIT_PREFIX } from './testHelpers'
 
-const gh: CliSpec = { command: 'gh', tokenEnv: 'GH_TOKEN', repoFlags: ['-R', '--repo'], repoEnv: 'GH_REPO' }
+const gh: CliSpec = {
+  command: 'gh',
+  tokenEnv: 'GH_TOKEN',
+  repoFlags: ['-R', '--repo'],
+  repoEnv: 'GH_REPO'
+}
 const base: InstallInput = {
   tokens: [{ host: 'github.com', path: 'org-a', token: 'A' }],
   providers: [{ host: 'github.com', gitUsername: 'x-access-token' }],
@@ -36,7 +41,9 @@ describe('remodeck helper asked first', () => {
         script
     )
   const password = async (path: string): Promise<string> => {
-    const r = await run(`printf 'protocol=https\\nhost=github.com\\npath=${path}\\n\\n' | git credential fill`)
+    const r = await run(
+      `printf 'protocol=https\\nhost=github.com\\npath=${path}\\n\\n' | git credential fill`
+    )
     return /^password=(.*)$/m.exec(r.stdout)?.[1] ?? ''
   }
   const status = async (): Promise<RawStatus> =>
@@ -57,7 +64,9 @@ describe('remodeck helper asked first', () => {
   })
 
   it('without the option, an include after the other helper is asked second: behind', async () => {
-    await run(`cat > "$HOME/.gitconfig" <<'EOF'\n${USER_CONFIG.slice(USER_CONFIG.indexOf('[user]'))}EOF`)
+    await run(
+      `cat > "$HOME/.gitconfig" <<'EOF'\n${USER_CONFIG.slice(USER_CONFIG.indexOf('[user]'))}EOF`
+    )
     expect((await run(buildInstallScript(base))).code).toBe(0)
     expect(await password('org-a/r.git')).toBe('FALLBACK')
     expect((await status()).helperOrder).toBe('behind')
@@ -76,7 +85,9 @@ describe('remodeck helper asked first', () => {
     await run(buildInstallScript({ ...base, helperFirst: true }))
     const text = await gitconfig()
     expect(text.startsWith(USER_CONFIG)).toBe(true)
-    expect(text.slice(USER_CONFIG.length)).toMatch(/^\[include\]\n\tpath = .*\/\.config\/remodeck\/git-access\/gitconfig\n$/)
+    expect(text.slice(USER_CONFIG.length)).toMatch(
+      /^\[include\]\n\tpath = .*\/\.config\/remodeck\/git-access\/gitconfig\n$/
+    )
   })
 
   it('does not copy its own helper or pile up fallbacks across installs', async () => {
@@ -90,7 +101,9 @@ describe('remodeck helper asked first', () => {
 
   it('reports missing after a later reset, and an update fixes it', async () => {
     await run(buildInstallScript({ ...base, helperFirst: true }))
-    await run(`printf '[credential "https://github.com"]\\n\\thelper =\\n\\thelper = !true\\n' >> "$HOME/.gitconfig"`)
+    await run(
+      `printf '[credential "https://github.com"]\\n\\thelper =\\n\\thelper = !true\\n' >> "$HOME/.gitconfig"`
+    )
     expect((await status()).helperOrder).toBe('missing')
     await run(buildInstallScript({ ...base, helperFirst: true }))
     expect((await status()).helperOrder).toBe('first')

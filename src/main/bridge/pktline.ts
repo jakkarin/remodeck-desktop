@@ -36,14 +36,16 @@ export function parseReceivePackCommands(
       throw new Error('pkt-line: payload is not valid UTF-8')
     }
     pos += len
-    if (line.startsWith('push-cert')) throw new Error('pkt-line: push certificates are not supported')
+    if (line.startsWith('push-cert'))
+      throw new Error('pkt-line: push certificates are not supported')
     const nul = line.indexOf('\0')
     if (nul !== -1) line = line.slice(0, nul)
     if (line.endsWith('\n')) line = line.slice(0, -1)
     // Shallow lines (sent by shallow clones) precede the commands and update no refs.
     if (commands.length === 0 && SHALLOW.test(line)) continue
     const m = COMMAND.exec(line)
-    if (!m || m[1].length !== m[2].length || (idLen !== 0 && m[1].length !== idLen)) throw new Error('pkt-line: malformed command line')
+    if (!m || m[1].length !== m[2].length || (idLen !== 0 && m[1].length !== idLen))
+      throw new Error('pkt-line: malformed command line')
     idLen = m[1].length
     commands.push({ oldSha: m[1], newSha: m[2], ref: m[3] })
   }

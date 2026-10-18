@@ -26,12 +26,15 @@ If a native module must compile from source on Windows, install Visual Studio Bu
 Desktop development with C++ workload, Spectre-mitigated libraries for the selected toolset and
 architecture, and Python supported by node-gyp.
 
-## Git Bash in tests
+## Bash in tests
 
-Integration tests run their scripts through `LocalTarget`, which always resolves Git for Windows'
-`bash.exe` (as the app does) and never uses `bash` from PATH, which on Windows is usually WSL's. Run
-`npm test` from any shell; if Git for Windows is not installed, those tests fail with an install
-message instead of falling back to another bash. Tests need permission to launch Git/Bash and listen on loopback ports. A restricted sandbox may
+Integration tests run their scripts through `LocalTarget`, which resolves bash the way the app does,
+through `LocalPlatform` (`src/main/platform/localPlatform.ts`). On Windows that is always Git for Windows'
+`bash.exe`, never `bash` from PATH, which on Windows is usually WSL's. If Git for Windows is not
+installed, those tests fail with an install message instead of falling back to another bash. On Linux
+and macOS it is `/bin/bash`, else the first `bash` on PATH. Run `npm test` from any shell. Tests that
+depend on one OS's file system or bash (drive paths, case-insensitive paths, `cygpath`) are skipped on
+the others; path rules for every platform are unit-tested in `tests/main/platform/localPlatform.test.ts`. Tests need permission to launch Git/Bash and listen on loopback ports. A restricted sandbox may
 deny those operations even when the app works outside that sandbox.
 
 ## Checks and builds
@@ -85,7 +88,7 @@ docker info
 npm run test:e2e -- --maxWorkers=2
 ```
 
-The normal CI job checks Windows unit, renderer and local integration tests. Docker end-to-end tests
+The normal CI jobs run unit, renderer and local integration tests on Windows and Linux. Docker end-to-end tests
 are a separate manual release check on Windows. Their temporary SSH HOME setup relies on Git for
 Windows; running these fixtures on Linux needs an explicit SSH configuration path before it can
 be supported in CI.

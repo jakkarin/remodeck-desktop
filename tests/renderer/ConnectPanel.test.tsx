@@ -12,6 +12,13 @@ vi.mock('../../src/renderer/src/components/HostSettingsDialog', () => ({
   )
 }))
 
+const platform = vi.hoisted(() => ({ windows: true }))
+vi.mock('../../src/renderer/src/platform', () => ({
+  get isWindows() {
+    return platform.windows
+  }
+}))
+
 import { api } from '../../src/renderer/src/api'
 import { ConnectPanel } from '../../src/renderer/src/components/ConnectPanel'
 import { AppStateContext, type AppState } from '../../src/renderer/src/state'
@@ -128,5 +135,28 @@ describe('ConnectPanel for This computer', () => {
     )
     expect(screen.getByText('Runs on this computer with Git Bash')).toBeInTheDocument()
     expect(screen.queryByText(/^ssh /)).toBeNull()
+  })
+
+  it('says bash instead of Git Bash off Windows', () => {
+    platform.windows = false
+    try {
+      const local: Host = {
+        id: 'local',
+        kind: 'local',
+        sshHost: '',
+        label: 'This computer',
+        protected: false
+      }
+      render(
+        <AppStateContext.Provider
+          value={makeState({ hosts: [local], statuses: { local: { state: 'disconnected' } } })}
+        >
+          <ConnectPanel host={local} />
+        </AppStateContext.Provider>
+      )
+      expect(screen.getByText('Runs on this computer with bash')).toBeInTheDocument()
+    } finally {
+      platform.windows = true
+    }
   })
 })

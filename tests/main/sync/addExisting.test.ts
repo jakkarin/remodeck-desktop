@@ -3,6 +3,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostGit } from '../../../src/main/git/hostGit'
 import { MirrorService } from '../../../src/main/mirror/mirrorService'
+import { windowsPlatform } from '../../../src/main/platform/localPlatform'
 import { LocalTarget } from '../../../src/main/sandbox/target'
 import { Store } from '../../../src/main/store/store'
 import { SyncService } from '../../../src/main/sync/syncService'
@@ -197,7 +198,10 @@ describe('SyncService.addExisting', () => {
     expect(store.config.workspaces).toHaveLength(1)
   })
 
-  it('adds a local repo by its Windows drive path, stored normalised', async () => {
+  const windowsOnly = it.skipIf(process.platform !== 'win32')
+  const posixOnly = it.skipIf(process.platform === 'win32')
+
+  windowsOnly('adds a local repo by its Windows drive path, stored normalised', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     const dir = await vmRepo('api')
     const typed = dir.replaceAll('/', '\\') + '\\'
@@ -206,7 +210,15 @@ describe('SyncService.addExisting', () => {
     expect(ws.sandboxPath).toBe(expected[0].toUpperCase() + expected.slice(1))
   })
 
-  it('adds a local repo typed in a different case than on disk', async () => {
+  posixOnly('adds a local repo by its POSIX path, stored without the trailing slash', async () => {
+    await gh.seed({ 'a.txt': 'hi' })
+    const dir = await vmRepo('api')
+    const ws = await svc.addExisting('local', `${dir}/`, ACME)
+    expect(ws.sandboxPath).toBe(dir)
+  })
+
+  // Linux file systems keep case, so /HOME/API is another folder there
+  windowsOnly('adds a local repo typed in a different case than on disk', async () => {
     await gh.seed({ 'a.txt': 'hi' })
     const dir = (await vmRepo('api')).replaceAll('\\', '/')
     const mixed = dir.replace(/\/home\/api$/, '/HOME/API')
@@ -221,7 +233,8 @@ describe('SyncService.addExisting', () => {
       mirror: new MirrorService(host, () => gh.url),
       store,
       targetFor: () => new LocalTarget(home),
-      homeDir: 'C:\\Users\\x'
+      homeDir: 'C:\\Users\\x',
+      platform: windowsPlatform
     })
     const repo = store.upsertRepo('acme', 'api')
     store.addWorkspace(repo.id, 'local', '~/repos/app')
@@ -231,9 +244,16 @@ describe('SyncService.addExisting', () => {
   })
 
   it('rejects a local duplicate typed differently', async () => {
+    const win = new SyncService({
+      git: host,
+      mirror: new MirrorService(host, () => gh.url),
+      store,
+      targetFor: () => new LocalTarget(home),
+      platform: windowsPlatform
+    })
     const repo = store.upsertRepo('acme', 'api')
     store.addWorkspace(repo.id, 'local', 'D:/develop/app')
-    await expect(svc.describeExisting('local', 'd:\\develop\\app\\')).rejects.toThrow(
+    await expect(win.describeExisting('local', 'd:\\develop\\app\\')).rejects.toThrow(
       'This workspace already exists: D:/develop/app'
     )
   })

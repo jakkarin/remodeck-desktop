@@ -23,7 +23,11 @@ const enc: Encryptor = {
 class FakeTarget implements SandboxTarget {
   scripts: string[] = []
   opts: ({ timeoutMs?: number } | undefined)[] = []
-  handler: (script: string) => ProcResult | Promise<ProcResult> = () => ({ code: 0, stdout: '', stderr: '' })
+  handler: (script: string) => ProcResult | Promise<ProcResult> = () => ({
+    code: 0,
+    stdout: '',
+    stderr: ''
+  })
   async exec(script: string, opts?: { timeoutMs?: number }): Promise<ProcResult> {
     this.scripts.push(script)
     this.opts.push(opts)
@@ -110,7 +114,8 @@ describe('TargetAccessService on This computer', () => {
 describe('TargetAccessService with a recording target', () => {
   it('installs both tokens, records them and reports status', async () => {
     const target = new FakeTarget()
-    target.handler = (s) => (s.includes('umask 077') ? ok('wrapper=gh:installed\n') : ok('helper=1\ninclude=1\n'))
+    target.handler = (s) =>
+      s.includes('umask 077') ? ok('wrapper=gh:installed\n') : ok('helper=1\ninclude=1\n')
     const status = await service(target).install(hostId, [idA, idP])
 
     expect(target.scripts).toHaveLength(2)
@@ -141,7 +146,8 @@ describe('TargetAccessService with a recording target', () => {
     target.handler = (s) => (s.includes('umask 077') ? ok('wrapper=gh:installed\n') : ok())
     const reset = 'helper =\\n\\thelper = %s'
     const svc = service(target)
-    const access = (): HostGitAccess | undefined => store.config.hosts.find((h) => h.id === hostId)!.gitAccess
+    const access = (): HostGitAccess | undefined =>
+      store.config.hosts.find((h) => h.id === hostId)!.gitAccess
 
     await svc.install(hostId, [idA])
     expect(target.scripts[0]).not.toContain(reset)
@@ -168,8 +174,14 @@ describe('TargetAccessService with a recording target', () => {
 
   it('redacts the token from a failing script error and keeps stdout out of it', async () => {
     const target = new FakeTarget()
-    target.handler = () => ({ code: 1, stdout: 'STDOUT-LINE', stderr: 'bad: tok-secret-A and tok-secret-P\n' })
-    const err = await service(target).install(hostId, [idA, idP]).catch((e: Error) => e)
+    target.handler = () => ({
+      code: 1,
+      stdout: 'STDOUT-LINE',
+      stderr: 'bad: tok-secret-A and tok-secret-P\n'
+    })
+    const err = await service(target)
+      .install(hostId, [idA, idP])
+      .catch((e: Error) => e)
     expect(err).toBeInstanceOf(Error)
     const msg = (err as Error).message
     expect(msg).toContain('***')
@@ -181,7 +193,9 @@ describe('TargetAccessService with a recording target', () => {
   it('truncates long stderr', async () => {
     const target = new FakeTarget()
     target.handler = () => ({ code: 2, stdout: '', stderr: 'x'.repeat(5000) })
-    const err = (await service(target).status(hostId).catch((e: Error) => e)) as Error
+    const err = (await service(target)
+      .status(hostId)
+      .catch((e: Error) => e)) as Error
     expect(err.message.length).toBeLessThan(600)
   })
 
@@ -207,7 +221,11 @@ describe('TargetAccessService with a recording target', () => {
 
   it('removes and clears the recorded access', async () => {
     const target = new FakeTarget()
-    store.setHostGitAccess(hostId, { installedAt: 'x', installed: { [idA]: 'u' }, wrapperVersion: 1 })
+    store.setHostGitAccess(hostId, {
+      installedAt: 'x',
+      installed: { [idA]: 'u' },
+      wrapperVersion: 1
+    })
     await service(target).remove(hostId)
     expect(target.scripts).toHaveLength(1)
     expect(target.scripts[0]).toContain('include.path')
@@ -251,9 +269,12 @@ describe('TargetAccessService with a LocalTarget', () => {
     expect(status.helperInstalled).toBe(true)
     expect(status.stale).toEqual([])
     expect(status.missing).toEqual([])
-    expect(fs.readFileSync(path.join(home, '.config/remodeck/git-access/tokens/github.com/org-a/@token'), 'utf8')).toBe(
-      'tok-secret-A'
-    )
+    expect(
+      fs.readFileSync(
+        path.join(home, '.config/remodeck/git-access/tokens/github.com/org-a/@token'),
+        'utf8'
+      )
+    ).toBe('tok-secret-A')
 
     await new Promise((r) => setTimeout(r, 5))
     store.upsertGitToken({

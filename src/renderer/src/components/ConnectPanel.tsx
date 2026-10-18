@@ -6,6 +6,7 @@ import { useAppState } from '../state'
 import { Button } from './ui/button'
 import { HostSettingsDialog } from './HostSettingsDialog'
 import { MonoLine, StatePanel } from './StatePanel'
+import { isWindows } from '../platform'
 
 /** Shown in place of a module while its host is not connected. */
 export function ConnectPanel({ host }: { host: Host }): React.JSX.Element {
@@ -64,7 +65,7 @@ export function ConnectPanel({ host }: { host: Host }): React.JSX.Element {
           title={`${host.label} is not connected`}
           description={
             isLocalHost(host) ? (
-              'Runs on this computer with Git Bash'
+              `Runs on this computer with ${isWindows ? 'Git Bash' : 'bash'}`
             ) : (
               <>
                 Connects over <MonoLine>{`ssh ${host.sshHost}`}</MonoLine>

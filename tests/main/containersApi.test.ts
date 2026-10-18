@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
+import { windowsPlatform } from '../../src/main/platform/localPlatform'
 import { containersApi, wireContainerService } from '../../src/main/app'
 import type { DockerCapability, Host } from '../../src/shared/types'
 import type { ContainerAction } from '../../src/shared/containers'
@@ -83,7 +84,14 @@ function setup(
     disconnect: () => (connected = false),
     terminal,
     builds,
-    api: containersApi({ hostOf, connection, service, terminal, builds })
+    api: containersApi({
+      hostOf,
+      connection,
+      service,
+      terminal,
+      builds,
+      platform: windowsPlatform
+    })
   }
 }
 

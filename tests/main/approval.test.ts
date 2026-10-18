@@ -32,7 +32,9 @@ const base = (sessionId = 's1') => ({
   ]
 })
 
-function make(decision: ApprovalDecision | Promise<ApprovalDecision> | (() => Promise<ApprovalDecision>)) {
+function make(
+  decision: ApprovalDecision | Promise<ApprovalDecision> | (() => Promise<ApprovalDecision>)
+) {
   const prompt = vi.fn(async (_req: ApprovalRequest) =>
     typeof decision === 'function' ? decision() : decision
   )

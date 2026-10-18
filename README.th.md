@@ -13,12 +13,13 @@ Windows ของคุณ และ host ระยะไกลไม่ต้�
 พร้อม popup ให้อนุมัติ
 
 **สถานะ:** อยู่ในช่วงพัฒนาเริ่มต้น รองรับการพัฒนาและแพ็กเกจบน Windows x64 เท่านั้น
-script แพ็กเกจของ macOS/Linux ยังเป็นแบบทดลองและไม่ได้ตรวจใน CI ของ Windows
+script แพ็กเกจของ macOS/Linux ยังเป็นแบบทดลองและไม่ได้ตรวจใน CI (job ของ Linux รันเฉพาะ checks และ tests ไม่ได้แพ็กเกจ)
 ควรลองกับ repository และ host ที่ทิ้งได้ก่อนนำไปใช้กับงานสำคัญ
 
 ## เริ่มต้น
 
-สำหรับ repository บนเครื่องนี้ ให้ติดตั้ง Git for Windows และ Node.js 24 แล้วรัน:
+สำหรับ repository บนเครื่องนี้ ให้ติดตั้ง Node.js 24 และบน Windows ให้ติดตั้ง Git for Windows ด้วย
+(Linux และ macOS ใช้ bash ของระบบ) แล้วรัน:
 
 ```bash
 git clone https://github.com/jakkarin/remodeck-desktop.git
@@ -35,7 +36,8 @@ npm run dev
 ## สิ่งที่ต้องมี
 
 - **Windows x64** ที่ติดตั้ง **Git for Windows** (รวม Git Bash) และ **Node.js 24 / npm 11**
-  (`.node-version` ระบุ Node major ที่ใช้ใน CI)
+  (`.node-version` ระบุ Node major ที่ใช้ใน CI) บน Linux และ macOS (แบบทดลอง) ใช้ `bash` และ `git`
+  แทน Git for Windows
 - สำหรับ host ระยะไกล: ตั้ง SSH alias ใน `~/.ssh/config` ให้ `ssh <alias>` ใช้ได้จาก Windows (โหลด key ไว้ใน ssh-agent)
 - ติดตั้ง `git` บน Windows และบน host ระยะไกลทุกเครื่อง
 - login GitHub บน Windows ผ่าน Git Credential Manager:
@@ -60,7 +62,7 @@ npm run build:win # สร้าง Windows installer แบบไม่ sign �
 ```
 
 ดู [การตั้งค่าสำหรับพัฒนาและการแก้ปัญหา](docs/development.md) สำหรับการตั้ง Git Bash และ Docker tests
-CI ตรวจ lint, types, tests, dependency audit และ Windows installer
+CI ตรวจ lint, types และ tests บน Windows และ Linux รวมถึง dependency audit และ Windows installer
 Docker end-to-end tests รันแยกบน Windows ที่รองรับและมี Docker Engine ทำงานอยู่
 
 Checklist ทดสอบ end-to-end ด้วยมือ: [docs/manual-test.md](docs/manual-test.md)
@@ -69,12 +71,14 @@ UI tokens และการใช้ component: [Neutral design guidelines](doc
 
 ## เครื่องนี้ (This computer)
 
-host แรกในรายการคือ **This computer** เสมอ และแอปเปิดมาที่ host นี้ทุกครั้ง ใช้จัดการ repo บนเครื่อง Windows นี้
-โดยไม่ต้องใช้ SSH: Clone, Add existing (path เช่น `D:/projects/app` หรือ `D:\projects\app`),
-Sync, Review, Push และ PR ทำได้เหมือน host อื่น terminal เปิดเป็น Git Bash ใน repo และ `git push` จาก terminal
-ยังผ่าน Git Bridge และ popup อนุมัติเหมือนเดิม ส่วน Containers ใช้ Docker บนเครื่องนี้
+host แรกในรายการคือ **This computer** เสมอ และแอปเปิดมาที่ host นี้ทุกครั้ง ใช้จัดการ repo บนเครื่องนี้
+โดยไม่ต้องใช้ SSH: Clone, Add existing, Sync, Review, Push และ PR ทำได้เหมือน host อื่น terminal เปิดเป็น bash
+ใน repo และ `git push` จาก terminal ยังผ่าน Git Bridge และ popup อนุมัติเหมือนเดิม ส่วน Containers ใช้ Docker บนเครื่องนี้
 
-- ต้องติดตั้ง **Git for Windows** (ใช้ `bash.exe` ของ Git for Windows และไม่ใช้ bash ของ WSL) ถ้ายังไม่มี ปุ่ม Connect จะบอกวิธีติดตั้ง
+- บน **Windows** ต้องติดตั้ง **Git for Windows** (ใช้ `bash.exe` ของ Git for Windows และไม่ใช้ bash ของ WSL)
+  path เป็นแบบ `D:/projects/app` หรือ `D:\projects\app` ถ้ายังไม่มี Git for Windows ปุ่ม Connect จะบอกวิธีติดตั้ง
+- บน **Linux และ macOS** (แบบทดลอง) ใช้ `/bin/bash` หรือ `bash` ตัวแรกใน `PATH` และ path เป็นแบบ
+  `~/projects/app` หรือ `/home/me/projects/app` การเทียบ path สนตัวพิมพ์เล็ก/ใหญ่บน Linux แต่ไม่สนบน macOS
 - Containers ต้องใช้ Docker Desktop (หรือ Docker engine อื่นบนเครื่อง)
 - เครื่องนี้ไม่ใช่ sandbox: โปรแกรมใดก็ตามที่รันบนเครื่องใช้ login ของ Git Credential Manager ได้อยู่แล้ว
   popup อนุมัติครอบคลุมเฉพาะการ push จาก terminal ที่เปิดจาก remodeck ไม่มีตัวเลือก _Git access on this host_

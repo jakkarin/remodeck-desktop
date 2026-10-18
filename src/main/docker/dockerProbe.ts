@@ -23,14 +23,21 @@ export function parseDockerProbe(stdout: string): DockerCapability {
   const dockerOutput = body.join('\n').trim()
 
   if (exitCode !== '0') {
-    if (/permission denied/i.test(dockerOutput)) return { state: 'no-permission', detail: NO_PERMISSION }
-    return { state: 'no-daemon', detail: dockerOutput ? `${NO_DAEMON}\n${dockerOutput}` : NO_DAEMON }
+    if (/permission denied/i.test(dockerOutput))
+      return { state: 'no-permission', detail: NO_PERMISSION }
+    return {
+      state: 'no-daemon',
+      detail: dockerOutput ? `${NO_DAEMON}\n${dockerOutput}` : NO_DAEMON
+    }
   }
-  if (dialIdx >= 0 && lines[dialIdx].slice(10).trim() === '0') return { state: 'too-old', detail: TOO_OLD }
+  if (dialIdx >= 0 && lines[dialIdx].slice(10).trim() === '0')
+    return { state: 'too-old', detail: TOO_OLD }
 
   const json = body.map((l) => l.trim()).find((l) => l.startsWith('{'))
   try {
-    const server = json ? (JSON.parse(json) as { Server?: { Version?: string; ApiVersion?: string } }).Server : undefined
+    const server = json
+      ? (JSON.parse(json) as { Server?: { Version?: string; ApiVersion?: string } }).Server
+      : undefined
     if (server?.Version && server.ApiVersion) {
       return { state: 'ok', version: server.Version, apiVersion: server.ApiVersion }
     }

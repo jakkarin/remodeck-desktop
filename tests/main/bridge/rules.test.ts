@@ -8,7 +8,9 @@ const policy = { enforceRules: true, protectedBranches: ['main', 'release'] }
 
 describe('evaluateRules', () => {
   it('blocks deletions', () => {
-    expect(evaluateRules([{ oldSha: A, newSha: ZERO_SHA, ref: 'refs/heads/feat' }], policy)).toEqual({
+    expect(
+      evaluateRules([{ oldSha: A, newSha: ZERO_SHA, ref: 'refs/heads/feat' }], policy)
+    ).toEqual({
       allowed: false,
       reason: 'Deleting is not allowed: refs/heads/feat'
     })
@@ -24,12 +26,20 @@ describe('evaluateRules', () => {
     })
   })
   it('matches protected names exactly', () => {
-    expect(evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/main2' }], policy).allowed).toBe(true)
-    expect(evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/feat/main' }], policy).allowed).toBe(true)
+    expect(evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/main2' }], policy).allowed).toBe(
+      true
+    )
+    expect(
+      evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/feat/main' }], policy).allowed
+    ).toBe(true)
   })
   it('allows other branches and tags', () => {
-    expect(evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/feat' }], policy)).toEqual({ allowed: true })
-    expect(evaluateRules([{ oldSha: ZERO_SHA, newSha: B, ref: 'refs/tags/v1' }], policy)).toEqual({ allowed: true })
+    expect(evaluateRules([{ oldSha: A, newSha: B, ref: 'refs/heads/feat' }], policy)).toEqual({
+      allowed: true
+    })
+    expect(evaluateRules([{ oldSha: ZERO_SHA, newSha: B, ref: 'refs/tags/v1' }], policy)).toEqual({
+      allowed: true
+    })
   })
   it('allows everything when enforceRules is false', () => {
     const off = { enforceRules: false, protectedBranches: ['main'] }

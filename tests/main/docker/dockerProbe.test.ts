@@ -13,7 +13,8 @@ describe('parseDockerProbe', () => {
     const r = parseDockerProbe(out)
     expect(r.state).toBe('no-permission')
     expect(r).toMatchObject({
-      detail: 'This user has no permission to use docker — run sudo usermod -aG docker $USER, then disconnect and connect again'
+      detail:
+        'This user has no permission to use docker — run sudo usermod -aG docker $USER, then disconnect and connect again'
     })
   })
   it('no-daemon keeps the docker output', () => {
@@ -30,7 +31,10 @@ describe('parseDockerProbe', () => {
       parseDockerProbe(
         'probe-exit=0\n{"Server":{"Version":"18.06.0","ApiVersion":"1.38"}}\ndialstdio=0\n'
       )
-    ).toEqual({ state: 'too-old', detail: 'Docker on this host is too old (18.09 or newer required)' }))
+    ).toEqual({
+      state: 'too-old',
+      detail: 'Docker on this host is too old (18.09 or newer required)'
+    }))
   it('ok', () =>
     expect(
       parseDockerProbe(
@@ -39,12 +43,17 @@ describe('parseDockerProbe', () => {
     ).toEqual({ state: 'ok', version: '27.3.1', apiVersion: '1.47' }))
   it('ok output without Server is no-daemon', () => {
     const r = parseDockerProbe('probe-exit=0\n{"Client":{}}\ndialstdio=1\n')
-    expect(r).toEqual({ state: 'no-daemon', detail: 'The docker daemon is not running — e.g. sudo systemctl start docker' })
+    expect(r).toEqual({
+      state: 'no-daemon',
+      detail: 'The docker daemon is not running — e.g. sudo systemctl start docker'
+    })
   })
   it('unparsable JSON is no-daemon; CRLF tolerated', () => {
     expect(parseDockerProbe('probe-exit=0\r\n{oops\r\ndialstdio=1\r\n').state).toBe('no-daemon')
     expect(
-      parseDockerProbe('probe-exit=0\r\n{"Server":{"Version":"1","ApiVersion":"2"}}\r\ndialstdio=1\r\n').state
+      parseDockerProbe(
+        'probe-exit=0\r\n{"Server":{"Version":"1","ApiVersion":"2"}}\r\ndialstdio=1\r\n'
+      ).state
     ).toBe('ok')
   })
   it('script contains the probe markers', () => {

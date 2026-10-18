@@ -115,7 +115,12 @@ describe('SyncService.sync', () => {
     await git(sb('w1'), 'branch', '-D', 'feat-a')
     const res = await svc.sync(ws)
     expect(res.rewritten).toEqual([])
-    const refs = await git(mirrorPath, 'for-each-ref', '--format=%(refname)', `refs/remotes/ws-${ws.id}`)
+    const refs = await git(
+      mirrorPath,
+      'for-each-ref',
+      '--format=%(refname)',
+      `refs/remotes/ws-${ws.id}`
+    )
     expect(refs).not.toContain('feat-a')
   })
 
@@ -173,13 +178,19 @@ describe('SyncService.fetchSandbox', () => {
     mirrorPath = store.mirrorPath(repo)
     return ws
   }
-  const commit = async (dir: string, file: string, msg: string, ...extra: string[]): Promise<string> => {
+  const commit = async (
+    dir: string,
+    file: string,
+    msg: string,
+    ...extra: string[]
+  ): Promise<string> => {
     fs.writeFileSync(path.join(dir, file), msg)
     await git(dir, 'add', '-A')
     await git(dir, ...ident, 'commit', ...extra, '-m', msg)
     return (await git(dir, 'rev-parse', 'HEAD')).trim()
   }
-  const rev = async (cwd: string, ref: string): Promise<string> => (await git(cwd, 'rev-parse', ref)).trim()
+  const rev = async (cwd: string, ref: string): Promise<string> =>
+    (await git(cwd, 'rev-parse', ref)).trim()
 
   it('fetches new sandbox commits into refs/remotes/ws-<id>/*', async () => {
     const ws = await makeWs('w1')

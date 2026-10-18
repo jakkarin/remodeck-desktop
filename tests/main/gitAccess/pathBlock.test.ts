@@ -16,13 +16,19 @@ import type { ProcResult } from '../../../src/main/proc/run'
 import type { CliSpec } from '../../../src/main/gitAccess/providers'
 import { GIT_PREFIX } from './testHelpers'
 
-const gh: CliSpec = { command: 'gh', tokenEnv: 'GH_TOKEN', repoFlags: ['-R', '--repo'], repoEnv: 'GH_REPO' }
+const gh: CliSpec = {
+  command: 'gh',
+  tokenEnv: 'GH_TOKEN',
+  repoFlags: ['-R', '--repo'],
+  repoEnv: 'GH_REPO'
+}
 const base: InstallInput = {
   tokens: [{ host: 'github.com', path: 'org-a', token: 'A' }],
   providers: [{ host: 'github.com', gitUsername: 'x-access-token' }],
   wrappers: [{ cli: gh, defaultHost: 'github.com' }]
 }
-const UBUNTU_RC = '# ~/.bashrc\ncase $- in\n    *i*) ;;\n      *) return;;\nesac\nalias ll="ls -l"\n'
+const UBUNTU_RC =
+  '# ~/.bashrc\ncase $- in\n    *i*) ;;\n      *) return;;\nesac\nalias ll="ls -l"\n'
 
 describe('PATH block in ~/.bashrc', () => {
   let home: string
@@ -61,7 +67,9 @@ describe('PATH block in ~/.bashrc', () => {
   it('makes a non-interactive bash that sources ~/.bashrc find ~/.local/bin first, without duplicating it', async () => {
     await writeRc(UBUNTU_RC)
     await run(buildInstallScript({ ...base, pathBlock: true }))
-    const first = await run('. "$HOME/.bashrc"; case "$PATH" in "$HOME/.local/bin:"*) echo first ;; esac')
+    const first = await run(
+      '. "$HOME/.bashrc"; case "$PATH" in "$HOME/.local/bin:"*) echo first ;; esac'
+    )
     expect(first.stdout.trim()).toBe('first')
     const twice = await run(
       '. "$HOME/.bashrc"; . "$HOME/.bashrc"; printf %s "$PATH" | tr : "\\n" | grep -Fxc "$HOME/.local/bin"'
@@ -92,12 +100,15 @@ describe('PATH block in ~/.bashrc', () => {
     expect((await run('cat "$HOME/dot-bashrc"')).stdout).toBe('real\n')
   })
 
-  it.skipIf(process.platform === 'win32')('keeps the file mode of an existing ~/.bashrc', async () => {
-    await writeRc(UBUNTU_RC)
-    await run('chmod 640 "$HOME/.bashrc"')
-    await run(buildInstallScript({ ...base, pathBlock: true }))
-    expect((await run('stat -c %a "$HOME/.bashrc"')).stdout.trim()).toBe('640')
-  })
+  it.skipIf(process.platform === 'win32')(
+    'keeps the file mode of an existing ~/.bashrc',
+    async () => {
+      await writeRc(UBUNTU_RC)
+      await run('chmod 640 "$HOME/.bashrc"')
+      await run(buildInstallScript({ ...base, pathBlock: true }))
+      expect((await run('stat -c %a "$HOME/.bashrc"')).stdout.trim()).toBe('640')
+    }
+  )
 
   it('status reports the block', async () => {
     const status = async (): Promise<RawStatus> =>

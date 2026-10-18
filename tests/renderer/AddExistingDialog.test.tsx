@@ -9,6 +9,13 @@ vi.mock('../../src/renderer/src/api', () => ({
   errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e))
 }))
 
+const platform = vi.hoisted(() => ({ windows: true }))
+vi.mock('../../src/renderer/src/platform', () => ({
+  get isWindows() {
+    return platform.windows
+  }
+}))
+
 import type { ExistingRepoInfo, Workspace } from '../../src/shared/types'
 import { api } from '../../src/renderer/src/api'
 import { AddExistingDialog } from '../../src/renderer/src/components/AddExistingDialog'
@@ -229,6 +236,25 @@ describe('AddExistingDialog on This computer', () => {
       </AppStateContext.Provider>
     )
     expect(screen.getByLabelText('Path')).toHaveAttribute('placeholder', 'D:/projects/my-app')
+  })
+
+  it('suggests a home path for the local host off Windows', () => {
+    platform.windows = false
+    try {
+      const value = {
+        hosts: [
+          { id: 'local', kind: 'local', sshHost: '', label: 'This computer', protected: false }
+        ]
+      } as unknown as AppState
+      render(
+        <AppStateContext.Provider value={value}>
+          <AddExistingDialog hostIds={['local']} onClose={vi.fn()} onAdded={vi.fn()} />
+        </AppStateContext.Provider>
+      )
+      expect(screen.getByLabelText('Path')).toHaveAttribute('placeholder', '~/work/my-app')
+    } finally {
+      platform.windows = true
+    }
   })
 })
 

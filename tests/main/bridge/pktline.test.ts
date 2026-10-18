@@ -113,7 +113,9 @@ describe('parseReceivePackCommands', () => {
     expect(() => parseReceivePackCommands(Buffer.from('0003'))).toThrow()
     expect(() => parseReceivePackCommands(Buffer.from(pkt('hello world\n') + '0000'))).toThrow()
     expect(() => parseReceivePackCommands(Buffer.from(pkt(`${A} ${B} \n`) + '0000'))).toThrow()
-    expect(() => parseReceivePackCommands(Buffer.from(pkt(`${A} ${'b'.repeat(64)} refs/heads/x\n`) + '0000'))).toThrow()
+    expect(() =>
+      parseReceivePackCommands(Buffer.from(pkt(`${A} ${'b'.repeat(64)} refs/heads/x\n`) + '0000'))
+    ).toThrow()
   })
 
   it('throws instead of waiting when a bad prefix follows incomplete data', () => {
@@ -130,20 +132,34 @@ describe('parseReceivePackCommands', () => {
     ])
     const r = parseReceivePackCommands(header)
     expect(r?.commands[0].ref).toBe('refs/heads/ทดสอบ')
-    expect(evaluateRules(r!.commands, { enforceRules: true, protectedBranches: ['ทดสอบ'] })).toEqual({
+    expect(
+      evaluateRules(r!.commands, { enforceRules: true, protectedBranches: ['ทดสอบ'] })
+    ).toEqual({
       allowed: false,
       reason: 'branch ทดสอบ is protected'
     })
   })
 
   it('throws on invalid UTF-8 payloads', () => {
-    const bytes = Buffer.concat([Buffer.from(`${A} ${B} refs/heads/`), Buffer.from([0xff, 0xfe]), Buffer.from('\n')])
-    expect(() => parseReceivePackCommands(Buffer.concat([rawPkt(bytes), Buffer.from('0000')]))).toThrow()
+    const bytes = Buffer.concat([
+      Buffer.from(`${A} ${B} refs/heads/`),
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from('\n')
+    ])
+    expect(() =>
+      parseReceivePackCommands(Buffer.concat([rawPkt(bytes), Buffer.from('0000')]))
+    ).toThrow()
   })
 
   it('skips shallow lines before the first command only', () => {
-    const ok = pkt(`shallow ${A}\n`) + pkt(`shallow ${'b'.repeat(40)}\n`) + pkt(`${A} ${B} refs/heads/x\0caps\n`) + '0000'
-    expect(parseReceivePackCommands(Buffer.from(ok))?.commands).toEqual([{ oldSha: A, newSha: B, ref: 'refs/heads/x' }])
+    const ok =
+      pkt(`shallow ${A}\n`) +
+      pkt(`shallow ${'b'.repeat(40)}\n`) +
+      pkt(`${A} ${B} refs/heads/x\0caps\n`) +
+      '0000'
+    expect(parseReceivePackCommands(Buffer.from(ok))?.commands).toEqual([
+      { oldSha: A, newSha: B, ref: 'refs/heads/x' }
+    ])
     const bad = pkt(`${A} ${B} refs/heads/x\0caps\n`) + pkt(`shallow ${A}\n`) + '0000'
     expect(() => parseReceivePackCommands(Buffer.from(bad))).toThrow()
     expect(() => parseReceivePackCommands(Buffer.from(pkt('shallow nothex\n') + '0000'))).toThrow()

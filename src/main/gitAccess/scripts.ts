@@ -172,7 +172,9 @@ IFS=$oldifs`
 export function cliWrapperScript(cli: CliSpec, defaultHost: string, version: number): string {
   const cmd = cli.command
   const flagCases = cli.repoFlags.map((f) =>
-    f.startsWith('--') ? `    ${f}=*) repo=\${arg#${f}=}; break ;;` : `    ${f}?*) repo=\${arg#${f}}; break ;;`
+    f.startsWith('--')
+      ? `    ${f}=*) repo=\${arg#${f}=}; break ;;`
+      : `    ${f}?*) repo=\${arg#${f}}; break ;;`
   )
   // gh also honours GITHUB_TOKEN; other CLIs only their own variable
   const alreadySet = [cli.tokenEnv, ...(cli.tokenEnv === 'GH_TOKEN' ? ['GITHUB_TOKEN'] : [])]
@@ -292,7 +294,9 @@ export function buildInstallScript(input: InstallInput): string {
   ]
   if (input.helperFirst) out.push(HELPER_LIST_FN)
   for (const p of input.providers) {
-    out.push(`printf '%s %s\\n' ${shQuote(p.host)} ${shQuote(p.gitUsername)} >> "$ROOT/providers.conf.tmp"`)
+    out.push(
+      `printf '%s %s\\n' ${shQuote(p.host)} ${shQuote(p.gitUsername)} >> "$ROOT/providers.conf.tmp"`
+    )
     if (!input.helperFirst) {
       out.push(
         `printf '[credential "https://%s"]\\n\\thelper = %s\\n\\tuseHttpPath = true\\n' ${shQuote(p.host)} "$ROOT/git-credential-remodeck" >> "$ROOT/gitconfig.tmp"`
