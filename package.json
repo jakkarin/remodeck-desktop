@@ -28,6 +28,7 @@
     "test": "vitest run",
     "install:electron": "install-electron",
     "check:native": "node scripts/check-native.mjs",
+    "postinstall": "node scripts/fix-node-pty-helper.mjs",
     "build": "npm run typecheck && electron-vite build",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win --publish never",
