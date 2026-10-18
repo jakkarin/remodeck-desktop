@@ -13,7 +13,7 @@ Windows ของคุณ และ host ระยะไกลไม่ต้�
 พร้อม popup ให้อนุมัติ
 
 **สถานะ:** อยู่ในช่วงพัฒนาเริ่มต้น รองรับการพัฒนาและแพ็กเกจบน Windows x64 เท่านั้น
-script แพ็กเกจของ macOS/Linux ยังเป็นแบบทดลองและไม่ได้ตรวจใน CI ของ Windows
+script แพ็กเกจของ macOS/Linux ยังเป็นแบบทดลองและไม่ได้ตรวจใน CI (job ของ Linux รันเฉพาะ checks และ tests ไม่ได้แพ็กเกจ)
 ควรลองกับ repository และ host ที่ทิ้งได้ก่อนนำไปใช้กับงานสำคัญ
 
 ## เริ่มต้น
@@ -62,7 +62,7 @@ npm run build:win # สร้าง Windows installer แบบไม่ sign �
 ```
 
 ดู [การตั้งค่าสำหรับพัฒนาและการแก้ปัญหา](docs/development.md) สำหรับการตั้ง Git Bash และ Docker tests
-CI ตรวจ lint, types, tests, dependency audit และ Windows installer
+CI ตรวจ lint, types และ tests บน Windows และ Linux รวมถึง dependency audit และ Windows installer
 Docker end-to-end tests รันแยกบน Windows ที่รองรับและมี Docker Engine ทำงานอยู่
 
 Checklist ทดสอบ end-to-end ด้วยมือ: [docs/manual-test.md](docs/manual-test.md)

@@ -59,3 +59,23 @@ jobs:
           path: dist/*-setup.exe
           if-no-files-found: error
           retention-days: 7
+
+  linux:
+    name: Linux checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: git config --global init.defaultBranch main
+      - run: npm ci --ignore-scripts=false
+      - run: npm run install:electron
+      - run: npm run check:native
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --maxWorkers=4

@@ -88,7 +88,7 @@ docker info
 npm run test:e2e -- --maxWorkers=2
 ```
 
-The normal CI job checks Windows unit, renderer and local integration tests. Docker end-to-end tests
+The normal CI jobs run unit, renderer and local integration tests on Windows and Linux. Docker end-to-end tests
 are a separate manual release check on Windows. Their temporary SSH HOME setup relies on Git for
 Windows; running these fixtures on Linux needs an explicit SSH configuration path before it can
 be supported in CI.

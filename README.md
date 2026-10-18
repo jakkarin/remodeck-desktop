@@ -10,7 +10,7 @@ Windows computer; the remote host needs no direct connection to GitHub. An optio
 this host** mode installs scoped tokens on a remote host; see the security boundary below.
 
 **Status:** early development. Windows x64 is the supported development and packaging target.
-macOS/Linux packaging scripts are experimental and are not validated by the Windows CI job.
+macOS/Linux packaging scripts are experimental and are not validated in CI (the Linux job runs checks and tests, not packaging).
 Try it with disposable repositories and hosts before using it with important work.
 
 ## Quick start
@@ -59,7 +59,7 @@ npm run build:win # create an unsigned Windows installer in dist/; never publish
 ```
 
 See [development setup and troubleshooting](docs/development.md) for Git Bash setup and Docker tests.
-CI checks lint, types, tests, the dependency audit and the Windows installer.
+CI checks lint, types and tests on Windows and Linux, plus the dependency audit and the Windows installer.
 Docker end-to-end tests run separately on the supported Windows setup with an active Docker Engine.
 
 Manual end-to-end checklist: [docs/manual-test.md](docs/manual-test.md).
