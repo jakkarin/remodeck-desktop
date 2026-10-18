@@ -12,7 +12,7 @@ export type BashLookup = {
 /**
  * Everything about "This computer" that depends on the OS it runs on: which bash runs local scripts and
  * terminals, and how local sandbox paths are written, cleaned and compared. Pick one with localPlatformFor
- * (the app uses localPlatform, chosen once from process.platform) and pass it on; nothing else checks the OS.
+ * (the app uses localPlatform, chosen once from process.platform) and pass it on; no other local code checks the OS.
  */
 export interface LocalPlatform {
   readonly kind: 'windows' | 'linux' | 'mac'
