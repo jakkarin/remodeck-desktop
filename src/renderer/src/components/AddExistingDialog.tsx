@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Field, FieldGroup, FieldLabel } from './ui/field'
 import { Input } from './ui/input'
 import { NativeSelect, NativeSelectOption } from './ui/native-select'
+import { isWindows } from '../platform'
 
 export function AddExistingDialog({
   hostIds,
@@ -110,7 +111,7 @@ export function AddExistingDialog({
                 id="existing-path"
                 className="font-mono"
                 value={path}
-                placeholder={local ? 'D:/projects/my-app' : '~/work/my-app'}
+                placeholder={local && isWindows ? 'D:/projects/my-app' : '~/work/my-app'}
                 onChange={(e) => {
                   setPath(e.target.value)
                   setInfo(null)

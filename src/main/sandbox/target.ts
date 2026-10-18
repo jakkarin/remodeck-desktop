@@ -30,8 +30,9 @@ export class SshTarget implements SandboxTarget {
 }
 
 /**
- * Runs scripts on this computer with homeDir as HOME, always under Git for Windows' bash (never `bash` from PATH,
- * which is usually WSL's). bashPath defaults to the resolved one; null means it is missing, which makes exec reject.
+ * Runs scripts on this computer with homeDir as HOME under the local bash: on Windows always Git for Windows'
+ * (never `bash` from PATH, which is usually WSL's).
+ * bashPath defaults to the resolved one; null means it is missing, which makes exec reject.
  */
 export class LocalTarget implements SandboxTarget {
   private readonly homeDir: string

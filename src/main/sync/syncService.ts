@@ -425,7 +425,8 @@ export class SyncService {
         'toppath=""',
         '[ -n "$top" ] && toppath="$(cd "$top" 2>/dev/null && pwd -P)"',
         // Windows paths are case-insensitive and pwd keeps the case the user typed
-        this.isLocal(hostId)
+        // (`,,` needs bash 4, which macOS' /bin/bash is not, so only fold where it matters)
+        this.isLocal(hostId) && process.platform === 'win32'
           ? `[ "\${toppath,,}" = "\${real,,}" ] || { printf '%s' "$toppath"; exit ${NOT_ROOT_CODE}; }`
           : `[ "$toppath" = "$real" ] || { printf '%s' "$toppath"; exit ${NOT_ROOT_CODE}; }`,
         'url="$(git -C "$p" config --get remote.origin.url 2>/dev/null)"',

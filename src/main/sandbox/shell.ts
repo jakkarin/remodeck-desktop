@@ -15,17 +15,22 @@ const MSYS_DRIVE = /^\/([A-Za-z])(\/|$)/
 
 /**
  * Sandbox paths must be absolute or a subdirectory of `~/` (relative and `~user` forms are rejected).
- * The local host also takes Windows drive paths (`D:/x`, `D:\x`), but of the `/` forms only Git Bash's `/d/x`:
+ * On Windows the local host also takes drive paths (`D:/x`, `D:\x`), but of the `/` forms only Git Bash's `/d/x`:
  * other ones (`/tmp`, `/home`) mean one folder inside Git Bash and another to native git.exe and node-pty.
+ * On other platforms the local host takes plain POSIX paths.
  */
-export function validateSandboxPath(p: string, opts?: { local?: boolean }): void {
-  if (opts?.local && p.startsWith('/') && !MSYS_DRIVE.test(p))
+export function validateSandboxPath(
+  p: string,
+  opts?: { local?: boolean; platform?: NodeJS.Platform }
+): void {
+  const windows = !!opts?.local && (opts.platform ?? process.platform) === 'win32'
+  if (windows && p.startsWith('/') && !MSYS_DRIVE.test(p))
     throw new Error('Use a Windows path like D:/projects/app')
   const rest = p.startsWith('~/')
     ? p.slice(2)
     : p.startsWith('/')
       ? p.slice(1)
-      : opts?.local && DRIVE_PATH.test(p)
+      : windows && DRIVE_PATH.test(p)
         ? p.slice(3)
         : null
   if (rest === null || rest.replace(/[\\/]/g, '') === '') {
@@ -34,25 +39,45 @@ export function validateSandboxPath(p: string, opts?: { local?: boolean }): void
 }
 
 /**
- * Canonical form of a local-host path: forward slashes, upper-case drive, no trailing `/`.
- * Git Bash's `/d/x` becomes `D:/x`; `~` and other paths only lose the trailing `/`.
+ * Canonical form of a local-host path: `~` expanded when homeDir is given, no trailing `/`.
+ * On Windows also forward slashes and an upper-case drive, with Git Bash's `/d/x` becoming `D:/x`.
  */
-export function normalizeLocalPath(p: string, homeDir?: string): string {
-  let s = p.replaceAll('\\', '/')
+export function normalizeLocalPath(
+  p: string,
+  homeDir?: string,
+  platform: NodeJS.Platform = process.platform
+): string {
+  const windows = platform === 'win32'
+  let s = windows ? p.replaceAll('\\', '/') : p
   if (homeDir !== undefined && (s === '~' || s.startsWith('~/'))) {
-    const home = normalizeLocalPath(homeDir)
+    const home = normalizeLocalPath(homeDir, undefined, platform)
     s = s === '~' ? home : `${home.replace(/\/$/, '')}/${s.slice(2)}`
   }
-  const msys = MSYS_DRIVE.exec(s)
-  if (msys) s = `${msys[1]}:/${s.slice(msys[0].length)}`
-  if (/^[A-Za-z]:\//.test(s)) s = s[0].toUpperCase() + s.slice(1)
+  if (windows) {
+    const msys = MSYS_DRIVE.exec(s)
+    if (msys) s = `${msys[1]}:/${s.slice(msys[0].length)}`
+    if (/^[A-Za-z]:\//.test(s)) s = s[0].toUpperCase() + s.slice(1)
+  }
   const trimmed = s.replace(/\/+$/, '')
   return /^[A-Z]:$/.test(trimmed) ? `${trimmed}/` : trimmed || s
 }
 
-/** Whether two sandbox paths name the same folder; local paths compare normalised and case-insensitively. */
-export function sameSandboxPath(a: string, b: string, local: boolean, homeDir?: string): boolean {
+/**
+ * Whether two sandbox paths name the same folder. Local paths compare normalised, and case-insensitively
+ * on Windows and macOS, whose default file systems ignore case.
+ */
+export function sameSandboxPath(
+  a: string,
+  b: string,
+  local: boolean,
+  homeDir?: string,
+  platform: NodeJS.Platform = process.platform
+): boolean {
   if (!local) return a.replace(/\/+$/, '') === b.replace(/\/+$/, '')
-  const norm = (p: string): string => normalizeLocalPath(p, homeDir).toLowerCase()
+  const fold = platform === 'win32' || platform === 'darwin'
+  const norm = (p: string): string => {
+    const n = normalizeLocalPath(p, homeDir, platform)
+    return fold ? n.toLowerCase() : n
+  }
   return norm(a) === norm(b)
 }

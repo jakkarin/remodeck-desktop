@@ -29,7 +29,7 @@ export type PtySpawner = (
 
 type Deps = {
   sshPath: string
-  /** Git for Windows' bash for the local host; null when it is not installed. */
+  /** The local host's bash (Git for Windows' on Windows); null when it is not installed. */
   bashPath: string | null
   homeDir: string
   bridgePort: () => number

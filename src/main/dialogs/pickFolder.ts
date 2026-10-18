@@ -5,7 +5,10 @@ export type ShowFolderDialog = (opts: {
   defaultPath?: string
 }) => Promise<{ canceled: boolean; filePaths: string[] }>
 
-const LOCAL_START = /^(?:[A-Za-z]:[\\/]|~(?:[\\/]|$)|\/[A-Za-z](?:\/|$))/
+const WINDOWS = process.platform === 'win32'
+const LOCAL_START = WINDOWS
+  ? /^(?:[A-Za-z]:[\\/]|~(?:[\\/]|$)|\/[A-Za-z](?:\/|$))/
+  : /^(?:~(?:\/|$)|\/)/
 
 /**
  * Asks the user for a folder on This computer. `start` comes from the renderer, so it only opens the
@@ -17,8 +20,10 @@ export async function pickFolder(
   homeDir: string
 ): Promise<string | null> {
   const opts: { defaultPath?: string } = {}
-  if (typeof start === 'string' && LOCAL_START.test(start.trim()))
-    opts.defaultPath = normalizeLocalPath(start.trim(), homeDir).replaceAll('/', '\\')
+  if (typeof start === 'string' && LOCAL_START.test(start.trim())) {
+    const p = normalizeLocalPath(start.trim(), homeDir)
+    opts.defaultPath = WINDOWS ? p.replaceAll('/', '\\') : p
+  }
   const r = await show(opts)
   if (r.canceled || r.filePaths.length === 0) return null
   return normalizeLocalPath(r.filePaths[0])

@@ -81,3 +81,28 @@ describe('local paths', () => {
     expect(sameSandboxPath('/srv/app/', '/srv/app', false)).toBe(true)
   })
 })
+
+describe('local paths off Windows', () => {
+  const linux = { local: true, platform: 'linux' as const }
+
+  it('accepts POSIX paths and rejects drive paths', () => {
+    for (const ok of ['/home/me/app', '/tmp/x', '/d/x', '~/x'])
+      expect(() => validateSandboxPath(ok, linux)).not.toThrow()
+    for (const bad of ['D:/x', 'D:\\x', '/', 'x'])
+      expect(() => validateSandboxPath(bad, linux)).toThrow('Path must start with / or ~/')
+  })
+
+  it('normalizeLocalPath keeps POSIX paths as they are', () => {
+    expect(normalizeLocalPath('/d/develop/app/', undefined, 'linux')).toBe('/d/develop/app')
+    expect(normalizeLocalPath('/Home/a\\b', undefined, 'linux')).toBe('/Home/a\\b')
+    expect(normalizeLocalPath('/', undefined, 'linux')).toBe('/')
+    expect(normalizeLocalPath('~/repos/a', '/home/me/', 'linux')).toBe('/home/me/repos/a')
+    expect(normalizeLocalPath('~', '/home/me', 'darwin')).toBe('/home/me')
+  })
+
+  it('sameSandboxPath ignores case on macOS but not Linux', () => {
+    expect(sameSandboxPath('~/app', '/home/me/app/', true, '/home/me', 'linux')).toBe(true)
+    expect(sameSandboxPath('/srv/App', '/srv/app', true, undefined, 'linux')).toBe(false)
+    expect(sameSandboxPath('/Users/me/App', '/users/me/app', true, undefined, 'darwin')).toBe(true)
+  })
+})

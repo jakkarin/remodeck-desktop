@@ -8,7 +8,7 @@ export type LocalTerminalOptions = {
   homeDir: string
 }
 
-/** Interactive Git Bash in the repo on this computer; git reaches GitHub through the bridge on 127.0.0.1. */
+/** Interactive bash in the repo on this computer; git reaches GitHub through the bridge on 127.0.0.1. */
 export function buildLocalTerminal(o: LocalTerminalOptions): {
   file: string
   args: string[]
@@ -29,7 +29,7 @@ export function buildLocalTerminal(o: LocalTerminalOptions): {
   }
 }
 
-/** One command in a login Git Bash on this computer. */
+/** One command in a login bash on this computer. */
 export function buildLocalHostCommand(
   bashPath: string,
   cmd: string
