@@ -6,7 +6,12 @@ import type { Store } from '../store/store'
 import type { GitTokenService } from './gitTokenService'
 import { adapterForHost, type CliSpec, type ProviderAdapter } from './providers'
 import { redact } from './redact'
-import { buildInstallScript, buildRemoveScript, buildStatusScript, WRAPPER_VERSION } from './scripts'
+import {
+  buildInstallScript,
+  buildRemoveScript,
+  buildStatusScript,
+  WRAPPER_VERSION
+} from './scripts'
 import { computeStatus, parseStatusOutput } from './statusParse'
 
 const STATUS_TIMEOUT_MS = 30_000
@@ -42,7 +47,13 @@ export class TargetAccessService {
       const ids = [...new Set(tokenIds)]
       if (ids.length === 0) throw new Error('Choose at least one token')
 
-      const entries: { id: string; host: string; path: string; token: string; updatedAt: string }[] = []
+      const entries: {
+        id: string
+        host: string
+        path: string
+        token: string
+        updatedAt: string
+      }[] = []
       for (const id of ids) {
         const { token } = await this.tokens.sourceFor(id).resolve()
         secrets.push(token)
@@ -64,7 +75,8 @@ export class TargetAccessService {
 
       // a choice made once stays until the user unticks it, so a later update keeps the order
       const helperFirst =
-        opts.helperFirst ?? this.store.config.hosts.find((h) => h.id === hostId)?.gitAccess?.helperFirst === true
+        opts.helperFirst ??
+        this.store.config.hosts.find((h) => h.id === hostId)?.gitAccess?.helperFirst === true
       const script = buildInstallScript({
         tokens: entries.map(({ host, path, token }) => ({ host, path, token })),
         providers,

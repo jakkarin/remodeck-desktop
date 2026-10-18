@@ -45,7 +45,9 @@ describe('MirrorService', () => {
     await svc.ensure(repo, mirror)
     const other = new MirrorService(new HostGit(), () => path.join(tmp, 'other.git'))
     await other.ensure(repo, mirror)
-    expect((await git(mirror, 'config', 'remote.origin.url')).trim()).toBe(path.join(tmp, 'other.git'))
+    expect((await git(mirror, 'config', 'remote.origin.url')).trim()).toBe(
+      path.join(tmp, 'other.git')
+    )
   })
 
   it('addWorkspace twice yields a single remote with the ws refspec', async () => {
@@ -56,7 +58,9 @@ describe('MirrorService', () => {
     expect(remotes.filter((r) => r === 'ws-w1')).toHaveLength(1)
     const out = await git(mirror, 'config', '--get-all', 'remote.ws-w1.fetch')
     expect(out.trim()).toBe('+refs/heads/*:refs/remotes/ws-w1/*')
-    expect((await git(mirror, 'config', '--get-all', 'remote.ws-w1.tagOpt')).trim()).toBe('--no-tags')
+    expect((await git(mirror, 'config', '--get-all', 'remote.ws-w1.tagOpt')).trim()).toBe(
+      '--no-tags'
+    )
   })
 
   it('removeWorkspace drops the remote and its refs', async () => {
@@ -78,7 +82,9 @@ describe('MirrorService', () => {
     await svc.rebuild(repo, mirror, [{ id: 'w1', url: gh.url }])
     const remotes = (await git(mirror, 'remote')).trim().split('\n').sort()
     expect(remotes).toEqual(['origin', 'ws-w1'])
-    expect((await git(mirror, 'config', '--get-all', 'remote.origin.fetch')).trim().split('\n')).toEqual(refspecs)
+    expect(
+      (await git(mirror, 'config', '--get-all', 'remote.origin.fetch')).trim().split('\n')
+    ).toEqual(refspecs)
   })
 
   it('ensure re-inits when the dir exists but HEAD is missing', async () => {
@@ -87,6 +93,8 @@ describe('MirrorService', () => {
     await svc.ensure(repo, mirror)
     expect(fs.existsSync(path.join(mirror, 'HEAD'))).toBe(true)
     expect((await git(mirror, 'rev-parse', '--is-bare-repository')).trim()).toBe('true')
-    expect((await git(mirror, 'config', '--get-all', 'remote.origin.fetch')).trim().split('\n')).toEqual(refspecs)
+    expect(
+      (await git(mirror, 'config', '--get-all', 'remote.origin.fetch')).trim().split('\n')
+    ).toEqual(refspecs)
   })
 })

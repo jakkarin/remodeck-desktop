@@ -17,7 +17,8 @@ export class GitHubClient {
 
   async listRepos(): Promise<{ owner: string; name: string; defaultBranch: string }[]> {
     const c = await this.cred()
-    if (!c) throw new Error('Not logged in to GitHub — run git credential-manager github login first')
+    if (!c)
+      throw new Error('Not logged in to GitHub — run git credential-manager github login first')
     const res = await this.fetchImpl(`${this.apiBase}/user/repos?per_page=100&sort=pushed`, {
       headers: {
         Authorization: `Bearer ${c.password}`,
@@ -30,6 +31,10 @@ export class GitHubClient {
       name: string
       default_branch: string
     }[]
-    return data.map((r) => ({ owner: r.owner.login, name: r.name, defaultBranch: r.default_branch }))
+    return data.map((r) => ({
+      owner: r.owner.login,
+      name: r.name,
+      defaultBranch: r.default_branch
+    }))
   }
 }

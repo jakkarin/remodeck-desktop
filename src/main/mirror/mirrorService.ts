@@ -32,12 +32,18 @@ export class MirrorService {
   removeWorkspace(mirrorPath: string, wsId: string): Promise<void> {
     return withLock(mirrorPath, async () => {
       const name = `ws-${wsId}`
-      const remotes = (await this.git.run(mirrorPath, ['remote'])).stdout.split('\n').map((s) => s.trim())
+      const remotes = (await this.git.run(mirrorPath, ['remote'])).stdout
+        .split('\n')
+        .map((s) => s.trim())
       if (remotes.includes(name)) await this.git.run(mirrorPath, ['remote', 'remove', name])
     })
   }
 
-  rebuild(repo: Repo, mirrorPath: string, workspaces: { id: string; url: string }[]): Promise<void> {
+  rebuild(
+    repo: Repo,
+    mirrorPath: string,
+    workspaces: { id: string; url: string }[]
+  ): Promise<void> {
     return withLock(mirrorPath, async () => {
       fs.rmSync(mirrorPath, RM_OPTS)
       await this.ensureLocked(repo, mirrorPath)
@@ -61,12 +67,20 @@ export class MirrorService {
     await this.git.run(mirrorPath, ['config', `remote.${name}.tagOpt`, '--no-tags'])
   }
 
-  private async setRemote(mirrorPath: string, name: string, url: string, refspecs: string[]): Promise<void> {
-    const remotes = (await this.git.run(mirrorPath, ['remote'])).stdout.split('\n').map((s) => s.trim())
+  private async setRemote(
+    mirrorPath: string,
+    name: string,
+    url: string,
+    refspecs: string[]
+  ): Promise<void> {
+    const remotes = (await this.git.run(mirrorPath, ['remote'])).stdout
+      .split('\n')
+      .map((s) => s.trim())
     if (remotes.includes(name)) await this.git.run(mirrorPath, ['remote', 'set-url', name, url])
     else await this.git.run(mirrorPath, ['remote', 'add', name, url])
     const key = `remote.${name}.fetch`
     await this.git.run(mirrorPath, ['config', '--replace-all', key, refspecs[0]])
-    for (const spec of refspecs.slice(1)) await this.git.run(mirrorPath, ['config', '--add', key, spec])
+    for (const spec of refspecs.slice(1))
+      await this.git.run(mirrorPath, ['config', '--add', key, spec])
   }
 }

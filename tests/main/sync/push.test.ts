@@ -51,7 +51,8 @@ describe('SyncService.pushToGitHub', () => {
     await git(dir, ...ident, 'commit', '-m', msg)
     return (await git(dir, 'rev-parse', 'HEAD')).trim()
   }
-  const ghSha = async (branch: string) => (await git(gh.url, 'rev-parse', `refs/heads/${branch}`)).trim()
+  const ghSha = async (branch: string) =>
+    (await git(gh.url, 'rev-parse', `refs/heads/${branch}`)).trim()
 
   it('pushes a sandbox branch to GitHub and logs it', async () => {
     const ws = await makeWs('w1')
@@ -78,11 +79,18 @@ describe('SyncService.pushToGitHub', () => {
     await svc.sync(ws)
     const before = await ghSha('main')
     const res = await svc.pushToGitHub(ws, 'feat/a', 'main')
-    expect(res).toEqual({ ok: false, reason: 'protected', message: 'branch main is protected — change this in Settings' })
+    expect(res).toEqual({
+      ok: false,
+      reason: 'protected',
+      message: 'branch main is protected — change this in Settings'
+    })
     expect(await ghSha('main')).toBe(before)
     const log = store.readPushLog(10)
     expect(log).toHaveLength(1)
-    expect(log[0]).toMatchObject({ result: 'blocked', detail: 'branch main is protected — change this in Settings' })
+    expect(log[0]).toMatchObject({
+      result: 'blocked',
+      detail: 'branch main is protected — change this in Settings'
+    })
     expect(log[0].updates[0]).toMatchObject({ oldSha: before, ref: 'refs/heads/main' })
   })
 

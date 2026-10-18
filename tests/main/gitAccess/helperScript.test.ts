@@ -3,12 +3,21 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { LocalTarget } from '../../../src/main/sandbox/target'
-import { ROOT, buildInstallScript, helperScript, type InstallInput } from '../../../src/main/gitAccess/scripts'
+import {
+  ROOT,
+  buildInstallScript,
+  helperScript,
+  type InstallInput
+} from '../../../src/main/gitAccess/scripts'
 
 import { GIT_PREFIX as PREFIX } from './testHelpers'
 
 const providers = [{ host: 'github.com', gitUsername: 'x-access-token' }]
-const input = (tokens: InstallInput['tokens']): InstallInput => ({ tokens, providers, wrappers: [] })
+const input = (tokens: InstallInput['tokens']): InstallInput => ({
+  tokens,
+  providers,
+  wrappers: []
+})
 
 describe('credential helper and install script', () => {
   let home: string
@@ -85,7 +94,16 @@ describe('credential helper and install script', () => {
   })
 
   it('writes awkward token values verbatim with no trailing newline', async () => {
-    const awkward = [`a$b\`c'd\\e`, '$(touch${IFS}pwned)', `"q"'`, `a'b"c(d)e`, `it's(`, '%s%n\\n', '-n', 'x'.repeat(512)]
+    const awkward = [
+      `a$b\`c'd\\e`,
+      '$(touch${IFS}pwned)',
+      `"q"'`,
+      `a'b"c(d)e`,
+      `it's(`,
+      '%s%n\\n',
+      '-n',
+      'x'.repeat(512)
+    ]
     for (const [i, token] of awkward.entries()) {
       await install([{ host: 'github.com', path: `r${i}`, token }])
       const r = await run(`cat "${ROOT}/tokens/github.com/r${i}/@token"`)
@@ -116,7 +134,9 @@ describe('credential helper and install script', () => {
 
   it('writes providers.conf and a gitconfig pointing at the absolute helper path', async () => {
     await install(tokens)
-    expect((await t.exec(`cat "${ROOT}/providers.conf"`)).stdout).toBe('github.com x-access-token\n')
+    expect((await t.exec(`cat "${ROOT}/providers.conf"`)).stdout).toBe(
+      'github.com x-access-token\n'
+    )
     const cfg = (await t.exec(`cat "${ROOT}/gitconfig"`)).stdout
     expect(cfg).toBe(
       `[credential "https://github.com"]\n\thelper = ${await shHome()}/.config/remodeck/git-access/git-credential-remodeck\n\tuseHttpPath = true\n`
@@ -130,7 +150,9 @@ describe('credential helper and install script', () => {
     const r = await noConv(buildInstallScript(input(tokens)))
     expect(r.code).toBe(0)
     const inc = await noConv('git config --global --get-all include.path')
-    expect(inc.stdout.trim().split('\n')).toEqual([`${await shHome()}/.config/remodeck/git-access/gitconfig`])
+    expect(inc.stdout.trim().split('\n')).toEqual([
+      `${await shHome()}/.config/remodeck/git-access/gitconfig`
+    ])
   })
 
   it('prunes removed scopes and empty directories but keeps sibling overrides', async () => {
@@ -153,12 +175,16 @@ describe('credential helper and install script', () => {
   })
 
   it('rejects unnormalized scopes and bad token values without echoing the token', () => {
-    expect(() => buildInstallScript(input([{ host: 'github.com', path: 'Org', token: 't' }]))).toThrow()
-    expect(() => buildInstallScript(input([{ host: 'github.com', path: 'a/../b', token: 't' }]))).toThrow()
+    expect(() =>
+      buildInstallScript(input([{ host: 'github.com', path: 'Org', token: 't' }]))
+    ).toThrow()
+    expect(() =>
+      buildInstallScript(input([{ host: 'github.com', path: 'a/../b', token: 't' }]))
+    ).toThrow()
     const secret = 'has space'
-    expect(() => buildInstallScript(input([{ host: 'github.com', path: 'a', token: secret }]))).toThrow(
-      /Invalid token value/
-    )
+    expect(() =>
+      buildInstallScript(input([{ host: 'github.com', path: 'a', token: secret }]))
+    ).toThrow(/Invalid token value/)
     try {
       buildInstallScript(input([{ host: 'github.com', path: 'a', token: secret }]))
     } catch (e) {

@@ -38,12 +38,22 @@ describe('startStatsLoop', () => {
     await vi.waitFor(() => expect(emit).toHaveBeenCalledTimes(2))
     loop.stop()
     expect(maxPending).toBe(1)
-    expect(json).toHaveBeenCalledWith('GET', '/containers/a/stats?stream=false&one-shot=true', undefined, {
-      timeoutMs: 10000
-    })
-    expect(json).toHaveBeenCalledWith('GET', '/containers/b/stats?stream=false&one-shot=true', undefined, {
-      timeoutMs: 10000
-    })
+    expect(json).toHaveBeenCalledWith(
+      'GET',
+      '/containers/a/stats?stream=false&one-shot=true',
+      undefined,
+      {
+        timeoutMs: 10000
+      }
+    )
+    expect(json).toHaveBeenCalledWith(
+      'GET',
+      '/containers/b/stats?stream=false&one-shot=true',
+      undefined,
+      {
+        timeoutMs: 10000
+      }
+    )
     const map = emit.mock.calls[1][0]
     expect(Object.keys(map)).toEqual(['a', 'b'])
     expect(map.a).toEqual({ cpu: 10, memBytes: 1000, memLimit: 4000 })

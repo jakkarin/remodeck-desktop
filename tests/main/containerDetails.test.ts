@@ -12,7 +12,10 @@ describe('containerDetails', () => {
   })
   it('computeStats: cgroup v1 cache, percpu fallback, zero system delta', () => {
     const raw = {
-      cpu_stats: { cpu_usage: { total_usage: 10, percpu_usage: [1, 2, 3, 4] }, system_cpu_usage: 5 },
+      cpu_stats: {
+        cpu_usage: { total_usage: 10, percpu_usage: [1, 2, 3, 4] },
+        system_cpu_usage: 5
+      },
       precpu_stats: { cpu_usage: { total_usage: 5 }, system_cpu_usage: 5 },
       memory_stats: { usage: 100, limit: 1000, stats: { cache: 30 } }
     }
@@ -67,7 +70,10 @@ describe('containerDetails', () => {
     expect(o.ports).toEqual(['8080→80/tcp', '443/tcp'])
     expect(o.mounts).toEqual([{ source: '/srv/data', target: '/data', mode: 'ro' }])
     expect(o.networks).toEqual([{ name: 'web', ip: '172.18.0.2' }])
-    expect(o.labels).toEqual([['a', '1'], ['b', '2']])
+    expect(o.labels).toEqual([
+      ['a', '1'],
+      ['b', '2']
+    ])
   })
   it('toContainerDetails: env split at first =, bare key', () => {
     const d = toContainerDetails({ Config: { Env: ['A=1', 'URL=a=b', 'BARE'] } })
@@ -87,8 +93,15 @@ describe('containerDetails', () => {
   it('toContainerDetails: tolerates a sparse object', () => {
     const d = toContainerDetails({})
     expect(d.overview).toEqual({
-      image: '', created: '', state: '', exitCode: null, restartPolicy: 'no',
-      ports: [], mounts: [], networks: [], labels: []
+      image: '',
+      created: '',
+      state: '',
+      exitCode: null,
+      restartPolicy: 'no',
+      ports: [],
+      mounts: [],
+      networks: [],
+      labels: []
     })
     expect(d.env).toEqual([])
     expect(d.json).toBe('{}')

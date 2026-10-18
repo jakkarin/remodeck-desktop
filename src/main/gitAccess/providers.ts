@@ -1,6 +1,11 @@
 import type { GitProviderId } from '../../shared/gitAccess'
 
-export type CliSpec = { command: string; tokenEnv: string; repoFlags: string[]; repoEnv: string | null }
+export type CliSpec = {
+  command: string
+  tokenEnv: string
+  repoFlags: string[]
+  repoEnv: string | null
+}
 
 export interface ProviderAdapter {
   readonly id: GitProviderId
@@ -9,7 +14,11 @@ export interface ProviderAdapter {
   readonly cli: CliSpec | null
   /** Expects an already-normalized path; returns an error message or null. */
   validatePath(path: string): string | null
-  validateToken(host: string, path: string, token: string): Promise<{ login: string; expiresAt: string | null }>
+  validateToken(
+    host: string,
+    path: string,
+    token: string
+  ): Promise<{ login: string; expiresAt: string | null }>
 }
 
 const EXPIRY_HEADER = 'github-authentication-token-expiration'
@@ -41,9 +50,7 @@ export function createGithubAdapter(
 
     validatePath(path) {
       const count = path.split('/').length
-      return count === 1 || count === 2
-        ? null
-        : 'GitHub scope must be an owner or an owner/repo'
+      return count === 1 || count === 2 ? null : 'GitHub scope must be an owner or an owner/repo'
     },
 
     async validateToken(_host, path, token) {

@@ -81,7 +81,9 @@ beforeAll(async () => {
   execFileSync(SSH_KEYGEN, ['-q', '-t', 'ed25519', '-N', '', '-f', key])
   const pub = fs.readFileSync(`${key}.pub`, 'utf8').trim()
 
-  await GenericContainer.fromDockerfile(path.resolve('tests/e2e/sandbox')).build(IMAGE, { deleteOnExit: false })
+  await GenericContainer.fromDockerfile(path.resolve('tests/e2e/sandbox')).build(IMAGE, {
+    deleteOnExit: false
+  })
   box = await new GenericContainer(IMAGE)
     .withEnvironment({ AUTHORIZED_KEY: pub })
     .withExposedPorts(22)
@@ -118,11 +120,23 @@ beforeAll(async () => {
     ['org-a/special', 'TOKEN-SPECIAL'],
     ['org-b', 'TOKEN-B']
   ]) {
-    const t = store.upsertGitToken({ provider: 'github', host: 'github.com', path: p, login: 'e2e', label: p, expiresAt: null })
+    const t = store.upsertGitToken({
+      provider: 'github',
+      host: 'github.com',
+      path: p,
+      login: 'e2e',
+      label: p,
+      expiresAt: null
+    })
     secrets.set(t.id, value)
     ids[p] = t.id
   }
-  svc = new TargetAccessService({ store, tokens, adapters, targetFor: () => new SshTarget(ALIAS, SSH) })
+  svc = new TargetAccessService({
+    store,
+    tokens,
+    adapters,
+    targetFor: () => new SshTarget(ALIAS, SSH)
+  })
 }, 900_000)
 
 afterAll(async () => {
@@ -136,7 +150,9 @@ describe('git access on a real Linux host', () => {
   beforeEach(async () => {
     // every test starts from a clean host with Debian's own ~/.bashrc
     await svc.remove(hostId)
-    await sx('cp /etc/skel/.bashrc ~/.bashrc && rm -f ~/.gitconfig && git config --global user.name "AI Agent"')
+    await sx(
+      'cp /etc/skel/.bashrc ~/.bashrc && rm -f ~/.gitconfig && git config --global user.name "AI Agent"'
+    )
   })
 
   it('installs over ssh and git picks the token by longest prefix', async () => {
@@ -159,7 +175,9 @@ describe('git access on a real Linux host', () => {
     const modes = await sx(
       'cd ~/.config/remodeck/git-access && stat -c "%a %n" . tokens tokens/github.com/org-a/@token git-credential-remodeck'
     )
-    expect(modes).toBe('700 .\n700 tokens\n600 tokens/github.com/org-a/@token\n700 git-credential-remodeck\n')
+    expect(modes).toBe(
+      '700 .\n700 tokens\n600 tokens/github.com/org-a/@token\n700 git-credential-remodeck\n'
+    )
     expect(await sx('stat -c %a ~/.local/bin/gh')).toBe('755\n')
   })
 
@@ -193,7 +211,9 @@ describe('git access on a real Linux host', () => {
     expect(await sx('stat -c %a ~/.bashrc')).toBe('640\n')
 
     await svc.remove(hostId)
-    await sx('cp /etc/skel/.bashrc ~/dotfiles-bashrc && rm ~/.bashrc && ln -s ~/dotfiles-bashrc ~/.bashrc')
+    await sx(
+      'cp /etc/skel/.bashrc ~/dotfiles-bashrc && rm ~/.bashrc && ln -s ~/dotfiles-bashrc ~/.bashrc'
+    )
     const status = await svc.install(hostId, all(), { pathBlock: true })
     expect(status.pathBlock).toBe('symlink')
     expect(await sx('cmp ~/dotfiles-bashrc /etc/skel/.bashrc && echo same')).toBe('same\n')

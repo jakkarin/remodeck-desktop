@@ -68,7 +68,8 @@ export function parseStatusOutput(stdout: string): RawStatus {
         raw.home = value || null
         break
       case 'path_block':
-        if (PATH_BLOCK_STATES.includes(value as PathBlockState)) raw.pathBlock = value as PathBlockState
+        if (PATH_BLOCK_STATES.includes(value as PathBlockState))
+          raw.pathBlock = value as PathBlockState
         break
       case 'helper_order':
         if (HELPER_ORDERS.includes(value as HelperOrder)) raw.helperOrder = value as HelperOrder
@@ -112,7 +113,8 @@ export function computeStatus(
     if (token && !raw.scopes.includes(scopeKey(token))) missing.push(id)
   }
   // exactly where our wrapper lives; an unknown home or probe means false
-  const resolvesToWrapper = (p: string | null): boolean => p !== null && raw.home !== null && p === `${raw.home}/.local/bin/gh`
+  const resolvesToWrapper = (p: string | null): boolean =>
+    p !== null && raw.home !== null && p === `${raw.home}/.local/bin/gh`
   return {
     helperInstalled: raw.helper,
     includeActive: raw.include,

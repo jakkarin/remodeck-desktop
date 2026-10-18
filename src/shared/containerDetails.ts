@@ -99,7 +99,9 @@ export function toContainerDetails(raw: unknown): ContainerDetails {
     .map(([k, v]): [string, string] => [k, str(v)])
     .sort((a, b) => a[0].localeCompare(b[0]))
 
-  const envList = Array.isArray(config.Env) ? config.Env.filter((e): e is string => typeof e === 'string') : []
+  const envList = Array.isArray(config.Env)
+    ? config.Env.filter((e): e is string => typeof e === 'string')
+    : []
   const env = envList.map((e) => {
     const i = e.indexOf('=')
     return i < 0 ? { key: e, value: '' } : { key: e.slice(0, i), value: e.slice(i + 1) }

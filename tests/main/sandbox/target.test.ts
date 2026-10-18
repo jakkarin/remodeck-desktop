@@ -11,7 +11,15 @@ const posixOnly = it.skipIf(process.platform === 'win32')
 
 describe('SshTarget', () => {
   it('sshExecArgs', () => {
-    expect(sshExecArgs('box')).toEqual(['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'box', 'bash', '-s'])
+    expect(sshExecArgs('box')).toEqual([
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      'box',
+      'bash',
+      '-s'
+    ])
   })
   it('gitUrl', () => {
     const t = new SshTarget('box', 'ssh')

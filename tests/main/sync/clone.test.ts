@@ -47,7 +47,9 @@ describe('SyncService.cloneToSandbox', () => {
     await svc.cloneToSandbox(ws)
     const dir = sb('repos/my api')
     expect((await git(dir, 'branch', '--show-current')).trim()).toBe('main')
-    expect((await git(dir, 'remote', 'get-url', 'origin')).trim()).toBe('https://github.com/acme/api.git')
+    expect((await git(dir, 'remote', 'get-url', 'origin')).trim()).toBe(
+      'https://github.com/acme/api.git'
+    )
     expect((await git(dir, 'rev-parse', 'refs/remotes/origin/main')).trim()).toBe(sha)
     expect(fs.readFileSync(path.join(dir, 'a.txt'), 'utf8')).toBe('hi')
   })
@@ -121,7 +123,9 @@ describe('SyncService.cloneToSandbox', () => {
     const dir = sb('retry')
     expect((await git(dir, 'branch', '--show-current')).trim()).toBe('main')
     expect((await git(dir, 'rev-parse', 'HEAD')).trim()).toBe(sha)
-    expect((await git(dir, 'remote', 'get-url', 'origin')).trim()).toBe('https://github.com/acme/api.git')
+    expect((await git(dir, 'remote', 'get-url', 'origin')).trim()).toBe(
+      'https://github.com/acme/api.git'
+    )
   })
 
   it('still rejects a target repo that has commits or an origin remote', async () => {
@@ -134,7 +138,17 @@ describe('SyncService.cloneToSandbox', () => {
     const { ws: w2 } = setup('~/withcommit')
     fs.mkdirSync(sb('withcommit'))
     await git(sb('withcommit'), 'init')
-    await git(sb('withcommit'), '-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '--allow-empty', '-m', 'x')
+    await git(
+      sb('withcommit'),
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@e',
+      'commit',
+      '--allow-empty',
+      '-m',
+      'x'
+    )
     await expect(svc.cloneToSandbox(w2)).rejects.toThrow('Path is not empty: ~/withcommit')
   })
 })
