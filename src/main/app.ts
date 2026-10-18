@@ -104,7 +104,10 @@ export function containersApi(deps: {
   >
   terminal: Pick<TerminalService, 'openHost'>
   builds: Pick<BuildService, 'history'>
+  /** This computer's OS rules for compose paths; defaults to the one the app runs on. */
+  platform?: LocalPlatform
 }): MainApi['containers'] {
+  const platform = deps.platform ?? localPlatform
   return {
     open: async (hostId) => {
       deps.hostOf(hostId)
@@ -173,7 +176,7 @@ export function containersApi(deps: {
         return deps.terminal.openHost(
           hostId,
           composeCommand(p, req.action, {
-            local: isLocalHost(deps.hostOf(hostId)) ? localPlatform : undefined
+            local: isLocalHost(deps.hostOf(hostId)) ? platform : undefined
           }),
           `${req.action} · ${p.name}`
         )
@@ -544,7 +547,8 @@ export async function createApp(opts: {
       connection,
       service: containerService,
       terminal: term,
-      builds: new BuildService(targetFor)
+      builds: new BuildService(targetFor),
+      platform
     }),
     approval: {
       respond: (requestId, decision) => pending.get(requestId)?.(decision)

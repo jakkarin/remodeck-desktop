@@ -149,9 +149,9 @@ describe('gh wrapper', () => {
   it('exits 127 with a message when there is no real gh', async (ctx) => {
     const probe = (await t.exec('dirname "$(command -v git)"')).stdout.trim()
     const path = `export PATH="$HOME/.local/bin:${probe}:/usr/bin:/bin"\n`
-    const resolved = (await run(`${path}command -v gh`)).stdout.trim()
-    const mine = (await t.exec('printf %s "$HOME/.local/bin/gh"')).stdout
-    if (resolved !== mine) ctx.skip(`a real gh resolves on the minimal PATH (${resolved || 'none'})`)
+    // the wrapper skips itself, so it only exits 127 when no other gh is on that PATH
+    const real = (await run(`PATH="${probe}:/usr/bin:/bin" command -v gh`)).stdout.trim()
+    if (real) ctx.skip(`a real gh resolves on the minimal PATH (${real})`)
     const r = await run(`${path}gh x`)
     expect(r.code).toBe(127)
     expect(r.stderr).toContain('gh not found')

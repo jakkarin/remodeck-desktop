@@ -1,8 +1,9 @@
 import { localPlatform } from '../../src/main/platform/localPlatform'
 
 /**
- * Integration tests run shell scripts that write into their HOME. Stop before any of them run unless Git for
- * Windows' bash is available: another bash (WSL's) ignores the test HOME and writes into a real home directory.
+ * Integration tests run shell scripts that write into their HOME. Stop before any of them run unless the platform's
+ * bash is available: on Windows that is Git for Windows', since another bash (WSL's) ignores the test HOME and writes
+ * into a real home directory.
  */
 export default function setup(): void {
   if (localPlatform.resolveBash() === null)

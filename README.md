@@ -15,7 +15,8 @@ Try it with disposable repositories and hosts before using it with important wor
 
 ## Quick start
 
-For local repositories, install Git for Windows and Node.js 24, then run:
+For local repositories, install Node.js 24 and, on Windows, Git for Windows (Linux and macOS use the
+system bash), then run:
 
 ```bash
 git clone https://github.com/jakkarin/remodeck-desktop.git
@@ -32,7 +33,8 @@ Manager login.
 ## Prerequisites
 
 - **Windows x64** with **Git for Windows**, including Git Bash, and **Node.js 24 / npm 11**
-  (`.node-version` records the Node major used in CI).
+  (`.node-version` records the Node major used in CI). Experimental on Linux and macOS: `bash` and `git`
+  instead of Git for Windows.
 - For remote hosts: an SSH alias in `~/.ssh/config` so that `ssh <alias>` works from Windows (key loaded in ssh-agent).
 - `git` installed on Windows and each remote host.
 - GitHub login on Windows through Git Credential Manager:
@@ -67,11 +69,14 @@ UI tokens and reusable component usage: [Neutral design guidelines](docs/design-
 ## This computer
 
 The host list always starts with **This computer**, and the app opens on it every time. It manages repos on
-this Windows machine with no SSH: Clone, Add existing (paths like `D:/projects/app` or `D:\projects\app`),
-Sync, Review, Push and PR work as on any host. Terminals open Git Bash in the repo, and `git push` from them
-still goes through the Git Bridge and the approval popup. Containers use Docker on this machine.
+this machine with no SSH: Clone, Add existing, Sync, Review, Push and PR work as on any host. Terminals open
+bash in the repo, and `git push` from them still goes through the Git Bridge and the approval popup.
+Containers use Docker on this machine.
 
-- Requires **Git for Windows** (its `bash.exe`; WSL's bash is never used). Without it, Connect shows how to install it.
+- On **Windows** it requires **Git for Windows** (its `bash.exe`; WSL's bash is never used), and paths look like
+  `D:/projects/app` or `D:\projects\app`. Without Git for Windows, Connect shows how to install it.
+- On **Linux and macOS** (experimental) it uses `/bin/bash`, or else the first `bash` on `PATH`, and paths look like
+  `~/projects/app` or `/home/me/projects/app`. Path comparison is case-sensitive on Linux and not on macOS.
 - Containers require Docker Desktop (or another local Docker engine).
 - This computer is not a sandbox: anything running here can already use your Git Credential Manager login.
   The approval popup only covers pushes from terminals that remodeck opens. _Git access on this host_ is

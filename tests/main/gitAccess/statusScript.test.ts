@@ -108,7 +108,8 @@ describe('status and remove scripts', () => {
     const r = await run(statusScript)
     expect(parseStatusOutput(r.stdout).otherHelpers).toEqual(['gh'])
     expect(r.stdout).not.toContain('SECRET789')
-    expect(r.stdout).not.toContain('/usr/')
+    // cli_path may legitimately be /usr/bin/gh when the machine has gh; only the helper text must not leak
+    expect(r.stdout).not.toContain('auth git-credential')
   })
 
   it('reports home and resolves our wrapper to exactly <home>/.local/bin/gh', async () => {
