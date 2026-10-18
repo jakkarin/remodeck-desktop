@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { linuxPlatform, windowsPlatform } from '../../../src/main/platform/localPlatform'
 import {
   logsCommand,
   shellCommand,
@@ -68,16 +69,23 @@ describe('hostCommands', () => {
 })
 
 describe('composeCommand on the local host', () => {
+  it('takes POSIX compose paths on a Linux local host', () => {
+    const p = { name: 'web', workingDir: '/home/u/proj/', configFiles: [] }
+    expect(composeCommand(p, 'up', { local: linuxPlatform })).toBe(
+      "docker compose -p 'web' --project-directory '/home/u/proj' up -d"
+    )
+  })
+
   it('accepts Docker Desktop drive paths', () => {
     const p = { name: 'web', workingDir: 'D:\\proj', configFiles: ['D:\\proj\\compose.yml'] }
-    expect(composeCommand(p, 'up', { local: true })).toBe(
+    expect(composeCommand(p, 'up', { local: windowsPlatform })).toBe(
       "docker compose -p 'web' --project-directory 'D:/proj' -f 'D:/proj/compose.yml' up -d"
     )
   })
 
   it('rejects a WSL-only compose path on the local host', () => {
     const p = { name: 'web', workingDir: '/home/u/proj', configFiles: [] }
-    expect(() => composeCommand(p, 'up', { local: true })).toThrow(
+    expect(() => composeCommand(p, 'up', { local: windowsPlatform })).toThrow(
       'Use a Windows path like D:/projects/app'
     )
   })

@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  normalizeLocalPath,
-  sameSandboxPath,
-  shPath,
-  shQuote,
-  validateSandboxPath
-} from '../../../src/main/sandbox/shell'
+import { shPath, shQuote, validateSandboxPath } from '../../../src/main/sandbox/shell'
 
 describe('shell quoting', () => {
   it('shQuote escapes single quotes', () => {
@@ -32,77 +26,12 @@ describe('validateSandboxPath', () => {
   })
 })
 
-describe('local paths', () => {
-  it('accepts drive paths only for local', () => {
-    for (const ok of ['D:/x', 'D:\\x\\y', 'c:/Users/a b'])
-      expect(() => validateSandboxPath(ok, { local: true })).not.toThrow()
-    expect(() => validateSandboxPath('~/x', { local: true })).not.toThrow()
+describe('remote paths', () => {
+  it('rejects drive paths on remote hosts', () => {
     expect(() => validateSandboxPath('D:/x')).toThrow('Path must start with / or ~/')
-    for (const bad of ['D:/', 'D:', 'D:\\', 'x', 'D:x'])
-      expect(() => validateSandboxPath(bad, { local: true })).toThrow()
-  })
-
-  it('rejects POSIX-only paths on the local host', () => {
-    for (const bad of ['/tmp/x', '/home/me/app', '/srv/app'])
-      expect(() => validateSandboxPath(bad, { local: true })).toThrow(
-        'Use a Windows path like D:/projects/app'
-      )
-    expect(() => validateSandboxPath('/d/develop/app', { local: true })).not.toThrow()
-    expect(() => validateSandboxPath('/tmp/x')).not.toThrow()
-  })
-
-  it('normalizeLocalPath cleans drive paths', () => {
-    expect(normalizeLocalPath('d:\\develop\\app\\')).toBe('D:/develop/app')
-    expect(normalizeLocalPath('~/repos/a')).toBe('~/repos/a')
-    expect(normalizeLocalPath('/home/x')).toBe('/home/x')
-  })
-
-  it('normalizeLocalPath converts msys paths', () => {
-    expect(normalizeLocalPath('/d/develop/app')).toBe('D:/develop/app')
-    expect(normalizeLocalPath('/c')).toBe('C:/')
   })
 
   it('shPath quotes a spaced drive path', () => {
     expect(shPath('C:/Users/Jane Doe/a')).toBe(`'C:/Users/Jane Doe/a'`)
-  })
-
-  it('normalizeLocalPath expands ~ when given a home dir', () => {
-    expect(normalizeLocalPath('~/repos/a', 'c:\\Users\\x\\')).toBe('C:/Users/x/repos/a')
-    expect(normalizeLocalPath('~', 'C:/Users/x')).toBe('C:/Users/x')
-  })
-
-  it('sameSandboxPath matches ~ and the absolute home path for local', () => {
-    expect(sameSandboxPath('~/repos/app', 'c:/users/x/repos/app', true, 'C:/Users/x')).toBe(true)
-  })
-
-  it('sameSandboxPath ignores case only for local', () => {
-    expect(sameSandboxPath('D:/Dev/App', 'd:\\dev\\app\\', true)).toBe(true)
-    expect(sameSandboxPath('/srv/App', '/srv/app', false)).toBe(false)
-    expect(sameSandboxPath('/srv/app/', '/srv/app', false)).toBe(true)
-  })
-})
-
-describe('local paths off Windows', () => {
-  const linux = { local: true, platform: 'linux' as const }
-
-  it('accepts POSIX paths and rejects drive paths', () => {
-    for (const ok of ['/home/me/app', '/tmp/x', '/d/x', '~/x'])
-      expect(() => validateSandboxPath(ok, linux)).not.toThrow()
-    for (const bad of ['D:/x', 'D:\\x', '/', 'x'])
-      expect(() => validateSandboxPath(bad, linux)).toThrow('Path must start with / or ~/')
-  })
-
-  it('normalizeLocalPath keeps POSIX paths as they are', () => {
-    expect(normalizeLocalPath('/d/develop/app/', undefined, 'linux')).toBe('/d/develop/app')
-    expect(normalizeLocalPath('/Home/a\\b', undefined, 'linux')).toBe('/Home/a\\b')
-    expect(normalizeLocalPath('/', undefined, 'linux')).toBe('/')
-    expect(normalizeLocalPath('~/repos/a', '/home/me/', 'linux')).toBe('/home/me/repos/a')
-    expect(normalizeLocalPath('~', '/home/me', 'darwin')).toBe('/home/me')
-  })
-
-  it('sameSandboxPath ignores case on macOS but not Linux', () => {
-    expect(sameSandboxPath('~/app', '/home/me/app/', true, '/home/me', 'linux')).toBe(true)
-    expect(sameSandboxPath('/srv/App', '/srv/app', true, undefined, 'linux')).toBe(false)
-    expect(sameSandboxPath('/Users/me/App', '/users/me/app', true, undefined, 'darwin')).toBe(true)
   })
 })

@@ -35,10 +35,10 @@ import { TargetAccessService } from './gitAccess/targetAccessService'
 import { GitHubClient, compareUrl, parseRepoInput } from './github/githubClient'
 import { MirrorService } from './mirror/mirrorService'
 import { pickFolder } from './dialogs/pickFolder'
-import { resolveBashPath } from './proc/bashPath'
 import { resolveSshPath } from './proc/sshPath'
 import { checkRemoteForward } from './sandbox/preflight'
-import { normalizeLocalPath, validateSandboxPath } from './sandbox/shell'
+import { localPlatform, type LocalPlatform } from './platform/localPlatform'
+import { validateSandboxPath } from './sandbox/shell'
 import { LocalTarget, SshTarget, type SandboxTarget } from './sandbox/target'
 import { Store } from './store/store'
 import { AutoSync } from './sync/autoSync'
@@ -172,7 +172,9 @@ export function containersApi(deps: {
         if (!p) throw new Error('Compose project not found')
         return deps.terminal.openHost(
           hostId,
-          composeCommand(p, req.action, { local: isLocalHost(deps.hostOf(hostId)) }),
+          composeCommand(p, req.action, {
+            local: isLocalHost(deps.hostOf(hostId)) ? localPlatform : undefined
+          }),
           `${req.action} · ${p.name}`
         )
       }
@@ -237,11 +239,15 @@ export async function createApp(opts: {
     if (!r) throw new Error('Repo not found')
     return r
   }
-  const bashPath = resolveBashPath()
+  // This computer's OS rules, passed to everything that runs local bash or handles local paths.
+  const platform = localPlatform
+  const localRules = (hostId: string): LocalPlatform | undefined =>
+    isLocalHost(hostOf(hostId)) ? platform : undefined
+  const bashPath = platform.resolveBash()
   const targetFor = (hostId: string): SandboxTarget => {
     const host = hostOf(hostId)
     return isLocalHost(host)
-      ? new LocalTarget(os.homedir(), bashPath)
+      ? new LocalTarget(os.homedir(), bashPath, platform)
       : new SshTarget(host.sshHost, sshPath)
   }
   const sshHostFor = (hostId: string): string => hostOf(hostId).sshHost
@@ -255,7 +261,7 @@ export async function createApp(opts: {
   const gitAccess = new TargetAccessService({ store, tokens: gitTokens, adapters, targetFor })
 
   const mirror = new MirrorService(git, (repo) => `${githubBase}/${repo.owner}/${repo.name}.git`)
-  const sync = new SyncService({ git, mirror, store, targetFor })
+  const sync = new SyncService({ git, mirror, store, targetFor, platform })
   const credential = (): ReturnType<typeof getGitHubCredential> => getGitHubCredential(git)
   const github = new GitHubClient(credential)
 
@@ -308,6 +314,7 @@ export async function createApp(opts: {
   terminal = new TerminalService({
     sshPath,
     bashPath,
+    platform,
     homeDir: os.homedir(),
     bridgePort: () => bridgePort,
     spawn: nodePtySpawner(),
@@ -399,12 +406,12 @@ export async function createApp(opts: {
       clone: async (hostId, repoInput, sandboxPath) => {
         const parsed = parseRepoInput(repoInput)
         if (!parsed) throw new Error('Invalid repo format')
-        const local = isLocalHost(hostOf(hostId))
-        validateSandboxPath(sandboxPath, { local })
+        const local = localRules(hostId)
+        validateSandboxPath(sandboxPath, local)
         connection.requireConnected(hostId)
         const repo = store.upsertRepo(parsed.owner, parsed.name)
         // Progress events keep the path as typed: the renderer matches them against its input.
-        const stored = local ? normalizeLocalPath(sandboxPath, os.homedir()) : sandboxPath
+        const stored = local ? local.normalizePath(sandboxPath, os.homedir()) : sandboxPath
         const ws = store.addWorkspace(repo.id, hostId, stored)
         try {
           await sync.cloneToSandbox(ws, (p) => send(EV['clone-progress'], hostId, sandboxPath, p))
@@ -419,13 +426,13 @@ export async function createApp(opts: {
         return ws
       },
       inspectExisting: async (hostId, sandboxPath) => {
-        validateSandboxPath(sandboxPath, { local: isLocalHost(hostOf(hostId)) })
+        validateSandboxPath(sandboxPath, localRules(hostId))
         connection.requireConnected(hostId)
         // Read-only: resolves owner/name from the sandbox's origin; nothing is written or fetched.
         return sync.describeExisting(hostId, sandboxPath)
       },
       addExisting: async (hostId, sandboxPath, expected) => {
-        validateSandboxPath(sandboxPath, { local: isLocalHost(hostOf(hostId)) })
+        validateSandboxPath(sandboxPath, localRules(hostId))
         connection.requireConnected(hostId)
         // Rejects duplicates and a changed origin before any write, then rolls back only our own records on failure.
         return sync.addExisting(hostId, sandboxPath, expected)
@@ -595,7 +602,8 @@ export async function createApp(opts: {
             return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts)
           },
           start,
-          os.homedir()
+          os.homedir(),
+          platform
         )
     }
   }

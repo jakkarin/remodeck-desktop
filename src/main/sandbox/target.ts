@@ -1,5 +1,5 @@
 import { runProcess, type ProcResult } from '../proc/run'
-import { BASH_MISSING, resolveBashPath } from '../proc/bashPath'
+import { localPlatform, type LocalPlatform } from '../platform/localPlatform'
 
 export interface SandboxTarget {
   exec(script: string, opts?: { timeoutMs?: number }): Promise<ProcResult>
@@ -30,8 +30,8 @@ export class SshTarget implements SandboxTarget {
 }
 
 /**
- * Runs scripts on this computer with homeDir as HOME under the local bash: on Windows always Git for Windows'
- * (never `bash` from PATH, which is usually WSL's).
+ * Runs scripts on this computer with homeDir as HOME under the platform's bash (on Windows always Git for Windows',
+ * never `bash` from PATH, which is usually WSL's).
  * bashPath defaults to the resolved one; null means it is missing, which makes exec reject.
  */
 export class LocalTarget implements SandboxTarget {
@@ -39,9 +39,10 @@ export class LocalTarget implements SandboxTarget {
 
   constructor(
     homeDir: string,
-    private readonly bashPath: string | null = resolveBashPath()
+    private readonly bashPath: string | null = localPlatform.resolveBash(),
+    private readonly platform: LocalPlatform = localPlatform
   ) {
-    this.homeDir = homeDir.replaceAll('\\', '/')
+    this.homeDir = platform.normalizePath(homeDir)
   }
 
   async exec(script: string, execOpts?: { timeoutMs?: number }): Promise<ProcResult> {
@@ -50,7 +51,7 @@ export class LocalTarget implements SandboxTarget {
       env: { ...process.env, HOME: this.homeDir } as Record<string, string>,
       timeoutMs: execOpts?.timeoutMs
     }
-    if (this.bashPath === null) throw new Error(BASH_MISSING)
+    if (this.bashPath === null) throw new Error(this.platform.bashMissing)
     return runProcess(this.bashPath, ['-s'], opts)
   }
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { windowsPlatform } from '../../src/main/platform/localPlatform'
 import { buildLocalHostCommand, buildLocalTerminal } from '../../src/main/terminal/localCommand'
 import { buildTerminalSshArgs, randomPort } from '../../src/main/terminal/sshCommand'
 import { IDLE_MS, TerminalService, type PtyLike } from '../../src/main/terminal/terminalService'
@@ -91,6 +92,7 @@ function setup(
   const svc = new TerminalService({
     sshPath: 'ssh',
     bashPath,
+    platform: windowsPlatform,
     homeDir: 'C:/Users/u',
     bridgePort: () => 4242,
     spawn,

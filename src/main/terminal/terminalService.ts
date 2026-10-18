@@ -7,8 +7,7 @@ import type { Store } from '../store/store'
 import type { SandboxTarget } from '../sandbox/target'
 import { isLocalHost } from '../../shared/types'
 import { buildHostSshArgs } from '../docker/hostCommands'
-import { BASH_MISSING } from '../proc/bashPath'
-import { normalizeLocalPath } from '../sandbox/shell'
+import { localPlatform, type LocalPlatform } from '../platform/localPlatform'
 import { buildLocalHostCommand, buildLocalTerminal } from './localCommand'
 import { uploadImage, type ImageExt } from './imageUpload'
 import { buildTerminalSshArgs, randomPort } from './sshCommand'
@@ -29,8 +28,10 @@ export type PtySpawner = (
 
 type Deps = {
   sshPath: string
-  /** The local host's bash (Git for Windows' on Windows); null when it is not installed. */
+  /** The local host's bash, from platform.resolveBash(); null when it is not installed. */
   bashPath: string | null
+  /** This computer's OS rules; defaults to the one the app runs on. */
+  platform?: LocalPlatform
   homeDir: string
   bridgePort: () => number
   spawn: PtySpawner
@@ -87,9 +88,11 @@ export type { ImageExt }
 
 export class TerminalService extends EventEmitter {
   private readonly tabs = new Map<string, Tab>()
+  private readonly platform: LocalPlatform
 
   constructor(private readonly deps: Deps) {
     super()
+    this.platform = deps.platform ?? localPlatform
   }
 
   async open(
@@ -105,9 +108,11 @@ export class TerminalService extends EventEmitter {
     if (!host || !repo) throw new Error('Workspace host or repo not found')
 
     const local = isLocalHost(host)
-    if (local && this.deps.bashPath === null) throw new Error(BASH_MISSING)
-    // git worktree list may hand back Git Bash's /d/... form; node-pty needs D:/...
-    const cwd = local ? normalizeLocalPath(path ?? ws.sandboxPath) : (path ?? ws.sandboxPath)
+    if (local && this.deps.bashPath === null) throw new Error(this.platform.bashMissing)
+    // git worktree list may hand back Git Bash's /d/... form on Windows; node-pty needs D:/...
+    const cwd = local
+      ? this.platform.normalizePath(path ?? ws.sandboxPath)
+      : (path ?? ws.sandboxPath)
     const label = `${host.label}:${basename(cwd)}`
     const tabId = crypto.randomUUID()
     const sessionId = crypto.randomUUID()
@@ -178,7 +183,7 @@ export class TerminalService extends EventEmitter {
 
     let pty: PtyLike
     if (isLocalHost(host)) {
-      if (this.deps.bashPath === null) throw new Error(BASH_MISSING)
+      if (this.deps.bashPath === null) throw new Error(this.platform.bashMissing)
       const c = buildLocalHostCommand(this.deps.bashPath, remoteCmd)
       pty = spawn(c.file, c.args, { ...DEFAULT_SIZE, cwd: this.deps.homeDir })
     } else {

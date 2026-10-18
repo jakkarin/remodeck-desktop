@@ -1,4 +1,5 @@
-import { normalizeLocalPath, shQuote, shPath, validateSandboxPath } from '../sandbox/shell'
+import type { LocalPlatform } from '../platform/localPlatform'
+import { shQuote, shPath, validateSandboxPath } from '../sandbox/shell'
 import {
   CONTAINER_ID,
   COMPOSE_ACTIONS,
@@ -23,13 +24,13 @@ export function shellCommand(id: string): string {
 export function composeCommand(
   p: { name: string; workingDir: string; configFiles: string[] },
   action: ComposeAction,
-  opts?: { local?: boolean }
+  opts?: { local?: LocalPlatform }
 ): string {
-  const local = opts?.local === true
-  // Docker Desktop labels hold Windows paths (D:\proj); Git Bash takes them as D:/proj.
+  const local = opts?.local
+  // Docker Desktop labels on Windows hold Windows paths (D:\proj); Git Bash takes them as D:/proj.
   const dir = (p: string): string => {
-    validateSandboxPath(p, { local })
-    return shPath(local ? normalizeLocalPath(p) : p)
+    validateSandboxPath(p, local)
+    return shPath(local ? local.normalizePath(p) : p)
   }
   if (!COMPOSE_PROJECT.test(p.name)) throw new Error('Invalid compose project name')
   if (!COMPOSE_ACTIONS.includes(action)) throw new Error('Invalid compose action')

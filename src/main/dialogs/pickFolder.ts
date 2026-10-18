@@ -1,14 +1,9 @@
-import { normalizeLocalPath } from '../sandbox/shell'
+import { localPlatform, type LocalPlatform } from '../platform/localPlatform'
 
 /** Electron's showOpenDialog, narrowed to what the folder picker needs; injected so tests need no window. */
 export type ShowFolderDialog = (opts: {
   defaultPath?: string
 }) => Promise<{ canceled: boolean; filePaths: string[] }>
-
-const WINDOWS = process.platform === 'win32'
-const LOCAL_START = WINDOWS
-  ? /^(?:[A-Za-z]:[\\/]|~(?:[\\/]|$)|\/[A-Za-z](?:\/|$))/
-  : /^(?:~(?:\/|$)|\/)/
 
 /**
  * Asks the user for a folder on This computer. `start` comes from the renderer, so it only opens the
@@ -17,14 +12,13 @@ const LOCAL_START = WINDOWS
 export async function pickFolder(
   show: ShowFolderDialog,
   start: unknown,
-  homeDir: string
+  homeDir: string,
+  platform: LocalPlatform = localPlatform
 ): Promise<string | null> {
   const opts: { defaultPath?: string } = {}
-  if (typeof start === 'string' && LOCAL_START.test(start.trim())) {
-    const p = normalizeLocalPath(start.trim(), homeDir)
-    opts.defaultPath = WINDOWS ? p.replaceAll('/', '\\') : p
-  }
+  if (typeof start === 'string' && platform.looksLikePath(start.trim()))
+    opts.defaultPath = platform.toDialogPath(platform.normalizePath(start.trim(), homeDir))
   const r = await show(opts)
   if (r.canceled || r.filePaths.length === 0) return null
-  return normalizeLocalPath(r.filePaths[0])
+  return platform.normalizePath(r.filePaths[0])
 }
