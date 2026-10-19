@@ -135,6 +135,7 @@ build ID, สถานะ, เวลาที่สร้าง และระ�
 ## การมีส่วนร่วมและข้อมูลโปรเจกต์
 
 - [Contributing](CONTRIBUTING.md): การตั้งค่า การตรวจ issue และ pull request เขียนเป็นภาษาอังกฤษหรือไทยก็ได้
+- [นโยบายความเป็นส่วนตัว](PRIVACY.th.md): ไม่มี telemetry ข้อมูลที่แอปเก็บและบริการที่เชื่อมต่อ
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Changelog](CHANGELOG.md)
 - [Release checklist](docs/releasing.md)
