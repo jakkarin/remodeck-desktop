@@ -1,6 +1,6 @@
 {
   "name": "remodeck-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Manage Git repositories and Docker on Windows and remote SSH hosts, with local GitHub credentials and push approvals.",
   "main": "./out/main/index.js",
   "author": "jakkarin",

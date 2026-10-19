@@ -5,6 +5,14 @@ a public release or installer has been published.
 
 ## Unreleased
 
+## 0.1.1 - 2026-10-19
+
+Installers remain unsigned, and the macOS build is not notarized.
+
+- Replace the one-click Windows installer with a setup wizard that lets you choose the install
+  folder and launch remodeck from the finish page.
+- Add a privacy policy in English and Thai.
+
 ## 0.1.0 - 2026-10-19
 
 First pre-release. Installers for Windows, macOS and Linux are unsigned, and the macOS build is not
