@@ -15,6 +15,10 @@ win:
   executableName: remodeck
   icon: build/icon.ico
 nsis:
+  # Assisted wizard (Next → Next → Finish with "Run remodeck") instead of the silent one-click install.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   artifactName: ${name}-${version}-setup.${ext}
