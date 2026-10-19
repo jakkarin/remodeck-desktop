@@ -136,6 +136,7 @@ Read [SECURITY.md](SECURITY.md) for the threat model, known limits and vulnerabi
 ## Contributing and project information
 
 - [Contributing](CONTRIBUTING.md): setup, checks, issues and pull requests. English and Thai are welcome.
+- [Privacy policy](PRIVACY.md): no telemetry; what the app stores and connects to.
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Changelog](CHANGELOG.md)
 - [Release checklist](docs/releasing.md)
