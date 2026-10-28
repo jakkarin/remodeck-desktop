@@ -5,6 +5,15 @@ a public release or installer has been published.
 
 ## Unreleased
 
+## 0.1.2 - 2026-10-28
+
+Security update. Installers remain unsigned, and the macOS build is not notarized.
+
+- Upgrade Electron from 44.8.0 to 44.10.0. This brings the bundled Node.js to 24.22.1 with the
+  October 2026 Node.js security fixes (including the Brotli decoder flaw CVE-2026-111497), and
+  fixes the Electron advisory for compromised eMudhra intermediate certificates.
+- Update development dependencies flagged by `npm audit` (undici, vite, fast-uri, zod).
+
 ## 0.1.1 - 2026-10-19
 
 Installers remain unsigned, and the macOS build is not notarized.
